@@ -1,5 +1,5 @@
 import { db } from "../db/client";
-import type { Folder } from "../db/schema";
+import type { Album, Folder } from "../db/schema";
 import { AppError } from "../lib/errors";
 import { emit, topics } from "../lib/events";
 
@@ -89,15 +89,34 @@ export function deleteFolder(id: string): void {
     throw new AppError(409, "Folder is not empty — move or delete albums first");
   }
 
-  // Sub-folders blocked at the DB level by ON DELETE RESTRICT on folders.parent_id.
-  db.transaction(() => {
-    db.run("DELETE FROM share_links WHERE folder_id = ?", [id]);
-    db.run("DELETE FROM folder_access WHERE folder_id = ?", [id]);
-    db.run("DELETE FROM folders WHERE id = ?", [id]);
-  })();
+  const subfolders = (
+    db.query("SELECT COUNT(*) AS n FROM folders WHERE parent_id = ?").get(id) as { n: number }
+  ).n;
+  if (subfolders > 0) {
+    throw new AppError(409, "Folder is not empty — move or delete sub-folders first");
+  }
+
+  db.run("DELETE FROM folders WHERE id = ?", [id]);
   emit({ topic: topics.folder(id), kind: "deleted", id });
   emit({ topic: topics.folderTree(), kind: "deleted", id });
   if (folder.parent_id) {
     emit({ topic: topics.folder(folder.parent_id), kind: "updated" });
   }
+}
+
+/** Folder + direct sub-folders + albums inside it. */
+export function getFolderContents(id: string): {
+  folder: Folder;
+  folders: Folder[];
+  albums: Album[];
+} {
+  const folder = getFolder(id);
+  if (!folder) throw new AppError(404, "Folder not found");
+  const folders = db
+    .query("SELECT * FROM folders WHERE parent_id = ? ORDER BY name")
+    .all(id) as Folder[];
+  const albums = db
+    .query("SELECT * FROM albums WHERE folder_id = ? ORDER BY created_at DESC")
+    .all(id) as Album[];
+  return { folder, folders, albums };
 }

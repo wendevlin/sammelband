@@ -1,6 +1,6 @@
-import { Elysia, status } from "elysia";
+import type { Context } from "hono";
+import { createMiddleware } from "hono/factory";
 import { auth } from "../auth";
-import { config } from "../config";
 
 export type AuthUser = {
   id: string;
@@ -10,58 +10,33 @@ export type AuthUser = {
   emailVerified: boolean;
 };
 
-async function resolveUser(headers: Headers): Promise<AuthUser | null> {
+/** Hono env for routers behind requireAuth: `c.get("user")` is always set. */
+export type AuthEnv = { Variables: { user: AuthUser } };
+
+export async function resolveUser(headers: Headers): Promise<AuthUser | null> {
   const session = await auth.api.getSession({ headers });
   if (!session?.user) return null;
   const u = session.user as AuthUser & { role?: string };
-  return { ...u, role: (u.role as "admin" | "user") ?? "user" };
+  return { ...u, role: u.role === "admin" ? "admin" : "user" };
 }
 
-const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
-const allowedOrigins = new Set([
-  new URL(config.BASE_URL).origin,
-  // In dev the Vite dev server runs at :5173 and proxies to :3000. Requests
-  // arriving via the proxy keep the original Origin header from the browser,
-  // so we allow that origin too when not in production.
-  ...(config.isDev ? ["http://localhost:5173"] : []),
-]);
-
-function checkOriginAllowed(request: Request): boolean {
-  if (SAFE_METHODS.has(request.method)) return true;
-  const raw = request.headers.get("origin") ?? request.headers.get("referer");
-  if (!raw) return false;
-  try {
-    return allowedOrigins.has(new URL(raw).origin);
-  } catch {
-    return false;
-  }
+function unauthorized(c: Context) {
+  return c.json({ error: "Unauthorized" }, 401);
 }
 
-/**
- * Returns a fresh Elysia instance pre-wired with admin auth + CSRF check.
- * The `.resolve` short-circuits with 401/403 if the request fails the guard,
- * so `user` is always non-null inside handlers.
- */
-export function adminRouter(prefix?: string) {
-  return new Elysia(prefix ? { prefix } : undefined).resolve(
-    async ({ request }): Promise<{ user: AuthUser }> => {
-      const user = await resolveUser(request.headers);
-      if (!user) throw status(401, { error: "Unauthorized" });
-      if (user.role !== "admin") throw status(403, { error: "Forbidden" });
-      if (!checkOriginAllowed(request))
-        throw status(403, { error: "Origin not allowed" });
-      return { user };
-    },
-  );
-}
+/** Any signed-in user. Every user may read and edit all folders and albums. */
+export const requireAuth = createMiddleware<AuthEnv>(async (c, next) => {
+  const user = await resolveUser(c.req.raw.headers);
+  if (!user) return unauthorized(c);
+  c.set("user", user);
+  await next();
+});
 
-/** Authenticated-user (no admin check, no CSRF). */
-export function userRouter(prefix?: string) {
-  return new Elysia(prefix ? { prefix } : undefined).resolve(
-    async ({ request }): Promise<{ user: AuthUser }> => {
-      const user = await resolveUser(request.headers);
-      if (!user) throw status(401, { error: "Unauthorized" });
-      return { user };
-    },
-  );
-}
+/** Signed-in admin (user management, storage). */
+export const requireAdmin = createMiddleware<AuthEnv>(async (c, next) => {
+  const user = await resolveUser(c.req.raw.headers);
+  if (!user) return unauthorized(c);
+  if (user.role !== "admin") return c.json({ error: "Forbidden" }, 403);
+  c.set("user", user);
+  await next();
+});

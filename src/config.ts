@@ -35,22 +35,10 @@ export const config = {
   PORT: Number(process.env.PORT ?? 3000),
   BASE_URL: required("BASE_URL", isDev ? "http://localhost:3000" : undefined),
   TRUSTED_ORIGINS: trustedOrigins,
-  SECRET_KEY: required(
-    "SECRET_KEY",
-    isDev ? "dev-secret-not-for-production-change-me" : undefined,
-  ),
-  DATABASE_PATH: required(
-    "DATABASE_PATH",
-    isDev ? "./sammelband.db" : undefined,
-  ),
+  SECRET_KEY: required("SECRET_KEY", isDev ? "dev-secret-not-for-production-change-me" : undefined),
+  DATABASE_PATH: required("DATABASE_PATH", isDev ? "./sammelband.db" : undefined),
   UPLOADS_PATH: required("UPLOADS_PATH", isDev ? "./uploads" : undefined),
-  SMTP: {
-    HOST: optional("SMTP_HOST"),
-    PORT: Number(process.env.SMTP_PORT ?? 587),
-    USER: optional("SMTP_USER"),
-    PASS: optional("SMTP_PASS"),
-    FROM: optional("SMTP_FROM"),
-  },
+  FRONTEND_DIST: process.env.FRONTEND_DIST ?? "./dist/frontend",
 } as const;
 
 export const SRCSET_WIDTHS = [400, 800, 1200, 1920] as const;

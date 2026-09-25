@@ -1,11 +1,11 @@
-import { Elysia, status } from "elysia";
+import { createMiddleware } from "hono/factory";
 
 type Bucket = { count: number; resetAt: number };
 
 const buckets = new Map<string, Bucket>();
 
 function clientKey(request: Request): string {
-  // Honor reverse-proxy headers if present; fall back to remote address.
+  // Honor reverse-proxy headers if present.
   return (
     request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
     request.headers.get("x-real-ip") ??
@@ -14,22 +14,21 @@ function clientKey(request: Request): string {
 }
 
 export function rateLimit(opts: { name: string; windowMs: number; max: number }) {
-  return new Elysia({ name: `rl/${opts.name}` }).onBeforeHandle(({ request }) => {
-    const key = `${opts.name}:${clientKey(request)}`;
+  return createMiddleware(async (c, next) => {
+    const key = `${opts.name}:${clientKey(c.req.raw)}`;
     const now = Date.now();
     const bucket = buckets.get(key);
     if (!bucket || bucket.resetAt < now) {
       buckets.set(key, { count: 1, resetAt: now + opts.windowMs });
-      return;
+    } else {
+      bucket.count += 1;
+      if (bucket.count > opts.max) {
+        const retryAfter = Math.ceil((bucket.resetAt - now) / 1000);
+        c.header("Retry-After", String(retryAfter));
+        return c.json({ error: "Too many requests", retryAfter }, 429);
+      }
     }
-    bucket.count += 1;
-    if (bucket.count > opts.max) {
-      const retryAfter = Math.ceil((bucket.resetAt - now) / 1000);
-      return status(429, {
-        error: "Too many requests",
-        retryAfter,
-      });
-    }
+    await next();
   });
 }
 
@@ -40,7 +39,7 @@ export const authRateLimit = rateLimit({
   max: 30,
 });
 
-// 60 uploads per IP per hour.
+// 60 upload requests per IP per hour.
 export const uploadRateLimit = rateLimit({
   name: "upload",
   windowMs: 60 * 60 * 1000,

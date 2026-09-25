@@ -1,6 +1,8 @@
-import { adminRouter } from "../../middleware/auth.middleware";
+import { Hono } from "hono";
+import { type AuthEnv, requireAdmin } from "../../middleware/auth.middleware";
 import * as storageService from "../../services/storage.service";
 
-export const adminStorageRoutes = adminRouter()
-  .get("/admin/storage", () => storageService.getStorageStats())
-  .post("/admin/storage/clear-cache", () => storageService.clearVariantsCache());
+export const adminStorageRoutes = new Hono<AuthEnv>()
+  .use("*", requireAdmin)
+  .get("/", (c) => c.json(storageService.getStorageStats()))
+  .post("/clear-cache", (c) => c.json(storageService.clearVariantsCache()));

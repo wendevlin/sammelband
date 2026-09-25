@@ -208,11 +208,20 @@ export function reorderPhotos(blockId: string, order: { id: string; sortOrder: n
   if (block) emit({ topic: topics.album(block.album_id), kind: "updated", id: block.album_id });
 }
 
+// Stored filenames are "<uuid>.bin". Anything else (e.g. "../") is rejected
+// before it reaches the filesystem.
+const FILENAME_RE = /^[0-9a-f-]{36}\.bin$/;
+
+function assertFilename(filename: string): void {
+  if (!FILENAME_RE.test(filename)) throw new AppError(404, "Image not found");
+}
+
 export async function serveVariant(
   filename: string,
   width: number,
   format: "webp" | "jpeg" = "webp",
 ): Promise<Response> {
+  assertFilename(filename);
   if (!isSrcsetWidth(width)) {
     throw new AppError(400, "Unsupported width");
   }
@@ -222,7 +231,7 @@ export async function serveVariant(
     return new Response(cached, {
       headers: {
         "Content-Type": `image/${format}`,
-        "Cache-Control": "public, max-age=31536000, immutable",
+        "Cache-Control": "private, max-age=31536000, immutable",
       },
     });
   }
@@ -243,15 +252,20 @@ export async function serveVariant(
   return new Response(output as BodyInit, {
     headers: {
       "Content-Type": `image/${format}`,
-      "Cache-Control": "public, max-age=31536000, immutable",
+      "Cache-Control": "private, max-age=31536000, immutable",
     },
   });
 }
 
-export function serveOriginal(filename: string): Response {
-  const originalPath = join(ORIGINALS_DIR, filename);
-  const file = Bun.file(originalPath);
-  return new Response(file);
+export async function serveOriginal(filename: string): Promise<Response> {
+  assertFilename(filename);
+  const file = Bun.file(join(ORIGINALS_DIR, filename));
+  if (!(await file.exists())) throw new AppError(404, "Image not found");
+  const row = db.query("SELECT 1 FROM image_files WHERE filename = ?").get(filename);
+  if (!row) throw new AppError(404, "Image not found");
+  return new Response(file, {
+    headers: { "Cache-Control": "private, max-age=31536000, immutable" },
+  });
 }
 
 export function originalSize(filename: string): number {

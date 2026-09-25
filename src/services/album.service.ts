@@ -1,5 +1,5 @@
 import { db } from "../db/client";
-import type { Album } from "../db/schema";
+import type { Album, AlbumBlock, Photo } from "../db/schema";
 import { AppError } from "../lib/errors";
 import { emit, topics } from "../lib/events";
 import * as imageService from "./image.service";
@@ -37,7 +37,6 @@ export function createAlbum(input: {
   title: string;
   description?: string | null;
   folderId: string | null;
-  shareable?: boolean;
   createdBy: string;
 }): Album {
   if (!input.title.trim()) throw new AppError(400, "Title required");
@@ -54,15 +53,14 @@ export function createAlbum(input: {
   const now = Date.now();
   db.run(
     `INSERT INTO albums
-      (id, title, slug, description, folder_id, shareable, created_by, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      (id, title, slug, description, folder_id, created_by, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       id,
       input.title.trim(),
       slug,
       input.description ?? null,
       input.folderId,
-      input.shareable ? 1 : 0,
       input.createdBy,
       now,
       now,
@@ -92,7 +90,6 @@ export function updateAlbum(
     title?: string;
     description?: string | null;
     folderId?: string | null;
-    shareable?: boolean;
   },
 ): Album {
   const album = getAlbum(id);
@@ -117,14 +114,13 @@ export function updateAlbum(
 
   db.run(
     `UPDATE albums SET
-       title = ?, slug = ?, description = ?, folder_id = ?, shareable = ?, updated_at = ?
+       title = ?, slug = ?, description = ?, folder_id = ?, updated_at = ?
      WHERE id = ?`,
     [
       patch.title?.trim() ?? album.title,
       newSlug,
       patch.description !== undefined ? patch.description : album.description,
       newFolderId,
-      patch.shareable !== undefined ? (patch.shareable ? 1 : 0) : album.shareable,
       Date.now(),
       id,
     ],
@@ -220,4 +216,33 @@ export function deleteAlbum(id: string): void {
   if (album.folder_id) {
     emit({ topic: topics.folder(album.folder_id), kind: "updated" });
   }
+}
+
+export type PhotoWithImage = Photo & {
+  filename: string;
+  width: number;
+  height: number;
+  placeholder: string;
+};
+
+/** Album + ordered blocks + photos (with image metadata + placeholder). */
+export function getAlbumDetail(albumId: string): {
+  album: Album;
+  blocks: AlbumBlock[];
+  photos: PhotoWithImage[];
+} {
+  const album = getAlbum(albumId);
+  if (!album) throw new AppError(404, "Album not found");
+  const blocks = db
+    .query("SELECT * FROM album_blocks WHERE album_id = ? ORDER BY sort_order ASC")
+    .all(albumId) as AlbumBlock[];
+  const photos = db
+    .query(
+      `SELECT p.*, i.filename, i.width, i.height, i.placeholder
+       FROM photos p JOIN image_files i ON i.id = p.image_file_id
+       WHERE p.album_id = ?
+       ORDER BY p.sort_order`,
+    )
+    .all(albumId) as PhotoWithImage[];
+  return { album, blocks, photos };
 }

@@ -6,8 +6,9 @@
   "private": true,
   "scripts": {
     "dev": "bun run --watch src/index.ts",
-    "dev:frontend": "vite",
-    "build:frontend": "vite build",
+    "dev:frontend": "bun run --cwd frontend dev",
+    "build:frontend": "bun run --cwd frontend build",
+    "build": "bun run build:frontend",
     "start": "bun run src/index.ts",
     "typecheck": "tsc --noEmit",
     "lint": "biome check .",
@@ -15,19 +16,14 @@
     "format": "biome format --write ."
   },
   "dependencies": {
-    "@awesome.me/webawesome": "^3.7.0",
+    "@hono/zod-validator": "0.9.1",
     "better-auth": "^1.2.0",
-    "elysia": "^1.2.0",
-    "kysely": "~0.28.17",
-    "lit": "^3.2.0",
-    "nodemailer": "^6.9.16",
-    "photoswipe": "^5.4.4"
+    "hono": "4.13.9",
+    "zod": "4.6.5"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.16",
     "@types/bun": "latest",
-    "@types/nodemailer": "^6.4.17",
-    "typescript": "^5.7.2",
-    "vite": "^6.0.5"
+    "typescript": "^5.7.2"
   }
 }

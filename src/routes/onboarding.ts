@@ -1,23 +1,20 @@
-import { Elysia, t } from "elysia";
+import { Hono } from "hono";
+import { z } from "zod";
+import { validate } from "../lib/validate";
 import * as onboardingService from "../services/onboarding.service";
 
-export const onboardingRoutes = new Elysia({ prefix: "/api/onboarding" })
-  .get("/status", () => onboardingService.getStatus())
+export const onboardingRoutes = new Hono()
+  .get("/status", (c) => c.json(onboardingService.getStatus()))
   .post(
     "/claim",
-    ({ body }) =>
-      onboardingService.claim({
-        code: body.code,
-        email: body.email,
-        password: body.password,
-        name: body.name,
+    validate(
+      "json",
+      z.object({
+        code: z.string().min(1),
+        email: z.email(),
+        password: z.string().min(8).max(128),
+        name: z.string().min(1).max(200).optional(),
       }),
-    {
-      body: t.Object({
-        code: t.String({ minLength: 1 }),
-        email: t.String({ format: "email" }),
-        password: t.String({ minLength: 8 }),
-        name: t.Optional(t.String({ minLength: 1, maxLength: 200 })),
-      }),
-    },
+    ),
+    async (c) => c.json(await onboardingService.claim(c.req.valid("json"))),
   );

@@ -2,7 +2,7 @@ export type Folder = {
   id: string;
   name: string;
   parent_id: string | null;
-  created_by: string;
+  created_by: string | null;
   created_at: number;
 };
 
@@ -13,8 +13,7 @@ export type Album = {
   description: string | null;
   folder_id: string | null;
   cover_photo_id: string | null;
-  shareable: number;
-  created_by: string;
+  created_by: string | null;
   created_at: number;
   updated_at: number;
 };
@@ -45,22 +44,10 @@ export type ImageFile = {
 export type Photo = {
   id: string;
   album_id: string;
-  block_id: string | null;
+  block_id: string;
   sort_order: number;
   image_file_id: string;
   caption: string | null;
-  uploaded_by: string;
+  uploaded_by: string | null;
   uploaded_at: number;
-};
-
-export type ShareLink = {
-  id: string;
-  token: string;
-  album_id: string | null;
-  folder_id: string | null;
-  created_by: string;
-  password_hash: string | null;
-  expires_at: number | null;
-  revoked_at: number | null;
-  created_at: number;
 };

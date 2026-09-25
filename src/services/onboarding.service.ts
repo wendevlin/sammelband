@@ -19,9 +19,7 @@ let bootstrapCode: string | null = null;
 let consumed = false;
 
 function adminExists(): boolean {
-  const row = db
-    .query("SELECT 1 AS ok FROM user WHERE role = 'admin' LIMIT 1")
-    .get();
+  const row = db.query("SELECT 1 AS ok FROM user WHERE role = 'admin' LIMIT 1").get();
   return row !== null;
 }
 
@@ -76,15 +74,13 @@ export async function claim(input: {
 
   // Create user via better-auth so password is hashed correctly and the
   // session/account tables get populated as if it were a normal signup.
-  await auth.api.signUpEmail({
-    body: {
-      email: input.email,
-      password: input.password,
-      name: input.name ?? input.email,
-    },
+  const email = input.email.trim().toLowerCase();
+  const res = await auth.api.signUpEmail({
+    body: { email, password: input.password, name: input.name?.trim() || email },
   });
-
-  db.run("UPDATE user SET role = 'admin' WHERE email = ?", [input.email]);
+  db.run("UPDATE user SET role = 'admin' WHERE id = ?", [res.user.id]);
+  // The server-side sign-up opens a session nobody holds; the admin signs in next.
+  db.run("DELETE FROM session WHERE userId = ?", [res.user.id]);
 
   consumed = true;
   bootstrapCode = null;
