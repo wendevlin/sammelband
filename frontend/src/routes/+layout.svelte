@@ -1,30 +1,30 @@
 <script lang="ts">
-	import './layout.css';
-	import favicon from '$lib/assets/favicon.svg';
-	import { ModeWatcher } from 'mode-watcher';
-	import { Toaster } from '$lib/components/ui/sonner';
-	import AppHeader from '$lib/components/app/app-header.svelte';
-	import Onboarding from '$lib/components/app/onboarding.svelte';
-	import { auth } from '$lib/stores/auth.svelte';
+import "./layout.css";
+import { ModeWatcher } from "mode-watcher";
+import favicon from "$lib/assets/favicon.svg";
+import AppHeader from "$lib/components/app/app-header.svelte";
+import Onboarding from "$lib/components/app/onboarding.svelte";
+import { Toaster } from "$lib/components/ui/sonner";
+import { auth } from "$lib/stores/auth.svelte";
 
-	let { children } = $props();
+let { children } = $props();
 </script>
 
 <svelte:head>
-	<link rel="icon" href={favicon} />
-	<title>Sammelband</title>
+  <link rel="icon" href={favicon}>
+  <title>Sammelband</title>
 </svelte:head>
 
 <ModeWatcher />
 <Toaster richColors />
 
 {#if auth.needsOnboarding}
-	<Onboarding />
+  <Onboarding />
 {:else if auth.user}
-	<AppHeader />
-	<main class="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6">
-		{@render children()}
-	</main>
+  <AppHeader />
+  <main class="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6">
+    {@render children()}
+  </main>
 {:else}
-	{@render children()}
+  {@render children()}
 {/if}

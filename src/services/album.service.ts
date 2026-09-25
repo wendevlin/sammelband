@@ -1,6 +1,6 @@
 import { db } from "../db/client";
 import type { Album, AlbumBlock, Photo } from "../db/schema";
-import { AppError } from "../lib/errors";
+import { AppError, must } from "../lib/errors";
 import { emit, topics } from "../lib/events";
 import * as imageService from "./image.service";
 
@@ -66,7 +66,7 @@ export function createAlbum(input: {
       now,
     ],
   );
-  const album = getAlbum(id)!;
+  const album = must(getAlbum(id), "Album");
   emit({ topic: topics.albumList(), kind: "created", id, data: album });
   emit({ topic: topics.album(id), kind: "created", id, data: album });
   if (album.folder_id) {
@@ -125,7 +125,7 @@ export function updateAlbum(
       id,
     ],
   );
-  const updated = getAlbum(id)!;
+  const updated = must(getAlbum(id), "Album");
   emit({ topic: topics.album(id), kind: "updated", id, data: updated });
   emit({ topic: topics.albumList(), kind: "updated", id });
   if (album.folder_id && album.folder_id !== updated.folder_id) {
@@ -165,7 +165,7 @@ export function setCover(albumId: string, photoId: string | null): Album {
     Date.now(),
     albumId,
   ]);
-  const updated = getAlbum(albumId)!;
+  const updated = must(getAlbum(albumId), "Album");
   emit({ topic: topics.album(albumId), kind: "updated", id: albumId, data: updated });
   emit({ topic: topics.albumList(), kind: "updated", id: albumId });
   return updated;

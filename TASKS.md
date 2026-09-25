@@ -118,4 +118,4 @@ Phasen 0 bis 5 sind umgesetzt. Abweichungen vom Plan:
 - Ordner löschen verlangt jetzt auch explizit, dass keine Unterordner mehr drin sind (vorher nur DB-Fehler).
 - Bilder werden nur noch mit gültigem Dateinamen (`<uuid>.bin`) ausgeliefert und mit `Cache-Control: private` gecacht, weil sie hinter dem Login liegen.
 - shadcn-svelte mit dem Preset „Sera“ (Noto Sans + Playfair Display, Taupe), passend für ein Fotobuch.
-- ESLint-Regel `svelte/no-navigation-without-resolve` ist aus, weil die App ohne Base-Path läuft.
+- Nur Biome statt ESLint + Prettier, eine `biome.json` für Backend und Frontend (Svelte über Biomes experimentellen Full-Support).

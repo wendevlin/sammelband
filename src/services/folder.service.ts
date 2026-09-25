@@ -1,6 +1,6 @@
 import { db } from "../db/client";
 import type { Album, Folder } from "../db/schema";
-import { AppError } from "../lib/errors";
+import { AppError, must } from "../lib/errors";
 import { emit, topics } from "../lib/events";
 
 export function listFolders(): Folder[] {
@@ -26,7 +26,7 @@ export function createFolder(input: {
     "INSERT INTO folders (id, name, parent_id, created_by, created_at) VALUES (?, ?, ?, ?, ?)",
     [id, input.name.trim(), input.parentId, input.createdBy, now],
   );
-  const folder = getFolder(id)!;
+  const folder = must(getFolder(id), "Folder");
   emit({ topic: topics.folderTree(), kind: "created", id, data: folder });
   if (folder.parent_id) {
     emit({ topic: topics.folder(folder.parent_id), kind: "updated" });
@@ -54,7 +54,7 @@ export function updateFolder(
   const name = patch.name?.trim() ?? folder.name;
   const parentId = patch.parentId === undefined ? folder.parent_id : patch.parentId;
   db.run("UPDATE folders SET name = ?, parent_id = ? WHERE id = ?", [name, parentId, id]);
-  const updated = getFolder(id)!;
+  const updated = must(getFolder(id), "Folder");
   emit({ topic: topics.folder(id), kind: "updated", id, data: updated });
   emit({ topic: topics.folderTree(), kind: "updated", id });
   if (folder.parent_id && folder.parent_id !== parentId) {

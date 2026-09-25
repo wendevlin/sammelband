@@ -22,4 +22,7 @@ Self-hosted photo book app. See README.md for setup; TASKS.md for the plan and b
   `live(topics, key)` to `invalidate()` their load data when an event arrives.
 - Frontend page loads `await parent()` first (root layout does the auth/onboarding
   gate) and fetch through `load()` from `$lib/api`; actions use `attempt()` for toasts.
-- Formatting: Biome for the backend (`bun run lint`), Prettier + ESLint for `frontend/`.
+- Formatting and linting: Biome only, one root `biome.json` for backend and frontend
+  (`bun run lint` / `bun run lint:fix`). Svelte support is Biome's experimental full
+  support: template usage is invisible to it, so unused-variable/import rules are off
+  for `*.svelte`. Type errors in Svelte come from `bun run --cwd frontend check`.

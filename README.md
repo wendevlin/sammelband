@@ -28,8 +28,9 @@ create further accounts under **Users**.
 Checks:
 
 ```sh
-bun run typecheck && bun run lint                # backend
-bun run --cwd frontend check && bun run --cwd frontend lint
+bun run lint                   # Biome: format + lint, backend and frontend
+bun run typecheck              # backend types
+bun run --cwd frontend check   # svelte-check
 ```
 
 ## Production

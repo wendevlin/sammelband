@@ -1,15 +1,20 @@
 {
   "$schema": "https://biomejs.dev/schemas/2.4.16/schema.json",
+  "vcs": {
+    "enabled": true,
+    "clientKind": "git",
+    "useIgnoreFile": true
+  },
   "files": {
     "includes": [
       "**",
       "!dist",
-      "!frontend",
       "!uploads",
       "!**/*.db",
       "!**/*.db-shm",
       "!**/*.db-wal",
-      "!bun.lock"
+      "!**/bun.lock",
+      "!frontend/.svelte-kit"
     ]
   },
   "formatter": {
@@ -39,5 +44,43 @@
       "trailingCommas": "all",
       "semicolons": "always"
     }
-  }
+  },
+  "css": {
+    "parser": {
+      "tailwindDirectives": true
+    }
+  },
+  "html": {
+    "experimentalFullSupportEnabled": true,
+    "formatter": {
+      "enabled": true
+    }
+  },
+  "overrides": [
+    {
+      "includes": ["**/*.svelte"],
+      "linter": {
+        "rules": {
+          "style": {
+            "useConst": "off",
+            "useImportType": "off"
+          },
+          "correctness": {
+            "noUnusedVariables": "off",
+            "noUnusedImports": "off",
+            "noUnusedFunctionParameters": "off"
+          },
+          "suspicious": {
+            "noGlobalAssign": "off"
+          }
+        }
+      }
+    },
+    {
+      "includes": ["frontend/src/lib/components/ui/**", "frontend/src/lib/utils.ts"],
+      "linter": {
+        "enabled": false
+      }
+    }
+  ]
 }

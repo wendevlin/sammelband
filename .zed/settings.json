@@ -46,7 +46,11 @@
       }
     },
     "Svelte": {
-      "formatter": "prettier"
+      "formatter": {
+        "language_server": {
+          "name": "biome"
+        }
+      }
     }
   }
 }

@@ -1,6 +1,6 @@
 import { db } from "../db/client";
 import type { AlbumBlock } from "../db/schema";
-import { AppError } from "../lib/errors";
+import { AppError, must } from "../lib/errors";
 import { emit, topics } from "../lib/events";
 import * as imageService from "./image.service";
 
@@ -55,7 +55,7 @@ export function createBlock(input: {
      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
     [id, input.albumId, parentId, sortOrder, input.type, JSON.stringify(input.content), now, now],
   );
-  const block = getBlock(id)!;
+  const block = must(getBlock(id), "Block");
   emit({ topic: topics.album(input.albumId), kind: "updated", id: input.albumId });
   return block;
 }
@@ -119,7 +119,7 @@ export function updateBlock(
       id,
     ],
   );
-  const updated = getBlock(id)!;
+  const updated = must(getBlock(id), "Block");
   emit({ topic: topics.album(updated.album_id), kind: "updated", id: updated.album_id });
   return updated;
 }
