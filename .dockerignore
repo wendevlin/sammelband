@@ -1,0 +1,10 @@
+node_modules
+frontend/node_modules
+frontend/.svelte-kit
+dist
+uploads
+*.db
+*.db-shm
+*.db-wal
+.env
+.git

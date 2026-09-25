@@ -1,7 +1,9 @@
 {
   "format_on_save": "on",
   "formatter": {
-    "language_server": { "name": "biome" }
+    "language_server": {
+      "name": "biome"
+    }
   },
   "code_actions_on_format": {
     "source.organizeImports.biome": true,
@@ -9,19 +11,42 @@
   },
   "languages": {
     "JavaScript": {
-      "formatter": { "language_server": { "name": "biome" } }
+      "formatter": {
+        "language_server": {
+          "name": "biome"
+        }
+      }
     },
     "TypeScript": {
-      "formatter": { "language_server": { "name": "biome" } }
+      "formatter": {
+        "language_server": {
+          "name": "biome"
+        }
+      }
     },
     "JSON": {
-      "formatter": { "language_server": { "name": "biome" } }
+      "formatter": {
+        "language_server": {
+          "name": "biome"
+        }
+      }
     },
     "JSONC": {
-      "formatter": { "language_server": { "name": "biome" } }
+      "formatter": {
+        "language_server": {
+          "name": "biome"
+        }
+      }
     },
     "CSS": {
-      "formatter": { "language_server": { "name": "biome" } }
+      "formatter": {
+        "language_server": {
+          "name": "biome"
+        }
+      }
+    },
+    "Svelte": {
+      "formatter": "prettier"
     }
   }
 }

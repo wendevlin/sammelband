@@ -1,4 +1,4 @@
-FROM oven/bun:1.3.14 AS base
+FROM oven/bun:1.4.2 AS base
 WORKDIR /app
 
 FROM base AS deps
@@ -7,7 +7,7 @@ RUN bun install --frozen-lockfile --production
 
 FROM base AS frontend
 WORKDIR /app/frontend
-COPY frontend/package.json frontend/bun.lock ../bunfig.toml ./
+COPY bunfig.toml frontend/package.json frontend/bun.lock ./
 RUN bun install --frozen-lockfile
 COPY frontend/ ./
 RUN bun run build

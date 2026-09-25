@@ -12,7 +12,6 @@ Getroffene Entscheidungen (mit dir abgestimmt):
 - **DB:** keine Migrationen mehr. Ein `db/schema.sql`, das beim Start idempotent angewendet wird. Bestehende Dev-DB wird verworfen.
 - **Frontend:** SvelteKit (Svelte 5, Runes) + shadcn-svelte + Tailwind v4, `adapter-static` mit SPA-Fallback, `ssr = false`. Eigenes Package in `frontend/`. Backend serviert `dist/frontend`.
 
-
 ## Ist-Zustand (Analyse)
 
 **Stack:** Bun 1.4 + Elysia 1.2 + better-auth 1.2 + `bun:sqlite` direkt (kein ORM; `kysely` ist in `package.json`, wird aber nirgends importiert). Frontend: Lit 3 + Web Awesome + PhotoSwipe, Vite 6, eigener Mini-Router. Kein git-Repo, keine Tests, kein CLAUDE.md.
@@ -51,52 +50,52 @@ Alle Content-Routen brauchen eine Session (jeder User), Schreibzugriffe zusätzl
 ## Tasks
 
 ### Phase 0: Housekeeping
-- [ ] `git init`, `.gitignore` prüfen (bereits ok: db, uploads, dist, .env), Ist-Stand als ersten Commit sichern. Damit bleibt das alte Lit-Frontend als Referenz in der History.
-- [ ] `TASKS.md` (dieser Plan) ins Repo.
-- [ ] Lokale `sammelband.db*` und `uploads/` leeren (Dev-Daten, Schema ändert sich).
-- [ ] Deps aus root `package.json` entfernen: `kysely` (ungenutzt), `nodemailer`, `@types/nodemailer`, `elysia`; neu `hono`, `@hono/zod-validator`, `zod`. Frontend-Deps (`lit`, `@awesome.me/webawesome`, `photoswipe`, `vite`) wandern in Phase 3 ins Frontend-Package.
+- [x] `git init`, `.gitignore` prüfen (bereits ok: db, uploads, dist, .env), Ist-Stand als ersten Commit sichern. Damit bleibt das alte Lit-Frontend als Referenz in der History.
+- [x] `TASKS.md` (dieser Plan) ins Repo.
+- [x] Lokale `sammelband.db*` und `uploads/` leeren (Dev-Daten, Schema ändert sich).
+- [x] Deps aus root `package.json` entfernen: `kysely` (ungenutzt), `nodemailer`, `@types/nodemailer`, `elysia`; neu `hono`, `@hono/zod-validator`, `zod`. Frontend-Deps (`lit`, `@awesome.me/webawesome`, `photoswipe`, `vite`) wandern in Phase 3 ins Frontend-Package.
 
 ### Phase 1: Backend abspecken
-- [ ] **Schema statt Migrationen.** `db/migrations/` löschen, `db/schema.sql` anlegen (Zielschema oben, alles `CREATE TABLE IF NOT EXISTS` / `CREATE INDEX IF NOT EXISTS` / `CREATE TRIGGER IF NOT EXISTS`). In `src/db/client.ts` `runMigrations()` durch `initSchema()` ersetzen, das die Datei einmal per `db.exec` ausführt. `_migrations`-Tabelle raus. `src/db/schema.ts`: `ShareLink` und `shareable` entfernen, `block_id: string`, `created_by: string | null`.
-- [ ] **Auth vereinfachen.** `src/auth.ts`: `magicLink`-Plugin und `sendResetPassword` raus. `src/mailer.ts` löschen. `src/config.ts`: `SMTP`-Block raus, `.env.example`, `docker-compose*.yml` entsprechend kürzen.
-- [ ] **Elysia → Hono.** `src/index.ts`: `new Hono<{ Variables: { user: AuthUser } }>()`, Start über `Bun.serve({ port, hostname: "0.0.0.0", fetch: app.fetch, websocket })`. `app.onError` mappt `AppError` → `{ error }` mit Status, alles andere → 500 (Ersatz für den heutigen `onError` in `index.ts`). better-auth nach offizieller Hono-Anleitung: `app.on(["GET","POST"], "/api/auth/*", (c) => auth.handler(c.req.raw))`, davor eine Middleware, die `POST /api/auth/sign-up/email` mit 403 blockt, und der Auth-Rate-Limiter. Validierung: `zValidator("json" | "param" | "query" | "form", schema)` statt `t.*`; die Schemas 1:1 aus den bisherigen `t.Object`-Definitionen übersetzen. Upload: `c.req.parseBody({ all: true })`, `files` kann `File | File[]` sein. Rate-Limit-Middleware (`rate-limit.middleware.ts`) als Hono-Middleware portieren (Logik bleibt). Handler, die heute `Response` zurückgeben (`serveVariant`, `serveOriginal`), gehen in Hono unverändert.
-- [ ] **Middleware.** `src/middleware/auth.middleware.ts` als Hono-Middlewares: `requireAuth` (Session via `auth.api.getSession({ headers: c.req.raw.headers })`, setzt `c.set("user", ...)`, sonst 401) und `requireAdmin` (401/403). CSRF: `hono/csrf` mit `origin: [BASE_URL, dev: localhost:5173]` global vor allen `/api`-Schreibrouten, damit auch User-Schreibzugriffe geschützt sind (heute nur bei `adminRouter`). Pro Router: `router.use("*", requireAuth)` bzw. `requireAdmin`.
-- [ ] **Shares/Grants/Access entfernen.** Löschen: `src/services/share.service.ts`, `grant.service.ts`, `access.service.ts`, `src/lib/signed-cookie.ts`, `src/routes/share.ts`, `src/routes/admin/shares.ts`, `src/routes/admin/grants.ts`. Aus `routes/images.ts` den Share-Cookie-Pfad und `isAuthorized` streichen (nur noch: Session vorhanden?). `folder.service.deleteFolder`: `DELETE FROM share_links/folder_access` raus. `album.service`: `shareable` überall raus.
-- [ ] **Routen umziehen.** `src/routes/admin/{folders,albums,blocks,photos}.ts` → `src/routes/{folders,albums,blocks,photos}.ts` als je ein `new Hono()` mit `requireAuth`, eingehängt über `app.route("/api/folders", folders)` usw., Prefix `/admin` weg. `src/routes/user.ts` auflösen: die Read-Routen in die jeweiligen Dateien, `getAlbumDetail` nach `album.service`. Die Helfer `listFolderContents`/`folderExists` aus `access.service` nach `folder.service`. `adminImageRoutes` (`/admin/images/:filename`) weg, stattdessen `w` optional in `/api/images/:filename`. `src/index.ts` entsprechend neu verdrahten; `/api/admin/users/by-email` entfällt.
-- [ ] **User-Verwaltung ausbauen.** `src/routes/admin/users.ts`: `PATCH` erlaubt `name` + `role`; neu `POST /:id/password` (Hash über `auth.$context` → `password.hash` + `internalAdapter.updatePassword`), `DELETE /:id`. Guards: nicht sich selbst löschen, letzten Admin weder löschen noch degradieren. Passwort-Änderung invalidiert Sessions des Users (`DELETE FROM session WHERE userId`).
-- [ ] **WebSocket.** `src/routes/ws.ts` auf `createBunWebSocket()` aus `hono/bun`: `app.get("/ws", requireAuth, upgradeWebSocket((c) => ({ onOpen, onMessage, onClose })))`, das `websocket`-Objekt geht an `Bun.serve`. Subscription-Map pro Verbindung im Closure statt in `ws.data.store`. Admin-Check weg (Session reicht), Topic-Patterns `share-links:*` und `access:*` raus, Wire-Protokoll bleibt gleich (das Frontend-`ws.ts` muss nicht angepasst werden).
-- [ ] `bun run typecheck` + `bun run lint` grün; Smoke-Test per curl (Onboarding → Login → Ordner/Album/Block/Upload/Bild).
+- [x] **Schema statt Migrationen.** `db/migrations/` löschen, `db/schema.sql` anlegen (Zielschema oben, alles `CREATE TABLE IF NOT EXISTS` / `CREATE INDEX IF NOT EXISTS` / `CREATE TRIGGER IF NOT EXISTS`). In `src/db/client.ts` `runMigrations()` durch `initSchema()` ersetzen, das die Datei einmal per `db.exec` ausführt. `_migrations`-Tabelle raus. `src/db/schema.ts`: `ShareLink` und `shareable` entfernen, `block_id: string`, `created_by: string | null`.
+- [x] **Auth vereinfachen.** `src/auth.ts`: `magicLink`-Plugin und `sendResetPassword` raus. `src/mailer.ts` löschen. `src/config.ts`: `SMTP`-Block raus, `.env.example`, `docker-compose*.yml` entsprechend kürzen.
+- [x] **Elysia → Hono.** `src/index.ts`: `new Hono<{ Variables: { user: AuthUser } }>()`, Start über `Bun.serve({ port, hostname: "0.0.0.0", fetch: app.fetch, websocket })`. `app.onError` mappt `AppError` → `{ error }` mit Status, alles andere → 500 (Ersatz für den heutigen `onError` in `index.ts`). better-auth nach offizieller Hono-Anleitung: `app.on(["GET","POST"], "/api/auth/*", (c) => auth.handler(c.req.raw))`, davor eine Middleware, die `POST /api/auth/sign-up/email` mit 403 blockt, und der Auth-Rate-Limiter. Validierung: `zValidator("json" | "param" | "query" | "form", schema)` statt `t.*`; die Schemas 1:1 aus den bisherigen `t.Object`-Definitionen übersetzen. Upload: `c.req.parseBody({ all: true })`, `files` kann `File | File[]` sein. Rate-Limit-Middleware (`rate-limit.middleware.ts`) als Hono-Middleware portieren (Logik bleibt). Handler, die heute `Response` zurückgeben (`serveVariant`, `serveOriginal`), gehen in Hono unverändert.
+- [x] **Middleware.** `src/middleware/auth.middleware.ts` als Hono-Middlewares: `requireAuth` (Session via `auth.api.getSession({ headers: c.req.raw.headers })`, setzt `c.set("user", ...)`, sonst 401) und `requireAdmin` (401/403). CSRF: `hono/csrf` mit `origin: [BASE_URL, dev: localhost:5173]` global vor allen `/api`-Schreibrouten, damit auch User-Schreibzugriffe geschützt sind (heute nur bei `adminRouter`). Pro Router: `router.use("*", requireAuth)` bzw. `requireAdmin`.
+- [x] **Shares/Grants/Access entfernen.** Löschen: `src/services/share.service.ts`, `grant.service.ts`, `access.service.ts`, `src/lib/signed-cookie.ts`, `src/routes/share.ts`, `src/routes/admin/shares.ts`, `src/routes/admin/grants.ts`. Aus `routes/images.ts` den Share-Cookie-Pfad und `isAuthorized` streichen (nur noch: Session vorhanden?). `folder.service.deleteFolder`: `DELETE FROM share_links/folder_access` raus. `album.service`: `shareable` überall raus.
+- [x] **Routen umziehen.** `src/routes/admin/{folders,albums,blocks,photos}.ts` → `src/routes/{folders,albums,blocks,photos}.ts` als je ein `new Hono()` mit `requireAuth`, eingehängt über `app.route("/api/folders", folders)` usw., Prefix `/admin` weg. `src/routes/user.ts` auflösen: die Read-Routen in die jeweiligen Dateien, `getAlbumDetail` nach `album.service`. Die Helfer `listFolderContents`/`folderExists` aus `access.service` nach `folder.service`. `adminImageRoutes` (`/admin/images/:filename`) weg, stattdessen `w` optional in `/api/images/:filename`. `src/index.ts` entsprechend neu verdrahten; `/api/admin/users/by-email` entfällt.
+- [x] **User-Verwaltung ausbauen.** `src/routes/admin/users.ts`: `PATCH` erlaubt `name` + `role`; neu `POST /:id/password` (Hash über `auth.$context` → `password.hash` + `internalAdapter.updatePassword`), `DELETE /:id`. Guards: nicht sich selbst löschen, letzten Admin weder löschen noch degradieren. Passwort-Änderung invalidiert Sessions des Users (`DELETE FROM session WHERE userId`).
+- [x] **WebSocket.** `src/routes/ws.ts` auf `createBunWebSocket()` aus `hono/bun`: `app.get("/ws", requireAuth, upgradeWebSocket((c) => ({ onOpen, onMessage, onClose })))`, das `websocket`-Objekt geht an `Bun.serve`. Subscription-Map pro Verbindung im Closure statt in `ws.data.store`. Admin-Check weg (Session reicht), Topic-Patterns `share-links:*` und `access:*` raus, Wire-Protokoll bleibt gleich (das Frontend-`ws.ts` muss nicht angepasst werden).
+- [x] `bun run typecheck` + `bun run lint` grün; Smoke-Test per curl (Onboarding → Login → Ordner/Album/Block/Upload/Bild).
 
 ### Phase 2: Backend serviert die SPA + Docker
-- [ ] `src/config.ts`: `FRONTEND_DIST` (Default `./dist/frontend`).
-- [ ] `src/routes/spa.ts`: als letztes in `index.ts` einhängen. `/api/*` und `/ws` ohne Treffer → 404 JSON. Dann `serveStatic({ root: FRONTEND_DIST })` aus `hono/bun` mit `onFound`, das für `/_app/immutable/*` `Cache-Control: public, max-age=31536000, immutable` setzt. Fallback `app.get("*")` liefert `index.html` mit `Cache-Control: no-cache` (Path-Traversal übernimmt `serveStatic`). Wenn kein Dist existiert (Dev ohne Build): 404 mit Hinweis.
-- [ ] `Dockerfile`: Stage `frontend-build` (bun install im `frontend/`, `bun run build`), Ergebnis nach `/app/dist/frontend` in die Production-Stage kopieren. `db/` → `db/schema.sql`. Root `vite.config.ts` löschen.
-- [ ] Root `package.json`-Scripts: `dev` (Backend), `dev:frontend` → `bun run --cwd frontend dev`, `build:frontend` → `bun run --cwd frontend build`, `build` = beides. `biome.json`: `frontend/**` ausschließen (Svelte formatiert Prettier, siehe Phase 3). `tsconfig.json`: `db/**/*.ts` aus `include` raus.
+- [x] `src/config.ts`: `FRONTEND_DIST` (Default `./dist/frontend`).
+- [x] `src/routes/spa.ts`: als letztes in `index.ts` einhängen. `/api/*` und `/ws` ohne Treffer → 404 JSON. Dann `serveStatic({ root: FRONTEND_DIST })` aus `hono/bun` mit `onFound`, das für `/_app/immutable/*` `Cache-Control: public, max-age=31536000, immutable` setzt. Fallback `app.get("*")` liefert `index.html` mit `Cache-Control: no-cache` (Path-Traversal übernimmt `serveStatic`). Wenn kein Dist existiert (Dev ohne Build): 404 mit Hinweis.
+- [x] `Dockerfile`: Stage `frontend-build` (bun install im `frontend/`, `bun run build`), Ergebnis nach `/app/dist/frontend` in die Production-Stage kopieren. `db/` → `db/schema.sql`. Root `vite.config.ts` löschen.
+- [x] Root `package.json`-Scripts: `dev` (Backend), `dev:frontend` → `bun run --cwd frontend dev`, `build:frontend` → `bun run --cwd frontend build`, `build` = beides. `biome.json`: `frontend/**` ausschließen (Svelte formatiert Prettier, siehe Phase 3). `tsconfig.json`: `db/**/*.ts` aus `include` raus.
 
 ### Phase 3: SvelteKit-Grundgerüst
-- [ ] Altes `frontend/` löschen (liegt in git), neu scaffolden: `bunx sv create frontend` (Svelte 5, TypeScript, minimal, Add-ons prettier + eslint + tailwindcss), `bunx sv add`-Äquivalente nach Bedarf. `@sveltejs/adapter-static` mit `pages`/`assets` → `../dist/frontend`, `fallback: 'index.html'`. `src/routes/+layout.ts`: `export const ssr = false; export const prerender = false;`.
-- [ ] `frontend/vite.config.ts`: Dev-Proxy wie im bisherigen root `vite.config.ts` (`/api` → `http://localhost:3000`, `/ws` → ws, Port 5173, host 0.0.0.0).
-- [ ] shadcn-svelte: `bunx shadcn-svelte@latest init`, dann `add button card dialog alert-dialog input label textarea select dropdown-menu tabs badge alert switch tooltip separator skeleton table sonner`. Icons `@lucide/svelte`, Theme `mode-watcher`, Lightbox `photoswipe`.
-- [ ] `src/lib/api.ts` (Port von `frontend/src/api.ts` ohne `sharePassword`), `src/lib/types.ts` (Port ohne `ShareLink`/`shareable`), `src/lib/images.ts` (`srcset`, `fullSrc`, `sizesAttr`), `src/lib/stores/auth.svelte.ts` (Runes-Klasse: `refresh`, `signIn`, `signOut`), `src/lib/stores/ws.svelte.ts` (Port von `frontend/src/store/ws.ts`, ist bereits framework-frei).
-- [ ] `src/routes/+layout.ts` lädt Onboarding-Status + Session. `+layout.svelte`: Onboarding-Screen wenn nötig, Redirect auf `/login` wenn anonym, sonst Header (Brand, Admin-Link bei role admin, E-Mail, Theme-Toggle, Sign out) + `<slot>`. `src/routes/admin/+layout.ts`: Redirect wenn nicht admin.
-- [ ] Editor-Settings (`.vscode`, `.zed`): `[svelte]` → Prettier, Rest bleibt Biome.
+- [x] Altes `frontend/` löschen (liegt in git), neu scaffolden: `bunx sv create frontend` (Svelte 5, TypeScript, minimal, Add-ons prettier + eslint + tailwindcss), `bunx sv add`-Äquivalente nach Bedarf. `@sveltejs/adapter-static` mit `pages`/`assets` → `../dist/frontend`, `fallback: 'index.html'`. `src/routes/+layout.ts`: `export const ssr = false; export const prerender = false;`.
+- [x] `frontend/vite.config.ts`: Dev-Proxy wie im bisherigen root `vite.config.ts` (`/api` → `http://localhost:3000`, `/ws` → ws, Port 5173, host 0.0.0.0).
+- [x] shadcn-svelte: `bunx shadcn-svelte@latest init`, dann `add button card dialog alert-dialog input label textarea select dropdown-menu tabs badge alert switch tooltip separator skeleton table sonner`. Icons `@lucide/svelte`, Theme `mode-watcher`, Lightbox `photoswipe`.
+- [x] `src/lib/api.ts` (Port von `frontend/src/api.ts` ohne `sharePassword`), `src/lib/types.ts` (Port ohne `ShareLink`/`shareable`), `src/lib/images.ts` (`srcset`, `fullSrc`, `sizesAttr`), `src/lib/stores/auth.svelte.ts` (Runes-Klasse: `refresh`, `signIn`, `signOut`), `src/lib/stores/ws.svelte.ts` (Port von `frontend/src/store/ws.ts`, ist bereits framework-frei).
+- [x] `src/routes/+layout.ts` lädt Onboarding-Status + Session. `+layout.svelte`: Onboarding-Screen wenn nötig, Redirect auf `/login` wenn anonym, sonst Header (Brand, Admin-Link bei role admin, E-Mail, Theme-Toggle, Sign out) + `<slot>`. `src/routes/admin/+layout.ts`: Redirect wenn nicht admin.
+- [x] Editor-Settings (`.vscode`, `.zed`): `[svelte]` → Prettier, Rest bleibt Biome.
 
 ### Phase 4: Seiten portieren
 Referenz ist jeweils die alte Lit-Seite in der git-History (`frontend/src/pages/...`).
-- [ ] `/login` (E-Mail + Passwort, Fehleranzeige) und Onboarding-Formular (Code aus `?code=`, E-Mail, Name, Passwort).
-- [ ] `/` Home: Ordnerbaum (Root-Ordner) + Root-Alben als Cards mit Cover, Aktionen Ordner anlegen/umbenennen/löschen, Album anlegen (Titel, Ordner). Alle User dürfen das. WS-Topics `folder-tree`, `album-list`.
-- [ ] `/folders/[id]`: Breadcrumb, Unterordner, Alben, gleiche Aktionen. WS `folder:<id>`.
-- [ ] `/albums/[id]` Ansicht: Blöcke rendern (heading/text/gallery/group), `BlockGallery` (grid/masonry/strip), `BlockGroup` (Hintergrund none/auto/neutral/blue/green/amber/rose; Auto-Tint aus den Foto-Placeholdern wie in `sb-block-group.ts`), ein PhotoSwipe über alle Galerien des Albums mit Caption-Element (Logik aus `sb-album-view.ts`). Link auf Bearbeiten. WS `album:<id>`.
-- [ ] `/albums/[id]/edit`: Meta (Titel, Beschreibung, Ordner, Cover-Wahl, Löschen mit AlertDialog) + Block-Editor (Toolbar Heading/Text/Gallery/Group, Drafts mit Save-Button, Gruppenzuordnung, HTML5-DnD-Reorder pro Sibling-Set wie in `sb-album-blocks.ts`) + `GalleryPhotos` (Multi-Upload mit `accept="image/*"`, Reorder per DnD, Caption inline, Löschen, Dedup-Hinweis).
-- [ ] `/admin/users`: Tabelle, User anlegen (E-Mail, Name, Passwort, Rolle), Rolle ändern, Passwort setzen, Löschen. Guards aus dem Backend im UI spiegeln (eigener Account, letzter Admin).
-- [ ] `/admin/storage`: Stats (DB, Originale, Varianten, Orphans), Cache leeren. WS `storage-stats`.
-- [ ] Toasts (sonner) für Fehler aus `ApiError`; Loading-Skeletons; 404-Seite.
+- [x] `/login` (E-Mail + Passwort, Fehleranzeige) und Onboarding-Formular (Code aus `?code=`, E-Mail, Name, Passwort).
+- [x] `/` Home: Ordnerbaum (Root-Ordner) + Root-Alben als Cards mit Cover, Aktionen Ordner anlegen/umbenennen/löschen, Album anlegen (Titel, Ordner). Alle User dürfen das. WS-Topics `folder-tree`, `album-list`.
+- [x] `/folders/[id]`: Breadcrumb, Unterordner, Alben, gleiche Aktionen. WS `folder:<id>`.
+- [x] `/albums/[id]` Ansicht: Blöcke rendern (heading/text/gallery/group), `BlockGallery` (grid/masonry/strip), `BlockGroup` (Hintergrund none/auto/neutral/blue/green/amber/rose; Auto-Tint aus den Foto-Placeholdern wie in `sb-block-group.ts`), ein PhotoSwipe über alle Galerien des Albums mit Caption-Element (Logik aus `sb-album-view.ts`). Link auf Bearbeiten. WS `album:<id>`.
+- [x] `/albums/[id]/edit`: Meta (Titel, Beschreibung, Ordner, Cover-Wahl, Löschen mit AlertDialog) + Block-Editor (Toolbar Heading/Text/Gallery/Group, Drafts mit Save-Button, Gruppenzuordnung, HTML5-DnD-Reorder pro Sibling-Set wie in `sb-album-blocks.ts`) + `GalleryPhotos` (Multi-Upload mit `accept="image/*"`, Reorder per DnD, Caption inline, Löschen, Dedup-Hinweis).
+- [x] `/admin/users`: Tabelle, User anlegen (E-Mail, Name, Passwort, Rolle), Rolle ändern, Passwort setzen, Löschen. Guards aus dem Backend im UI spiegeln (eigener Account, letzter Admin).
+- [x] `/admin/storage`: Stats (DB, Originale, Varianten, Orphans), Cache leeren. WS `storage-stats`.
+- [x] Toasts (sonner) für Fehler aus `ApiError`; Loading-Skeletons; 404-Seite.
 
 ### Phase 5: Aufräumen und Doku
-- [ ] Alte Frontend-Reste (`dist/frontend` aus dem Lit-Build, `frontend/src/global.css`-Reste) weg, `bun.lock` in root und frontend frisch.
-- [ ] `README.md`: Was ist Sammelband, Dev-Start (`bun run dev` + `bun run dev:frontend`), Prod (`docker compose up`), Onboarding-Ablauf, Env-Variablen.
-- [ ] `CLAUDE.md`: Stack, Ordnerstruktur, Konventionen (Biome Backend / Prettier Frontend, Routen unter `/api`, Services ohne ORM), wie man Schema ändert (schema.sql + DB löschen solange nicht produktiv).
-- [ ] Docker-Build einmal komplett durchlaufen lassen und Container mit Volumes starten.
+- [x] Alte Frontend-Reste (`dist/frontend` aus dem Lit-Build, `frontend/src/global.css`-Reste) weg, `bun.lock` in root und frontend frisch.
+- [x] `README.md`: Was ist Sammelband, Dev-Start (`bun run dev` + `bun run dev:frontend`), Prod (`docker compose up`), Onboarding-Ablauf, Env-Variablen.
+- [x] `CLAUDE.md`: Stack, Ordnerstruktur, Konventionen (Biome Backend / Prettier Frontend, Routen unter `/api`, Services ohne ORM), wie man Schema ändert (schema.sql + DB löschen solange nicht produktiv).
+- [x] Docker-Build einmal komplett durchlaufen lassen und Container mit Volumes starten.
 
 ### Später (bewusst rausgelassen)
 - Share-Links (öffentlich, optional Passwort/Ablauf) und granulare Rechte pro Ordner/Album: wenn nötig als Feature auf den dann stabilen Kern aufsetzen; die alte Implementierung liegt in der git-History.
@@ -111,3 +110,12 @@ Referenz ist jeweils die alte Lit-Seite in der git-History (`frontend/src/pages/
 - Phase 2: `bun run build:frontend`, Backend starten, `http://localhost:3000/albums/xyz` per Full-Page-Load liefert `index.html`; `/_app/immutable/...` kommt mit immutable-Cache-Header; `/api/nope` → 404 JSON. `docker compose build && docker compose up` läuft mit Healthcheck.
 - Phase 3/4: `bun run --cwd frontend check` (svelte-check) grün; manueller Durchlauf im Browser über Vite-Proxy: Onboarding → Login → Ordner/Album → Blöcke + Fotos → Ansicht mit Lightbox → Admin User anlegen, Passwort setzen, als neuer User einloggen und Album editieren. Zweiter Tab offen: Änderungen kommen per WS an.
 
+
+## Stand 2026-09-25
+
+Phasen 0 bis 5 sind umgesetzt. Abweichungen vom Plan:
+- `photos.block_id` ist `NOT NULL` mit `ON DELETE CASCADE` auf `album_blocks`.
+- Ordner löschen verlangt jetzt auch explizit, dass keine Unterordner mehr drin sind (vorher nur DB-Fehler).
+- Bilder werden nur noch mit gültigem Dateinamen (`<uuid>.bin`) ausgeliefert und mit `Cache-Control: private` gecacht, weil sie hinter dem Login liegen.
+- shadcn-svelte mit dem Preset „Sera“ (Noto Sans + Playfair Display, Taupe), passend für ein Fotobuch.
+- ESLint-Regel `svelte/no-navigation-without-resolve` ist aus, weil die App ohne Base-Path läuft.
