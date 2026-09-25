@@ -1,0 +1,25 @@
+services:
+  app:
+    image: sammelband:latest
+    build: .
+    restart: unless-stopped
+    ports:
+      - "${PORT:-3000}:3000"
+    environment:
+      - NODE_ENV=production
+      - DATABASE_PATH=/data/sammelband.db
+      - UPLOADS_PATH=/uploads
+      - SECRET_KEY=${SECRET_KEY}
+      - BASE_URL=${BASE_URL}
+      - SMTP_HOST=${SMTP_HOST}
+      - SMTP_PORT=${SMTP_PORT:-587}
+      - SMTP_USER=${SMTP_USER}
+      - SMTP_PASS=${SMTP_PASS}
+      - SMTP_FROM=${SMTP_FROM}
+    volumes:
+      - db_data:/data
+      - uploads:/uploads
+
+volumes:
+  db_data:
+  uploads:
