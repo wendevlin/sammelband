@@ -8,7 +8,7 @@ let { title, description, children }: { title: string; description?: string; chi
 
 <div class="flex min-h-svh items-center justify-center px-4">
   <div class="w-full max-w-sm">
-    <p class="mb-6 text-center font-heading text-3xl">Sammelband</p>
+    <p class="mb-6 text-center font-heading text-3xl text-primary">Sammelband</p>
     <Card.Root>
       <Card.Header>
         <Card.Title>{title}</Card.Title>

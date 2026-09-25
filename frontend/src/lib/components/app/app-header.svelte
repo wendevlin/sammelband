@@ -34,7 +34,7 @@ async function signOut() {
 
 <header class="sticky top-0 z-40 border-b bg-background/90 backdrop-blur">
   <div class="mx-auto flex h-16 max-w-6xl items-center gap-6 px-4 sm:px-6">
-    <a href="/" class="font-heading text-xl tracking-tight">Sammelband</a>
+    <a href="/" class="font-heading text-xl tracking-tight text-primary">Sammelband</a>
     <nav class="flex items-center gap-1">
       {#each links as link (link.href)}
         <a

@@ -58,7 +58,7 @@ const containerClass = $derived(
       <a
         href={imageSrc(p.filename, 1920)}
         class={cn(
-					'relative block break-inside-avoid overflow-hidden bg-muted',
+					'relative block break-inside-avoid overflow-hidden rounded-lg bg-muted',
 					layout === 'grid' && 'aspect-square',
 					layout === 'strip' && 'h-[min(60vh,420px)] shrink-0 snap-start'
 				)}

@@ -93,7 +93,7 @@ async function drop(target: Photo) {
         <div
           role="img"
           aria-label={p.caption ?? 'Photo'}
-          class="group relative aspect-square cursor-grab overflow-hidden bg-muted"
+          class="group relative aspect-square cursor-grab overflow-hidden rounded-lg bg-muted"
           draggable="true"
           ondragstart={() => (dragId = p.id)}
           ondragend={() => {
@@ -134,7 +134,7 @@ async function drop(target: Photo) {
 <button
   type="button"
   class={cn(
-		'mt-3 flex w-full flex-col items-center gap-2 border border-dashed px-4 py-6 text-sm text-muted-foreground transition-colors',
+		'mt-3 flex w-full flex-col items-center gap-2 rounded-xl border border-dashed px-4 py-6 text-sm text-muted-foreground transition-colors',
 		over ? 'border-primary bg-muted' : 'hover:bg-muted/50'
 	)}
   ondragover={(e) => {

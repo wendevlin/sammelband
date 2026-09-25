@@ -89,6 +89,9 @@ function rgbToHue(r: number, g: number, b: number): number {
 }
 </script>
 
-<div class={cn('my-8 border px-6 py-2 sm:px-8', presetClass)} style:background={autoStyle}>
+<div
+  class={cn('my-8 rounded-2xl border px-6 py-2 sm:px-8', presetClass)}
+  style:background={autoStyle}
+>
   {@render children()}
 </div>

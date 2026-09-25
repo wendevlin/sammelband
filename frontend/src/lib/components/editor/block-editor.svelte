@@ -147,7 +147,7 @@ async function drop(e: DragEvent, target: AlbumBlock) {
   <div
     role="listitem"
     class={cn(
-			'border bg-card p-4 transition-opacity',
+			'rounded-xl border bg-card p-4 transition-opacity',
 			dragId === b.id && 'opacity-40',
 			dropTarget?.id === b.id &&
 				(dropTarget.after ? 'border-b-4 border-b-primary' : 'border-t-4 border-t-primary')
@@ -260,11 +260,13 @@ async function drop(e: DragEvent, target: AlbumBlock) {
   {#each topLevel as b (b.id)}
     {@render card(b)}
   {:else}
-    <p class="border border-dashed px-6 py-10 text-center text-muted-foreground">
+    <p class="rounded-2xl border border-dashed px-6 py-10 text-center text-muted-foreground">
       No blocks yet. Start with a heading, some text or a gallery.
     </p>
   {/each}
-  <div class="sticky bottom-4 z-10 w-fit border bg-background/95 p-2 shadow-sm backdrop-blur">
+  <div
+    class="sticky bottom-4 z-10 w-fit rounded-xl border bg-background/95 p-2 shadow-sm backdrop-blur"
+  >
     {@render addButtons(null)}
   </div>
 </div>

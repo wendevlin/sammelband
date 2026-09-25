@@ -135,7 +135,7 @@ async function deleteAlbum() {
       Without a chosen cover the album shows its first image.
     </p>
     {#if data.photos.length === 0}
-      <p class="border border-dashed px-6 py-10 text-center text-muted-foreground">
+      <p class="rounded-2xl border border-dashed px-6 py-10 text-center text-muted-foreground">
         No photos yet. Add some to a gallery first.
       </p>
     {:else}
@@ -155,7 +155,7 @@ async function deleteAlbum() {
           <button
             type="button"
             class={cn(
-							'relative aspect-square overflow-hidden bg-muted outline-offset-2',
+							'relative aspect-square overflow-hidden rounded-lg bg-muted outline-offset-2',
 							data.album.cover_photo_id === p.id && 'outline-3 outline-primary'
 						)}
             onclick={() => setCover(p.id)}

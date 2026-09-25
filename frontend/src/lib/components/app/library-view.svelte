@@ -102,7 +102,9 @@ const deleteFolder = () =>
     </h2>
     <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
       {#each folders as f (f.id)}
-        <div class="flex items-center border transition-colors hover:bg-muted/60">
+        <div
+          class="flex items-center rounded-xl border bg-card transition-colors hover:bg-muted/60"
+        >
           <a href="/folders/{f.id}" class="flex min-w-0 flex-1 items-center gap-3 px-4 py-3">
             <FolderIcon class="size-4 shrink-0 text-muted-foreground" />
             <span class="truncate">{f.name}</span>
@@ -150,7 +152,7 @@ const deleteFolder = () =>
     </h2>
   {/if}
   {#if albums.length === 0}
-    <div class="border border-dashed px-6 py-16 text-center text-muted-foreground">
+    <div class="rounded-2xl border border-dashed px-6 py-16 text-center text-muted-foreground">
       {folder ? 'No albums in this folder yet.' : 'No albums yet. Create the first one.'}
     </div>
   {:else}

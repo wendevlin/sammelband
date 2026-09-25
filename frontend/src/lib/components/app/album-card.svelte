@@ -7,7 +7,7 @@ let { album }: { album: Album } = $props();
 </script>
 
 <a href="/albums/{album.id}" class="group block">
-  <div class="relative aspect-[4/3] overflow-hidden bg-muted">
+  <div class="relative aspect-[4/3] overflow-hidden rounded-xl bg-muted">
     {#if album.cover_filename}
       <img
         src={imageSrc(album.cover_filename, 800)}
