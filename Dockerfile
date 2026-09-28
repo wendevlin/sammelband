@@ -15,6 +15,9 @@ RUN bun run build
 FROM base AS production
 ENV NODE_ENV=production
 ENV FRONTEND_DIST=/app/dist/frontend
+# Defaults so the bare image runs; docker-compose.yml mounts volumes at these paths.
+ENV DATABASE_PATH=/data/sammelband.db
+ENV UPLOADS_PATH=/uploads
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=frontend /app/dist/frontend ./dist/frontend
 COPY src/ ./src/
