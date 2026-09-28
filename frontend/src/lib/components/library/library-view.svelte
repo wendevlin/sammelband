@@ -83,31 +83,107 @@ function step(kind: Kind, id: string, delta: -1 | 1) {
   if (beforeId !== undefined) void move(kind, id, beforeId);
 }
 
-// Drag and drop (desktop): drop on the left or right half of another tile.
+// Drag and drop (desktop). Dropping onto a tile of the same kind takes its
+// place; dropping onto a folder (its middle, for folders) or a breadcrumb
+// moves the item into that folder, after a confirmation.
+type Hover = { id: string; mode: "reorder" | "into" };
 let drag = $state<{ kind: Kind; id: string } | null>(null);
-let dropTarget = $state<{ id: string; after: boolean } | null>(null);
+let hover = $state<Hover | null>(null);
+let crumbTarget = $state<string | null>(null); // folder id, or "root"
 
-function dragOver(e: DragEvent, kind: Kind, id: string) {
-  if (!drag || drag.kind !== kind || drag.id === id) return;
+function dragOverFolder(e: DragEvent, f: FolderTile) {
+  if (!drag || drag.id === f.id) return;
+  let mode: Hover["mode"] = "into";
+  if (drag.kind === "folder") {
+    // Outer quarters reorder, the middle moves into the folder.
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    const x = (e.clientX - rect.left) / rect.width;
+    if (x < 0.25 || x > 0.75) mode = "reorder";
+  }
   e.preventDefault();
-  const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-  dropTarget = { id, after: e.clientX > rect.left + rect.width / 2 };
+  hover = { id: f.id, mode };
 }
 
-function dropOn(e: DragEvent, kind: Kind, id: string) {
+function dragOverAlbum(e: DragEvent, album: Album) {
+  if (drag?.kind !== "album" || drag.id === album.id) return;
   e.preventDefault();
-  if (!drag || drag.kind !== kind || !dropTarget) return;
-  const list = listOf(kind).filter((i) => i.id !== drag?.id);
-  const target = list.findIndex((i) => i.id === id);
-  const beforeId = dropTarget.after ? (list[target + 1]?.id ?? null) : id;
-  const dragged = drag.id;
+  hover = { id: album.id, mode: "reorder" };
+}
+
+/** Move `id` into the place of `targetId`, from either side. */
+function reorderOnto(kind: Kind, id: string, targetId: string) {
+  const list = listOf(kind);
+  const from = list.findIndex((i) => i.id === id);
+  const to = list.findIndex((i) => i.id === targetId);
+  const rest = list.filter((i) => i.id !== id);
+  const at = rest.findIndex((i) => i.id === targetId);
+  const beforeId = from < to ? (rest[at + 1]?.id ?? null) : targetId;
+  void move(kind, id, beforeId);
+}
+
+function dropOnTile(e: DragEvent, targetId: string) {
+  e.preventDefault();
+  const d = drag;
+  const h = hover;
   endDrag();
-  void move(kind, dragged, beforeId);
+  if (!d || !h || h.id !== targetId) return;
+  if (h.mode === "reorder") reorderOnto(d.kind, d.id, targetId);
+  else askMove(d, folderOrder.find((f) => f.id === targetId) ?? null);
+}
+
+/** Clear the feedback when the pointer really leaves a tile (not just enters a child). */
+function leaveTile(e: DragEvent, id: string) {
+  const tile = e.currentTarget as HTMLElement;
+  if (hover?.id === id && !tile.contains(e.relatedTarget as Node | null)) hover = null;
+}
+
+function dragOverCrumb(e: DragEvent, key: string) {
+  if (!drag) return;
+  e.preventDefault();
+  crumbTarget = key;
+}
+
+function dropOnCrumb(e: DragEvent, target: Folder | null) {
+  e.preventDefault();
+  const d = drag;
+  endDrag();
+  if (d) askMove(d, target);
 }
 
 function endDrag() {
   drag = null;
-  dropTarget = null;
+  hover = null;
+  crumbTarget = null;
+}
+
+// Moving into another folder, confirmed first.
+let moveRequest = $state<{ kind: Kind; id: string; name: string; into: Folder | null } | null>(
+  null,
+);
+let moveOpen = $state(false);
+
+function askMove(d: { kind: Kind; id: string }, into: Folder | null) {
+  const name =
+    d.kind === "album"
+      ? albumOrder.find((a) => a.id === d.id)?.title
+      : folderOrder.find((f) => f.id === d.id)?.name;
+  if (!name || (into?.id ?? null) === (folder?.id ?? null)) return;
+  moveRequest = { ...d, name, into };
+  moveOpen = true;
+}
+
+async function confirmMove() {
+  const m = moveRequest;
+  if (!m) return;
+  const folderId = m.into?.id ?? null;
+  const ok = await attempt(
+    () =>
+      m.kind === "album"
+        ? patch(`/albums/${m.id}`, { folderId })
+        : patch(`/folders/${m.id}`, { parentId: folderId }),
+    `Moved “${m.name}” to ${m.into?.name ?? "the library"}`,
+  );
+  if (ok) await invalidateAll();
 }
 
 const trail = $derived.by(() => {
@@ -153,7 +229,15 @@ const deleteFolder = () =>
       <Breadcrumb.List>
         <Breadcrumb.Item>
           {#if folder}
-            <Breadcrumb.Link href="/">Library</Breadcrumb.Link>
+            <Breadcrumb.Link
+              href="/"
+              class={cn('rounded px-1 -mx-1', crumbTarget === 'root' && 'bg-primary/15 ring-2 ring-primary')}
+              ondragover={(e: DragEvent) => dragOverCrumb(e, 'root')}
+              ondragleave={() => (crumbTarget = null)}
+              ondrop={(e: DragEvent) => dropOnCrumb(e, null)}
+            >
+              Library
+            </Breadcrumb.Link>
           {:else}
             <Breadcrumb.Page>Library</Breadcrumb.Page>
           {/if}
@@ -162,7 +246,15 @@ const deleteFolder = () =>
           <Breadcrumb.Separator />
           <Breadcrumb.Item>
             {#if i < trail.length - 1}
-              <Breadcrumb.Link href="/folders/{f.id}">{f.name}</Breadcrumb.Link>
+              <Breadcrumb.Link
+                href="/folders/{f.id}"
+                class={cn('rounded px-1 -mx-1', crumbTarget === f.id && 'bg-primary/15 ring-2 ring-primary')}
+                ondragover={(e: DragEvent) => dragOverCrumb(e, f.id)}
+                ondragleave={() => (crumbTarget = null)}
+                ondrop={(e: DragEvent) => dropOnCrumb(e, f)}
+              >
+                {f.name}
+              </Breadcrumb.Link>
             {:else}
               <Breadcrumb.Page>{f.name}</Breadcrumb.Page>
             {/if}
@@ -191,20 +283,27 @@ const deleteFolder = () =>
   </div>
 </div>
 
-{#snippet dropIndicator(id: string)}
-  {#if dropTarget?.id === id}
+<!-- Drop feedback over a whole tile: a frame to take its place, or "Move into". -->
+{#snippet dropOverlay(id: string, name = "")}
+  {#if hover?.id === id}
     <div
       class={cn(
-        'pointer-events-none absolute inset-y-0 w-1 rounded-full bg-primary',
-        dropTarget.after ? '-right-3.5' : '-left-3.5'
+        'pointer-events-none absolute -inset-2 rounded-2xl ring-2 ring-primary',
+        hover.mode === 'into' && 'flex items-center justify-center bg-primary/10'
       )}
-    ></div>
+    >
+      {#if hover.mode === 'into'}
+        <span class="rounded-full bg-background px-3 py-1 text-sm font-medium shadow">
+          Move into “{name}”
+        </span>
+      {/if}
+    </div>
   {/if}
 {/snippet}
 
 {#if sort === 'manual' && folderOrder.length + albumOrder.length > 1}
   <p class="-mt-6 mb-8 hidden text-sm text-muted-foreground sm:block">
-    Drag folders and albums to arrange them.
+    Drag to arrange. Drop onto a folder (or a folder above) to move something into it.
   </p>
 {/if}
 
@@ -221,8 +320,9 @@ const deleteFolder = () =>
           draggable="true"
           ondragstart={() => (drag = { kind: 'folder', id: f.id })}
           ondragend={endDrag}
-          ondragover={(e) => dragOver(e, 'folder', f.id)}
-          ondrop={(e) => dropOn(e, 'folder', f.id)}
+          ondragover={(e) => dragOverFolder(e, f)}
+          ondragleave={(e) => leaveTile(e, f.id)}
+          ondrop={(e) => dropOnTile(e, f.id)}
         >
           <FolderCard
             folder={f}
@@ -243,7 +343,7 @@ const deleteFolder = () =>
               />
             {/snippet}
           </FolderCard>
-          {@render dropIndicator(f.id)}
+          {@render dropOverlay(f.id, f.name)}
         </div>
       {/each}
     </div>
@@ -269,8 +369,9 @@ const deleteFolder = () =>
           draggable="true"
           ondragstart={() => (drag = { kind: 'album', id: album.id })}
           ondragend={endDrag}
-          ondragover={(e) => dragOver(e, 'album', album.id)}
-          ondrop={(e) => dropOn(e, 'album', album.id)}
+          ondragover={(e) => dragOverAlbum(e, album)}
+          ondragleave={(e) => leaveTile(e, album.id)}
+          ondrop={(e) => dropOnTile(e, album.id)}
         >
           <AlbumCard {album}>
             {#snippet menu()}
@@ -281,12 +382,22 @@ const deleteFolder = () =>
               />
             {/snippet}
           </AlbumCard>
-          {@render dropIndicator(album.id)}
+          {@render dropOverlay(album.id)}
         </div>
       {/each}
     </div>
   {/if}
 </section>
+
+<ConfirmDialog
+  bind:open={moveOpen}
+  title={`Move “${moveRequest?.name ?? ''}” to ${moveRequest?.into ? `“${moveRequest.into.name}”` : 'the library'}?`}
+  description={moveRequest?.kind === 'folder'
+    ? 'The folder moves with everything inside it. Share links keep working; everyone’s manual order for it here is reset.'
+    : 'The album leaves this folder. Share links keep working; everyone’s manual order for it here is reset.'}
+  confirmLabel="Move"
+  onconfirm={confirmMove}
+/>
 
 <PromptDialog
   bind:open={newFolderOpen}
