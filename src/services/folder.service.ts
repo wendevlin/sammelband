@@ -1,10 +1,10 @@
-import { db } from "../db/client";
 import type { Album, Folder } from "../db/schema";
 import { AppError, must } from "../lib/errors";
 import { emit, topics } from "../lib/events";
+import { currentTenantId, tdb } from "../lib/tenant-context";
 
 export function listFolders(): Promise<Folder[]> {
-  return db
+  return tdb()
     .selectFrom("folders")
     .selectAll()
     .orderBy("parent_id", (ob) => ob.asc().nullsFirst())
@@ -14,7 +14,7 @@ export function listFolders(): Promise<Folder[]> {
 
 export async function getFolder(id: string): Promise<Folder | null> {
   return (
-    (await db.selectFrom("folders").selectAll().where("id", "=", id).executeTakeFirst()) ?? null
+    (await tdb().selectFrom("folders").selectAll().where("id", "=", id).executeTakeFirst()) ?? null
   );
 }
 
@@ -28,10 +28,11 @@ export async function createFolder(input: {
     throw new AppError(404, "Parent folder not found");
   }
   const id = Bun.randomUUIDv7();
-  await db
+  await tdb()
     .insertInto("folders")
     .values({
       id,
+      tenant_id: currentTenantId(),
       name: input.name.trim(),
       parent_id: input.parentId,
       created_by: input.createdBy,
@@ -65,7 +66,11 @@ export async function updateFolder(
 
   const name = patch.name?.trim() ?? folder.name;
   const parentId = patch.parentId === undefined ? folder.parent_id : patch.parentId;
-  await db.updateTable("folders").set({ name, parent_id: parentId }).where("id", "=", id).execute();
+  await tdb()
+    .updateTable("folders")
+    .set({ name, parent_id: parentId })
+    .where("id", "=", id)
+    .execute();
   const updated = must(await getFolder(id), "Folder");
   emit({ topic: topics.folder(id), kind: "updated", id, data: updated });
   emit({ topic: topics.folderTree(), kind: "updated", id });
@@ -92,7 +97,7 @@ export async function deleteFolder(id: string): Promise<void> {
   const folder = await getFolder(id);
   if (!folder) throw new AppError(404, "Folder not found");
 
-  const albums = await db
+  const albums = await tdb()
     .selectFrom("albums")
     .select("id")
     .where("folder_id", "=", id)
@@ -100,7 +105,7 @@ export async function deleteFolder(id: string): Promise<void> {
   if (albums) {
     throw new AppError(409, "Folder is not empty — move or delete albums first");
   }
-  const subfolders = await db
+  const subfolders = await tdb()
     .selectFrom("folders")
     .select("id")
     .where("parent_id", "=", id)
@@ -109,7 +114,7 @@ export async function deleteFolder(id: string): Promise<void> {
     throw new AppError(409, "Folder is not empty — move or delete sub-folders first");
   }
 
-  await db.deleteFrom("folders").where("id", "=", id).execute();
+  await tdb().deleteFrom("folders").where("id", "=", id).execute();
   emit({ topic: topics.folder(id), kind: "deleted", id });
   emit({ topic: topics.folderTree(), kind: "deleted", id });
   if (folder.parent_id) {
@@ -125,13 +130,13 @@ export async function getFolderContents(id: string): Promise<{
 }> {
   const folder = await getFolder(id);
   if (!folder) throw new AppError(404, "Folder not found");
-  const folders = await db
+  const folders = await tdb()
     .selectFrom("folders")
     .selectAll()
     .where("parent_id", "=", id)
     .orderBy("name")
     .execute();
-  const albums = await db
+  const albums = await tdb()
     .selectFrom("albums")
     .selectAll()
     .where("folder_id", "=", id)

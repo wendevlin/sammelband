@@ -59,7 +59,8 @@ export const post = <T = unknown>(path: string, body?: unknown) =>
   api<T>(path, { method: "POST", body: body ?? {} });
 export const patch = <T = unknown>(path: string, body: unknown) =>
   api<T>(path, { method: "PATCH", body });
-export const del = <T = unknown>(path: string) => api<T>(path, { method: "DELETE" });
+export const del = <T = unknown>(path: string, body?: unknown) =>
+  api<T>(path, { method: "DELETE", body });
 
 /**
  * Login page URL that returns to `target` after sign-in. Only same-origin

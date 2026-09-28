@@ -4,6 +4,7 @@
 
 export type Folder = {
   id: string;
+  tenant_id: string;
   name: string;
   parent_id: string | null;
   created_by: string | null;
@@ -12,6 +13,7 @@ export type Folder = {
 
 export type Album = {
   id: string;
+  tenant_id: string;
   title: string;
   slug: string;
   short_id: string;
@@ -25,6 +27,7 @@ export type Album = {
 
 export type AlbumBlock = {
   id: string;
+  tenant_id: string;
   album_id: string;
   parent_id: string | null;
   sort_order: number;
@@ -36,9 +39,9 @@ export type AlbumBlock = {
 
 export type ImageFile = {
   id: string;
+  tenant_id: string;
   content_hash: string;
   filename: string;
-  original_path: string;
   width: number;
   height: number;
   file_size: number;
@@ -48,6 +51,7 @@ export type ImageFile = {
 
 export type Photo = {
   id: string;
+  tenant_id: string;
   album_id: string;
   block_id: string;
   sort_order: number;
@@ -57,12 +61,34 @@ export type Photo = {
   uploaded_at: number;
 };
 
+/** A Sammelband: an isolated set of users, folders, albums and photos. */
+export type Tenant = {
+  id: string;
+  name: string;
+  quota_bytes: number | null; // null = unlimited
+  storage_used_bytes: number; // originals only
+  suspended_at: number | null;
+  created_at: number;
+};
+
+export type TenantInvite = {
+  id: string;
+  tenant_id: string;
+  token_hash: string;
+  role: "admin" | "user";
+  expires_at: number;
+  used_at: number | null;
+  created_at: number;
+};
+
 /** The columns of better-auth's tables that app code touches directly. */
 type UserTable = {
   id: string;
   email: string;
   name: string;
   role: "admin" | "user";
+  tenantId: string | null;
+  superadmin: boolean | number; // SQLite returns 0/1
   createdAt: string | Date;
   updatedAt: string | Date;
 };
@@ -72,9 +98,17 @@ type SessionTable = {
   userId: string;
 };
 
+type AccountTable = {
+  id: string;
+  userId: string;
+};
+
 export type Database = {
+  tenants: Tenant;
+  tenant_invites: TenantInvite;
   user: UserTable;
   session: SessionTable;
+  account: AccountTable;
   folders: Folder;
   albums: Album;
   album_blocks: AlbumBlock;

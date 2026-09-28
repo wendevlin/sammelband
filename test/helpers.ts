@@ -4,10 +4,15 @@ import { deflateSync } from "node:zlib";
 import { sql } from "kysely";
 import { config } from "../src/config";
 import { db } from "../src/db/client";
+import type { ImageFile } from "../src/db/schema";
+import { originalsDir } from "../src/lib/storage-paths";
+import { currentTenantId, runInTenant } from "../src/lib/tenant-context";
+import { createFirstTenant } from "../src/services/tenant.service";
 import * as userService from "../src/services/user.service";
 
 // Children before parents, so foreign keys never block a delete.
 const TABLES = [
+  "tenant_invites",
   "photos",
   "image_files",
   "album_blocks",
@@ -17,6 +22,7 @@ const TABLES = [
   "account",
   "verification",
   "user",
+  "tenants",
 ];
 
 export async function resetDatabase(): Promise<void> {
@@ -24,12 +30,28 @@ export async function resetDatabase(): Promise<void> {
   await db.updateTable("folders").set({ parent_id: null }).execute();
   for (const table of TABLES) await sql`DELETE FROM ${sql.table(table)}`.execute(db);
   rmSync(config.UPLOADS_PATH, { recursive: true, force: true });
-  mkdirSync(join(config.UPLOADS_PATH, "originals"), { recursive: true });
-  mkdirSync(join(config.UPLOADS_PATH, "variants"), { recursive: true });
+  mkdirSync(config.UPLOADS_PATH, { recursive: true });
+}
+
+export function createTenant(name = "Test") {
+  return createFirstTenant(name);
+}
+
+/** Wrap a test body: runs it inside a fresh tenant, like a signed-in request. */
+export function inTenant(fn: () => Promise<void>): () => Promise<void> {
+  return async () => {
+    const tenant = await createTenant();
+    await runInTenant(tenant.id, fn);
+  };
+}
+
+export function originalFile(file: ImageFile): string {
+  return join(originalsDir(currentTenantId()), file.filename);
 }
 
 let counter = 0;
 
+/** A user in the current tenant. */
 export function createUser(role: "admin" | "user" = "user") {
   counter++;
   return userService.createUser({

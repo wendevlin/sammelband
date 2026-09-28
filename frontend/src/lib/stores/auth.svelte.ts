@@ -1,20 +1,29 @@
 import { api, post } from "$lib/api";
-import type { Role } from "$lib/types";
+import type { Role, TenantInfo } from "$lib/types";
 
 export type SessionUser = {
   id: string;
   email: string;
   name: string;
+  /** Role within the user's Sammelband. */
   role: Role;
+  tenantId: string;
+  superadmin: boolean;
 };
 
 class AuthStore {
   user = $state<SessionUser | null>(null);
+  /** The user's Sammelband. */
+  tenant = $state<TenantInfo | null>(null);
   needsOnboarding = $state(false);
   #initialized = false;
 
   get isAdmin(): boolean {
     return this.user?.role === "admin";
+  }
+
+  get isSuperadmin(): boolean {
+    return this.user?.superadmin === true;
   }
 
   /** Runs once per page load (root layout load). */
@@ -34,10 +43,16 @@ class AuthStore {
     try {
       const session = await api<{ user?: SessionUser } | null>("/auth/get-session");
       this.user = session?.user
-        ? { ...session.user, role: session.user.role === "admin" ? "admin" : "user" }
+        ? {
+            ...session.user,
+            role: session.user.role === "admin" ? "admin" : "user",
+            superadmin: session.user.superadmin === true,
+          }
         : null;
+      this.tenant = this.user ? await api<TenantInfo>("/tenant").catch(() => null) : null;
     } catch {
       this.user = null;
+      this.tenant = null;
     }
   }
 
@@ -49,6 +64,7 @@ class AuthStore {
   async signOut(): Promise<void> {
     await post("/auth/sign-out");
     this.user = null;
+    this.tenant = null;
   }
 }
 

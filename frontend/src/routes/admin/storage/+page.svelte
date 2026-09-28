@@ -8,6 +8,7 @@ import { Button } from "$lib/components/ui/button";
 import * as Card from "$lib/components/ui/card";
 import { formatBytes } from "$lib/images";
 import { live } from "$lib/live.svelte";
+import { auth } from "$lib/stores/auth.svelte";
 
 let { data } = $props();
 let clearOpen = $state(false);
@@ -17,8 +18,13 @@ live(
   () => "app:storage",
 );
 
+const quota = $derived(data.stats.quota);
 const tiles = $derived([
-  { label: "Database", value: formatBytes(data.stats.db.size_bytes), hint: data.stats.db.path },
+  {
+    label: "Used",
+    value: formatBytes(quota.used_bytes),
+    hint: quota.limit_bytes === null ? "No limit" : `of ${formatBytes(quota.limit_bytes)}`,
+  },
   {
     label: "Originals",
     value: formatBytes(data.stats.originals.size_bytes),
@@ -35,7 +41,11 @@ const orphans = $derived(data.stats.orphans.missing_on_disk + data.stats.orphans
 
 <svelte:head><title>Storage · Sammelband</title></svelte:head>
 
-<h1 class="mb-8 font-heading text-4xl">Storage</h1>
+<h1 class="font-heading text-4xl">Storage</h1>
+<p class="mt-2 mb-8 text-muted-foreground">
+  Photos of {auth.tenant?.name ?? 'this Sammelband'}. The limit counts originals; duplicates are
+  stored once.
+</p>
 
 <div class="mb-8 grid gap-4 sm:grid-cols-3">
   {#each tiles as t (t.label)}

@@ -26,6 +26,15 @@ const links = $derived([
         },
       ]
     : []),
+  ...(auth.isSuperadmin
+    ? [
+        {
+          href: "/admin/instance",
+          label: "Sammelbände",
+          active: page.url.pathname === "/admin/instance",
+        },
+      ]
+    : []),
 ]);
 
 const themes = [
@@ -50,6 +59,9 @@ async function signOut() {
   <DropdownMenu.Label>
     <div class="text-sm">{auth.user?.name}</div>
     <div class="text-xs font-normal text-muted-foreground">{auth.user?.email}</div>
+    {#if auth.tenant}
+      <div class="mt-1 text-xs font-normal text-muted-foreground">{auth.tenant.name}</div>
+    {/if}
   </DropdownMenu.Label>
 {/snippet}
 

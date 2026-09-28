@@ -5,8 +5,35 @@ export type User = {
   email: string;
   name: string;
   role: Role;
+  /** The instance owner; can't be demoted or deleted. */
+  superadmin: boolean;
   createdAt: string;
 };
+
+/** The signed-in user's Sammelband (a tenant in the API). */
+export type TenantInfo = {
+  id: string;
+  name: string;
+  quota_bytes: number | null;
+  storage_used_bytes: number;
+};
+
+/** A Sammelband as the instance owner sees it: metadata, never content. */
+export type TenantOverview = TenantInfo & {
+  suspended_at: number | null;
+  created_at: number;
+  own: boolean;
+  user_count: number;
+  album_count: number;
+  invite_pending: boolean;
+};
+
+export type InstanceOverview = {
+  database: { type: "sqlite" | "postgres"; size_bytes: number };
+  tenants: TenantOverview[];
+};
+
+export type CreatedInvite = { url: string; role: Role; expiresAt: number };
 
 export type Folder = {
   id: string;
@@ -90,7 +117,7 @@ export type FolderContents = {
 };
 
 export type StorageStats = {
-  db: { size_bytes: number; path: string };
+  quota: { used_bytes: number; limit_bytes: number | null };
   originals: { file_count: number; size_bytes: number };
   variants: { file_count: number; size_bytes: number };
   orphans: { missing_on_disk: number; unknown_on_disk: number };

@@ -24,8 +24,21 @@ Self-hosted photo book app. See README.md for setup; TASKS.md for the plan and b
 
 - Language: everything in the repo is English (code, comments, UI strings, commit
   messages, TASKS.md and other docs), even when the conversation is in German.
-- Permissions: two roles. `requireAuth` for all content (everyone edits everything),
-  `requireAdmin` for `/api/admin/*` (users, storage). No per-resource grants.
+- Tenants ("Sammelband" in the UI, `tenant` in code): every content row has a
+  `tenant_id`. The guards in `middleware/auth.middleware.ts` run each request inside
+  the user's tenant (`lib/tenant-context.ts`). Content services query through `tdb()`,
+  whose `TenantScopePlugin` (`db/tenant-scope.ts`) adds the tenant filter to every
+  query and rejects inserts for another tenant; inserts still set
+  `tenant_id: currentTenantId()`. Never take a tenant id from request input, and don't
+  use raw `sql` on tenant tables in scoped code (the plugin can't see it). Plain `db`
+  is for instance-level code (auth, tenant/invite services) and must filter explicitly.
+  Files live under `uploads/tenants/<id>/` (`lib/storage-paths.ts`); WS topics are
+  per tenant. New tenant tables go into `TENANT_COLUMNS` and get isolation tests
+  (`test/isolation.test.ts`).
+- Permissions: `requireAuth` for all content (everyone in a tenant edits everything),
+  `requireAdmin` for `/api/admin/*` (users, invites, storage of the own tenant),
+  `requireSuperadmin` for `/api/instance/*` (tenant management, metadata only). No
+  per-resource grants.
 - All HTTP routes live under `/api`; `/ws` is the change-event WebSocket; everything
   else is the SPA. Services `emit()` change events (`lib/events.ts`); pages call
   `live(topics, key)` to `invalidate()` their load data when an event arrives.

@@ -186,7 +186,7 @@ This plan overturns some decisions from 2026-09-25 (see "Context"):
 - **Migrations** come back and run automatically on startup (item 1); editing `db/schema.sql` + deleting the DB only applies until then.
 - **Plugin configuration** per tenant instead of per instance (backlog 2, 4, 5 adjusted).
 
-Open question: per the notes, the tenant admin "sets permissions". Does that mean per-folder/album permissions (contradicts "everyone edits everything") or just roles within the tenant? Clarify before item 2.
+Decided 2026-09-28: "the tenant admin sets permissions" means roles only (admin/user within the tenant); everyone in a tenant edits everything. Per-folder/album rights stay out.
 
 Order follows dependencies: DB layer and migrations first, then multi-tenancy, since almost everything else (`tenant_id`, storage paths, links) builds on it.
 
@@ -198,19 +198,21 @@ Order follows dependencies: DB layer and migrations first, then multi-tenancy, s
 
 ### 2. Multi-tenancy (required for v1)
 Naming: `tenant` in code, **"Sammelband"** in the UI (a Sammelband is a book binding several works together, i.e. one tenant with its albums). The app and a single tenant share the name, so docs need to tell "instance" and "Sammelband" apart.
-- [ ] One instance hosts multiple independent tenants (friends/family), each with its own users, folders/albums and storage, isolated from each other.
-- [ ] Role model:
-  - **Superadmin** (instance owner): one per installation. Has their own Sammelband with their own users (they are also tenant admin of it), and creates/deletes Sammelbände for other admins, sets GB quotas, can globally suspend a tenant. Sees storage metadata of other tenants, but none of their content.
-  - **Tenant admin:** manages only their own Sammelband: invites users, sets permissions (see open question above), configures the tenant's plugins (print providers, photo sources, AI keys). Doesn't see other tenants at all.
+- [x] One instance hosts multiple independent tenants (friends/family), each with its own users, folders/albums and storage, isolated from each other.
+- [x] Role model:
+  - **Superadmin** (instance owner, `user.superadmin`): one per installation. Has their own Sammelband with their own users (they are also tenant admin of it), and creates/deletes Sammelbände for other admins, sets GB quotas, can globally suspend a tenant. Sees storage metadata of other tenants, but none of their content. Can't be demoted or deleted; can't suspend or delete their own Sammelband.
+  - **Tenant admin:** manages only their own Sammelband: creates users or invite links. Doesn't see other tenants at all. (Configuring plugins comes with the plugin system, backlog 2.)
   - **Tenant user:** regular users.
-- [ ] Tenant selection: a user belongs to exactly one tenant, resolved at login. No subdomains for v1.
-- [ ] Data model: add `tenant_id` to the existing tables (albums, folders, photos, plugin configs, links). One shared DB with a `tenant_id` column is enough for v1 (simpler than one DB per tenant, can be split later).
-- [ ] All queries go through a repository/middleware layer that takes `tenant_id` from the logged-in user, so filtering can't be forgotten.
-- [ ] Storage isolation: photos and generated PDFs live in per-tenant subfolders/paths, not just filtered by DB query, so a query bug can't leak files across tenants. Dedup then only within a tenant.
-- [ ] Per-tenant GB quota for original photos: on upload check `storageUsedBytes + newFileSize <= quota`, update the counter on delete. The superadmin gets a per-tenant usage overview in the admin area (replaces/extends `/admin/storage`).
-- [ ] Print orders (Lulu etc.) and AI/API keys stay per tenant, so costs and usage don't get mixed.
-- [ ] Live events (`/ws`) only go to users of the same tenant.
-- [ ] First-run setup wizard creates the superadmin and their Sammelband (replaces the current onboarding).
+- [x] A new Sammelband's first admin gets a one-time invite link (7 days, only a hash stored) and sets their own password. Tenant admins can create invite links for their users too.
+- [x] Superadmin can suspend (signs everyone out, blocks sign-in, nothing deleted) and hard-delete (users, content, files; requires typing the name).
+- [x] Tenant selection: a user belongs to exactly one tenant (`user.tenantId`), resolved at login. No subdomains for v1. Emails stay unique across the instance, so a tenant admin creating a user with an email taken in another tenant learns that it exists.
+- [x] Data model: `tenants`, `tenant_invites`, `tenant_id` on folders, albums, album_blocks, image_files and photos (migration `0002_tenants`; existing installs get one Sammelband owning everything, oldest admin becomes superadmin, files move). Plugin configs and links get it when they exist.
+- [x] Query layer: requests run inside the user's tenant (AsyncLocalStorage); `tdb()` adds the tenant filter to every query via a Kysely plugin (WHERE, JOIN ON, subqueries) and rejects inserts for another tenant.
+- [x] Storage isolation: files under `uploads/tenants/<id>/`, paths always built from the tenant in context. Dedup only within a tenant. (Generated PDFs will follow the same layout.)
+- [x] Per-tenant GB quota for original photos: one conditional UPDATE reserves the bytes on upload (413 when over), deletes release them. The superadmin's **Sammelbände** page shows usage per tenant; `/admin/storage` shows the own tenant.
+- [ ] Print orders (Lulu etc.) and AI/API keys stay per tenant, so costs and usage don't get mixed. (With backlog 4/5.)
+- [x] Live events (`/ws`) only go to users of the same tenant.
+- [x] First-run setup creates the superadmin and names their Sammelband.
 
 ### 3. Folder tiles in the library view
 - [ ] Folder tiles the same size as album tiles (consistent grid, no more small list-style entries).

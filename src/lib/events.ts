@@ -2,15 +2,17 @@
  * In-process pub/sub for resource change notifications.
  *
  * Topics are strings: either keyless ("folder-tree", "album-list", "storage-stats")
- * or `<kind>:<id>` ("album:abc", "folder:xyz", "photo-pool:abc").
+ * or `<kind>:<id>` ("album:abc", "folder:xyz", "photo-pool:abc"). Every topic
+ * exists once per tenant: emit() publishes to the tenant in context, and
+ * subscribers name the tenant they belong to, so events never cross tenants.
  *
- * Single-process by design — this app is one Bun + one SQLite DB. If we ever
- * scale to multiple replicas, swap the listener map for Redis pub/sub or
- * SQLite triggers + LISTEN/NOTIFY equivalent. The public API (`emit`, `subscribe`)
- * stays the same.
+ * Single-process by design — this app is one Bun process. If we ever scale to
+ * multiple replicas, swap the listener map for Redis pub/sub or Postgres
+ * LISTEN/NOTIFY. The public API (`emit`, `subscribe`) stays the same.
  */
 
 import type { Album, AlbumBlock, Photo } from "../db/schema";
+import { currentTenantId } from "./tenant-context";
 
 export type EventKind = "created" | "updated" | "deleted";
 
@@ -25,22 +27,26 @@ type Listener = (e: ChangeEvent) => void;
 
 const listeners = new Map<string, Set<Listener>>();
 
-export function subscribe(topic: string, listener: Listener): () => void {
-  let set = listeners.get(topic);
+const key = (tenantId: string, topic: string) => `${tenantId}/${topic}`;
+
+export function subscribe(tenantId: string, topic: string, listener: Listener): () => void {
+  const k = key(tenantId, topic);
+  let set = listeners.get(k);
   if (!set) {
     set = new Set();
-    listeners.set(topic, set);
+    listeners.set(k, set);
   }
   set.add(listener);
   return () => {
-    const s = listeners.get(topic);
+    const s = listeners.get(k);
     s?.delete(listener);
-    if (s && s.size === 0) listeners.delete(topic);
+    if (s && s.size === 0) listeners.delete(k);
   };
 }
 
+/** Publish to the subscribers of the current tenant. */
 export function emit(event: ChangeEvent): void {
-  const subs = listeners.get(event.topic);
+  const subs = listeners.get(key(currentTenantId(), event.topic));
   if (!subs) return;
   for (const fn of subs) {
     try {

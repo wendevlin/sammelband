@@ -10,6 +10,7 @@ import { auth } from "$lib/stores/auth.svelte";
 import AuthShell from "./auth-shell.svelte";
 
 let code = $state(page.url.searchParams.get("code") ?? "");
+let sammelband = $state("");
 let name = $state("");
 let email = $state("");
 let password = $state("");
@@ -19,8 +20,8 @@ async function submit(e: SubmitEvent) {
   e.preventDefault();
   busy = true;
   const ok = await attempt(
-    () => post("/onboarding/claim", { code, email, password, name: name || undefined }),
-    "Admin account created. Sign in to continue.",
+    () => post("/onboarding/claim", { code, sammelband, email, password, name: name || undefined }),
+    "Your Sammelband is ready. Sign in to continue.",
   );
   busy = false;
   if (!ok) return;
@@ -30,8 +31,8 @@ async function submit(e: SubmitEvent) {
 </script>
 
 <AuthShell
-  title="Create the first admin"
-  description="Use the setup code printed in the server log when it started."
+  title="Set up Sammelband"
+  description="Use the setup code printed in the server log when it started. You become the owner of this instance and can later create Sammelbände for others."
 >
   <form class="grid gap-4" onsubmit={submit}>
     <div class="grid gap-2">
@@ -39,7 +40,17 @@ async function submit(e: SubmitEvent) {
       <Input id="code" bind:value={code} required autocomplete="off" class="font-mono uppercase" />
     </div>
     <div class="grid gap-2">
-      <Label for="name">Name</Label>
+      <Label for="sammelband">Name of your Sammelband</Label>
+      <Input
+        id="sammelband"
+        bind:value={sammelband}
+        required
+        maxlength={100}
+        placeholder="e.g. Our family"
+      />
+    </div>
+    <div class="grid gap-2">
+      <Label for="name">Your name</Label>
       <Input id="name" bind:value={name} autocomplete="name" />
     </div>
     <div class="grid gap-2">
@@ -57,6 +68,6 @@ async function submit(e: SubmitEvent) {
         autocomplete="new-password"
       />
     </div>
-    <Button type="submit" disabled={busy}>Create admin</Button>
+    <Button type="submit" disabled={busy}>Create</Button>
   </form>
 </AuthShell>

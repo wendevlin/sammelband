@@ -34,7 +34,7 @@ async function submit(e: SubmitEvent) {
 }
 </script>
 
-<AuthShell title="Sign in" description="Accounts are created by an admin.">
+<AuthShell title="Sign in" description="Accounts are created by an admin or with an invite link.">
   <form class="grid gap-4" onsubmit={submit}>
     {#if errorMessage}
       <Alert.Root variant="destructive">

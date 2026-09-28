@@ -14,6 +14,7 @@ export const onboardingRoutes = new Hono()
         email: z.email(),
         password: z.string().min(8).max(128),
         name: z.string().min(1).max(200).optional(),
+        sammelband: z.string().trim().min(1).max(100),
       }),
     ),
     async (c) => c.json(await onboardingService.claim(c.req.valid("json"))),

@@ -5,7 +5,7 @@ import { type ChangeEvent, subscribe } from "../lib/events";
 import { type AuthEnv, requireAuth } from "../middleware/auth.middleware";
 
 /**
- * Subscribe to per-resource change events. Open to every signed-in user.
+ * Subscribe to per-resource change events of the user's own tenant.
  *
  * Wire protocol:
  *   Client → server:
@@ -57,7 +57,8 @@ function parse(data: unknown): ClientMessage | null {
 export const wsRoutes = new Hono<AuthEnv>().get(
   "/ws",
   requireAuth,
-  upgradeWebSocket(() => {
+  upgradeWebSocket((c) => {
+    const { tenantId } = c.get("user");
     // Per-connection subscriptions. Key = topic.
     const unsubs = new Map<string, () => void>();
     const send = (ws: WSContext, msg: object) => ws.send(JSON.stringify(msg));
@@ -84,7 +85,7 @@ export const wsRoutes = new Hono<AuthEnv>().get(
           if (!unsubs.has(m.topic)) {
             unsubs.set(
               m.topic,
-              subscribe(m.topic, (event: ChangeEvent) =>
+              subscribe(tenantId, m.topic, (event: ChangeEvent) =>
                 send(ws, {
                   type: "event",
                   topic: event.topic,

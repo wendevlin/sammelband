@@ -20,7 +20,7 @@ COPY --from=frontend /app/dist/frontend ./dist/frontend
 COPY src/ ./src/
 COPY package.json tsconfig.json bunfig.toml ./
 
-RUN mkdir -p /data /uploads/originals /uploads/variants
+RUN mkdir -p /data /uploads/tenants
 
 EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 \

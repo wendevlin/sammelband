@@ -1,15 +1,17 @@
 import { randomBytes } from "node:crypto";
-import { auth } from "../auth";
-import { config } from "../config";
+import { appUrl } from "../config";
 import { db } from "../db/client";
 import { AppError } from "../lib/errors";
+import { createFirstTenant } from "./tenant.service";
+import { createAccount } from "./user.service";
 
 /**
  * First-run onboarding.
  *
- * When the database has no admin user, the server generates a one-time bootstrap
+ * When the instance has no superadmin, the server generates a one-time bootstrap
  * code at startup and prints it. The first person to hit /api/onboarding/claim
- * with the correct code creates their account and is promoted to admin.
+ * with the correct code becomes the superadmin and admin of the first
+ * Sammelband, which the claim creates.
  *
  * The code lives in process memory only — if the process restarts, a new code
  * is printed. Once consumed, this module's `claim()` rejects further attempts.
@@ -18,29 +20,26 @@ import { AppError } from "../lib/errors";
 let bootstrapCode: string | null = null;
 let consumed = false;
 
-async function adminExists(): Promise<boolean> {
+async function superadminExists(): Promise<boolean> {
   const row = await db
     .selectFrom("user")
     .select("id")
-    .where("role", "=", "admin")
+    .where("superadmin", "=", true)
     .executeTakeFirst();
   return row !== undefined;
 }
 
 export async function initOnboarding(): Promise<void> {
-  if (await adminExists()) return;
+  if (await superadminExists()) return;
   // 8 uppercase hex chars — easy to read off a terminal.
   bootstrapCode = randomBytes(4).toString("hex").toUpperCase();
-  // In dev the Vite dev server hosts the UI at :5173 with proxies back to us;
-  // in prod the backend serves the SPA at BASE_URL.
-  const frontendBase = config.isDev ? "http://localhost:5173" : config.BASE_URL;
-  const url = `${frontendBase}/?code=${bootstrapCode}`;
+  const url = appUrl(`/?code=${bootstrapCode}`);
   const banner = "═".repeat(72);
   console.log(
     [
       "",
       banner,
-      "  No admin user exists yet. To create the first admin, open:",
+      "  No instance owner exists yet. To set up Sammelband, open:",
       "",
       `      ${url}`,
       "",
@@ -62,6 +61,7 @@ export async function claim(input: {
   email: string;
   password: string;
   name?: string;
+  sammelband: string;
 }): Promise<{ ok: true }> {
   if (consumed) throw new AppError(410, "Onboarding already completed");
   if (!bootstrapCode) throw new AppError(410, "Onboarding not active");
@@ -69,25 +69,29 @@ export async function claim(input: {
     // Don't reveal whether code is wrong vs expired — just reject.
     throw new AppError(401, "Invalid code");
   }
-  if (await adminExists()) {
-    // Race / double-claim guard.
-    consumed = true;
+  // Taken before the first await, so a concurrent claim sees it as consumed.
+  consumed = true;
+  if (await superadminExists()) {
     bootstrapCode = null;
     throw new AppError(410, "Onboarding already completed");
   }
 
-  // Create user via better-auth so password is hashed correctly and the
-  // session/account tables get populated as if it were a normal signup.
-  const email = input.email.trim().toLowerCase();
-  const res = await auth.api.signUpEmail({
-    body: { email, password: input.password, name: input.name?.trim() || email },
-  });
-  await db.updateTable("user").set({ role: "admin" }).where("id", "=", res.user.id).execute();
-  // The server-side sign-up opens a session nobody holds; the admin signs in next.
-  await db.deleteFrom("session").where("userId", "=", res.user.id).execute();
-
-  consumed = true;
+  const tenant = await createFirstTenant(input.sammelband);
+  try {
+    await createAccount({
+      tenantId: tenant.id,
+      email: input.email,
+      name: input.name ?? "",
+      password: input.password,
+      role: "admin",
+      superadmin: true,
+    });
+  } catch (err) {
+    await db.deleteFrom("tenants").where("id", "=", tenant.id).execute();
+    consumed = false;
+    throw err;
+  }
   bootstrapCode = null;
-  console.log(`[onboarding] admin account created for ${input.email}`);
+  console.log(`[onboarding] instance owner created: ${input.email}`);
   return { ok: true };
 }

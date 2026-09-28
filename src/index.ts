@@ -10,20 +10,23 @@ import { config } from "./config";
 import { migrate } from "./db/migrate";
 import { AppError } from "./lib/errors";
 import { authRateLimit } from "./middleware/rate-limit.middleware";
+import { adminInviteRoutes } from "./routes/admin/invites";
 import { adminStorageRoutes } from "./routes/admin/storage";
 import { adminUserRoutes } from "./routes/admin/users";
 import { albumRoutes } from "./routes/albums";
 import { blockRoutes } from "./routes/blocks";
 import { folderRoutes } from "./routes/folders";
 import { imageRoutes } from "./routes/images";
+import { instanceRoutes } from "./routes/instance";
+import { inviteRoutes } from "./routes/invites";
 import { onboardingRoutes } from "./routes/onboarding";
 import { photoRoutes } from "./routes/photos";
 import { spaRoutes } from "./routes/spa";
+import { tenantRoutes } from "./routes/tenant";
 import { wsRoutes } from "./routes/ws";
 import { initOnboarding } from "./services/onboarding.service";
 
-mkdirSync(join(config.UPLOADS_PATH, "originals"), { recursive: true });
-mkdirSync(join(config.UPLOADS_PATH, "variants"), { recursive: true });
+mkdirSync(join(config.UPLOADS_PATH, "tenants"), { recursive: true });
 
 await migrate();
 await initOnboarding();
@@ -50,8 +53,8 @@ app.get("/health", (c) => c.json({ ok: true }));
 // cross-origin without a CORS preflight, which this server never answers.
 app.use("/api/*", csrf({ origin: allowedOrigins }));
 
-// Auth. Closed instance: accounts are created by an admin or by onboarding,
-// both server-side, so the public sign-up endpoint is blocked.
+// Auth. Closed instance: accounts are created by an admin, an invite link or
+// the first-run setup, all server-side, so the public sign-up endpoint is blocked.
 app.use("/api/auth/*", authRateLimit);
 app.post("/api/auth/sign-up/*", (c) =>
   c.json({ error: "Public sign-up is disabled. Ask an admin to create your account." }, 403),
@@ -59,6 +62,8 @@ app.post("/api/auth/sign-up/*", (c) =>
 app.on(["GET", "POST"], "/api/auth/*", (c) => auth.handler(c.req.raw));
 
 app.route("/api/onboarding", onboardingRoutes);
+app.route("/api/invites", inviteRoutes);
+app.route("/api/tenant", tenantRoutes);
 app.route("/api/folders", folderRoutes);
 app.route("/api/albums", albumRoutes);
 app.route("/api/albums", blockRoutes);
@@ -66,6 +71,8 @@ app.route("/api", photoRoutes);
 app.route("/api/images", imageRoutes);
 app.route("/api/admin/users", adminUserRoutes);
 app.route("/api/admin/storage", adminStorageRoutes);
+app.route("/api/admin/invites", adminInviteRoutes);
+app.route("/api/instance", instanceRoutes);
 app.all("/api/*", (c) => c.json({ error: "Not found" }, 404));
 
 app.route("/", wsRoutes);

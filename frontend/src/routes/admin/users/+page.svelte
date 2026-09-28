@@ -1,6 +1,7 @@
 <script lang="ts">
 import EllipsisVertical from "@lucide/svelte/icons/ellipsis-vertical";
 import KeyRound from "@lucide/svelte/icons/key-round";
+import Link from "@lucide/svelte/icons/link";
 import Pencil from "@lucide/svelte/icons/pencil";
 import Trash from "@lucide/svelte/icons/trash-2";
 import UserPlus from "@lucide/svelte/icons/user-plus";
@@ -8,6 +9,7 @@ import { invalidate } from "$app/navigation";
 import { del, patch, post } from "$lib/api";
 import { attempt } from "$lib/attempt";
 import ConfirmDialog from "$lib/components/app/confirm-dialog.svelte";
+import InviteLinkDialog from "$lib/components/app/invite-link-dialog.svelte";
 import PromptDialog from "$lib/components/app/prompt-dialog.svelte";
 import SimpleSelect from "$lib/components/app/simple-select.svelte";
 import { Badge } from "$lib/components/ui/badge";
@@ -18,7 +20,7 @@ import { Input } from "$lib/components/ui/input";
 import { Label } from "$lib/components/ui/label";
 import * as Table from "$lib/components/ui/table";
 import { auth } from "$lib/stores/auth.svelte";
-import type { Role, User } from "$lib/types";
+import type { CreatedInvite, Role, User } from "$lib/types";
 
 let { data } = $props();
 
@@ -43,6 +45,21 @@ async function create(e: SubmitEvent) {
   createOpen = false;
   form = { name: "", email: "", password: "", role: "user" };
   await refresh();
+}
+
+// Invite link
+let inviteRoleOpen = $state(false);
+let inviteRole = $state<Role>("user");
+let invite = $state<CreatedInvite | null>(null);
+let inviteOpen = $state(false);
+
+async function createInvite(e: SubmitEvent) {
+  e.preventDefault();
+  const created = await attempt(() => post<CreatedInvite>("/admin/invites", { role: inviteRole }));
+  if (!created) return;
+  inviteRoleOpen = false;
+  invite = created;
+  inviteOpen = true;
 }
 
 // Row actions
@@ -85,6 +102,8 @@ async function remove() {
 
 const isSelf = (u: User) => u.id === auth.user?.id;
 const lastAdmin = (u: User) => u.role === "admin" && adminCount <= 1;
+/** Role and deletion are locked for yourself, the last admin and the instance owner. */
+const locked = (u: User) => isSelf(u) || lastAdmin(u) || u.superadmin;
 </script>
 
 <svelte:head><title>Users · Sammelband</title></svelte:head>
@@ -93,10 +112,14 @@ const lastAdmin = (u: User) => u.role === "admin" && adminCount <= 1;
   <div>
     <h1 class="font-heading text-4xl">Users</h1>
     <p class="mt-2 text-muted-foreground">
-      Everyone can see and edit all folders and albums. Admins also manage users.
+      Everyone in {auth.tenant?.name ?? 'this Sammelband'} can see and edit all folders and albums.
+      Admins also manage users.
     </p>
   </div>
-  <Button onclick={() => (createOpen = true)}><UserPlus /> New user</Button>
+  <div class="flex gap-2">
+    <Button variant="outline" onclick={() => (inviteRoleOpen = true)}><Link /> Invite link</Button>
+    <Button onclick={() => (createOpen = true)}><UserPlus /> New user</Button>
+  </div>
 </div>
 
 <Table.Root>
@@ -117,10 +140,13 @@ const lastAdmin = (u: User) => u.role === "admin" && adminCount <= 1;
           {#if isSelf(u)}
             <Badge variant="secondary" class="ml-2">You</Badge>
           {/if}
+          {#if u.superadmin}
+            <Badge variant="outline" class="ml-2">Owner</Badge>
+          {/if}
         </Table.Cell>
         <Table.Cell>{u.email}</Table.Cell>
         <Table.Cell>
-          {#if isSelf(u) || lastAdmin(u)}
+          {#if locked(u)}
             <span class="text-sm">{u.role === 'admin' ? 'Admin' : 'User'}</span>
           {:else}
             <SimpleSelect
@@ -163,7 +189,7 @@ const lastAdmin = (u: User) => u.role === "admin" && adminCount <= 1;
                 <KeyRound />
                 Set password
               </DropdownMenu.Item>
-              {#if !isSelf(u) && !lastAdmin(u)}
+              {#if !locked(u)}
                 <DropdownMenu.Separator />
                 <DropdownMenu.Item
                   variant="destructive"
@@ -226,6 +252,34 @@ const lastAdmin = (u: User) => u.role === "admin" && adminCount <= 1;
     </form>
   </Dialog.Content>
 </Dialog.Root>
+
+<Dialog.Root bind:open={inviteRoleOpen}>
+  <Dialog.Content class="sm:max-w-md">
+    <form class="grid gap-4" onsubmit={createInvite}>
+      <Dialog.Header>
+        <Dialog.Title>Invite someone</Dialog.Title>
+        <Dialog.Description>
+          They get a link to create their own account and choose their password.
+        </Dialog.Description>
+      </Dialog.Header>
+      <div class="grid gap-2">
+        <Label>Role</Label>
+        <SimpleSelect
+          label="Role"
+          value={inviteRole}
+          options={ROLES}
+          onchange={(v) => (inviteRole = v as Role)}
+        />
+      </div>
+      <Dialog.Footer>
+        <Button variant="outline" onclick={() => (inviteRoleOpen = false)}>Cancel</Button>
+        <Button type="submit">Create link</Button>
+      </Dialog.Footer>
+    </form>
+  </Dialog.Content>
+</Dialog.Root>
+
+<InviteLinkDialog bind:open={inviteOpen} {invite} />
 
 <PromptDialog
   bind:open={renameOpen}

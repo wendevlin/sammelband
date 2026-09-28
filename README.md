@@ -4,8 +4,19 @@ Self-hosted digital photo books. Folders hold albums; an album is a sequence of
 blocks (headings, text, photo galleries and groups of those). Photos are
 deduplicated on disk and resized on demand.
 
-Everyone with an account can see and edit every folder and album. Admins can
-additionally manage users. There are no public share links (yet).
+One installation hosts several independent **Sammelbände**, e.g. one per family
+or group of friends. Each has its own users, folders, albums and photos, and
+none can see another's.
+
+- The **instance owner** sets the instance up and gets the first Sammelband.
+  They create further Sammelbände (with an optional storage limit), send an
+  invite link to each one's first admin, and can suspend or delete them. They
+  see names and storage numbers of other Sammelbände, never their content.
+- **Admins** manage the users of their Sammelband: create accounts or send
+  invite links.
+- Everyone in a Sammelband can see and edit all of its folders and albums.
+
+There are no public share links (yet).
 
 ## Stack
 
@@ -22,8 +33,9 @@ bun run dev:frontend   # Vite on :5173, proxies /api and /ws to :3000
 ```
 
 Open http://localhost:5173. On the first start the backend prints a one-time
-setup link with a code; use it to create the first admin. Afterwards admins
-create further accounts under **Users**.
+setup link with a code; use it to become the instance owner and name your
+Sammelband. Afterwards admins create further accounts or invite links under
+**Users**, and the owner manages Sammelbände under **Sammelbände**.
 
 Checks:
 

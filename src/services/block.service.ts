@@ -1,7 +1,7 @@
-import { db } from "../db/client";
 import type { AlbumBlock } from "../db/schema";
 import { AppError, must } from "../lib/errors";
 import { emitAlbumPatch } from "../lib/events";
+import { currentTenantId, tdb } from "../lib/tenant-context";
 import * as imageService from "./image.service";
 
 const ALLOWED_TYPES = new Set(["heading", "text", "gallery", "group"]);
@@ -25,7 +25,7 @@ async function resolveParent(
 }
 
 export function listBlocks(albumId: string): Promise<AlbumBlock[]> {
-  return db
+  return tdb()
     .selectFrom("album_blocks")
     .selectAll()
     .where("album_id", "=", albumId)
@@ -43,7 +43,7 @@ export async function createBlock(input: {
   if (!ALLOWED_TYPES.has(input.type)) {
     throw new AppError(400, "Invalid block type");
   }
-  const album = await db
+  const album = await tdb()
     .selectFrom("albums")
     .select("id")
     .where("id", "=", input.albumId)
@@ -55,10 +55,11 @@ export async function createBlock(input: {
 
   const id = Bun.randomUUIDv7();
   const now = Date.now();
-  await db
+  await tdb()
     .insertInto("album_blocks")
     .values({
       id,
+      tenant_id: currentTenantId(),
       album_id: input.albumId,
       parent_id: parentId,
       sort_order: sortOrder,
@@ -75,7 +76,7 @@ export async function createBlock(input: {
 
 /** Blocks sharing a parent (or all top-level blocks) of an album. */
 function siblings(albumId: string, parentId: string | null) {
-  return db
+  return tdb()
     .selectFrom("album_blocks")
     .select("sort_order")
     .where("album_id", "=", albumId)
@@ -108,7 +109,7 @@ async function nextSortOrder(
 
 export async function getBlock(id: string): Promise<AlbumBlock | null> {
   return (
-    (await db.selectFrom("album_blocks").selectAll().where("id", "=", id).executeTakeFirst()) ??
+    (await tdb().selectFrom("album_blocks").selectAll().where("id", "=", id).executeTakeFirst()) ??
     null
   );
 }
@@ -133,7 +134,7 @@ export async function updateBlock(
     sortOrder = await nextSortOrder(block.album_id, parentId);
   }
 
-  await db
+  await tdb()
     .updateTable("album_blocks")
     .set({
       type: type as AlbumBlock["type"],
@@ -154,18 +155,18 @@ export async function deleteBlock(id: string): Promise<void> {
   if (!block) throw new AppError(404, "Block not found");
   // A group also owns its children (parent_id has no DB-level cascade).
   const childIds = (
-    await db.selectFrom("album_blocks").select("id").where("parent_id", "=", id).execute()
+    await tdb().selectFrom("album_blocks").select("id").where("parent_id", "=", id).execute()
   ).map((r) => r.id);
   const blockIds = [id, ...childIds];
   // Galleries own their photos: remove those from disk + variant cache first.
   const removedPhotos = await imageService.deletePhotosByBlocks(blockIds);
-  await db.deleteFrom("album_blocks").where("id", "in", blockIds).execute();
+  await tdb().deleteFrom("album_blocks").where("id", "in", blockIds).execute();
   emitAlbumPatch(block.album_id, {
     removedBlocks: blockIds,
     removedPhotos,
     // The cover may have been one of the removed photos (cleared by a trigger).
     ...(removedPhotos.length > 0 && {
-      album: await db
+      album: await tdb()
         .selectFrom("albums")
         .selectAll()
         .where("id", "=", block.album_id)
@@ -179,19 +180,21 @@ export async function reorderBlocks(
   order: { id: string; sortOrder: number }[],
 ): Promise<void> {
   const now = Date.now();
-  await db.transaction().execute(async (trx) => {
-    for (const entry of order) {
-      await trx
-        .updateTable("album_blocks")
-        .set({ sort_order: entry.sortOrder, updated_at: now })
-        .where("id", "=", entry.id)
-        .where("album_id", "=", albumId)
-        .execute();
-    }
-  });
+  await tdb()
+    .transaction()
+    .execute(async (trx) => {
+      for (const entry of order) {
+        await trx
+          .updateTable("album_blocks")
+          .set({ sort_order: entry.sortOrder, updated_at: now })
+          .where("id", "=", entry.id)
+          .where("album_id", "=", albumId)
+          .execute();
+      }
+    });
   const ids = order.map((e) => e.id);
   if (ids.length === 0) return;
-  const blocks = await db
+  const blocks = await tdb()
     .selectFrom("album_blocks")
     .selectAll()
     .where("album_id", "=", albumId)

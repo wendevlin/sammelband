@@ -43,6 +43,14 @@ export const config = {
   FRONTEND_DIST: process.env.FRONTEND_DIST ?? "./dist/frontend",
 } as const;
 
+/**
+ * Absolute URL of a page in the SPA, for links printed or handed out (setup,
+ * invites). In dev the Vite server hosts the UI at :5173.
+ */
+export function appUrl(path: string): string {
+  return new URL(path, config.isDev ? "http://localhost:5173" : config.BASE_URL).href;
+}
+
 export const SRCSET_WIDTHS = [400, 800, 1200, 1920] as const;
 export type SrcsetWidth = (typeof SRCSET_WIDTHS)[number];
 

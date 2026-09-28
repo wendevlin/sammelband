@@ -1,8 +1,8 @@
-import { db } from "../db/client";
 import type { Album, AlbumBlock } from "../db/schema";
 import { AppError, must } from "../lib/errors";
 import { emit, emitAlbumPatch, type PhotoWithImage, topics } from "../lib/events";
 import { shortId } from "../lib/short-id";
+import { currentTenantId, tdb } from "../lib/tenant-context";
 import * as imageService from "./image.service";
 
 function slugify(s: string): string {
@@ -17,12 +17,12 @@ function slugify(s: string): string {
 
 export async function getAlbum(id: string): Promise<Album | null> {
   return (
-    (await db.selectFrom("albums").selectAll().where("id", "=", id).executeTakeFirst()) ?? null
+    (await tdb().selectFrom("albums").selectAll().where("id", "=", id).executeTakeFirst()) ?? null
   );
 }
 
 async function folderExists(id: string): Promise<boolean> {
-  return !!(await db.selectFrom("folders").select("id").where("id", "=", id).executeTakeFirst());
+  return !!(await tdb().selectFrom("folders").select("id").where("id", "=", id).executeTakeFirst());
 }
 
 /**
@@ -33,15 +33,18 @@ async function folderExists(id: string): Promise<boolean> {
 export async function resolveAlbum(ref: string): Promise<Album | null> {
   const short = ref.slice(ref.lastIndexOf("-") + 1);
   return (
-    (await db.selectFrom("albums").selectAll().where("short_id", "=", short).executeTakeFirst()) ??
-    null
+    (await tdb()
+      .selectFrom("albums")
+      .selectAll()
+      .where("short_id", "=", short)
+      .executeTakeFirst()) ?? null
   );
 }
 
 async function uniqueShortId(): Promise<string> {
   while (true) {
     const id = shortId();
-    const taken = await db
+    const taken = await tdb()
       .selectFrom("albums")
       .select("id")
       .where("short_id", "=", id)
@@ -52,7 +55,7 @@ async function uniqueShortId(): Promise<string> {
 
 export async function getAlbumBySlug(slug: string, folderId: string | null): Promise<Album | null> {
   return (
-    (await db
+    (await tdb()
       .selectFrom("albums")
       .selectAll()
       .where("slug", "=", slug)
@@ -62,7 +65,7 @@ export async function getAlbumBySlug(slug: string, folderId: string | null): Pro
 }
 
 export function listAlbums(): Promise<Album[]> {
-  return db.selectFrom("albums").selectAll().orderBy("created_at", "desc").execute();
+  return tdb().selectFrom("albums").selectAll().orderBy("created_at", "desc").execute();
 }
 
 export async function createAlbum(input: {
@@ -81,10 +84,11 @@ export async function createAlbum(input: {
 
   const id = Bun.randomUUIDv7();
   const now = Date.now();
-  await db
+  await tdb()
     .insertInto("albums")
     .values({
       id,
+      tenant_id: currentTenantId(),
       title: input.title.trim(),
       slug,
       short_id: await uniqueShortId(),
@@ -148,7 +152,7 @@ export async function updateAlbum(
     }
   }
 
-  await db
+  await tdb()
     .updateTable("albums")
     .set({
       title: patch.title?.trim() ?? album.title,
@@ -175,7 +179,7 @@ export async function setCover(albumId: string, photoId: string | null): Promise
   const album = await getAlbum(albumId);
   if (!album) throw new AppError(404, "Album not found");
   if (photoId !== null) {
-    const photo = await db
+    const photo = await tdb()
       .selectFrom("photos")
       .select("id")
       .where("id", "=", photoId)
@@ -183,7 +187,7 @@ export async function setCover(albumId: string, photoId: string | null): Promise
       .executeTakeFirst();
     if (!photo) throw new AppError(404, "Photo not found in album");
   }
-  await db
+  await tdb()
     .updateTable("albums")
     .set({ cover_photo_id: photoId, updated_at: Date.now() })
     .where("id", "=", albumId)
@@ -200,7 +204,7 @@ export type AlbumWithCover = Album & { cover_filename: string | null };
 // image (first gallery in block order, first photo by sort_order), else null.
 export async function coverFilename(album: Album): Promise<string | null> {
   if (album.cover_photo_id) {
-    const row = await db
+    const row = await tdb()
       .selectFrom("image_files as i")
       .innerJoin("photos as p", "p.image_file_id", "i.id")
       .select("i.filename")
@@ -208,7 +212,7 @@ export async function coverFilename(album: Album): Promise<string | null> {
       .executeTakeFirst();
     if (row) return row.filename;
   }
-  const first = await db
+  const first = await tdb()
     .selectFrom("photos as p")
     .innerJoin("image_files as i", "i.id", "p.image_file_id")
     .innerJoin("album_blocks as b", "b.id", "p.block_id")
@@ -231,7 +235,7 @@ export async function deleteAlbum(id: string): Promise<void> {
   // Remove all photos from disk + variant cache first (dedup-aware); blocks then
   // cascade via FK ON DELETE CASCADE when the album row is gone.
   await imageService.deletePhotosByAlbum(id);
-  await db.deleteFrom("albums").where("id", "=", id).execute();
+  await tdb().deleteFrom("albums").where("id", "=", id).execute();
   emit({ topic: topics.album(id), kind: "deleted", id });
   emit({ topic: topics.albumList(), kind: "deleted", id });
   if (album.folder_id) {
@@ -249,7 +253,7 @@ export async function getAlbumDetail(ref: string): Promise<{
 }> {
   const album = await resolveAlbum(ref);
   if (!album) throw new AppError(404, "Album not found");
-  const blocks = await db
+  const blocks = await tdb()
     .selectFrom("album_blocks")
     .selectAll()
     .where("album_id", "=", album.id)
