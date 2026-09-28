@@ -243,8 +243,11 @@ describe("share links", () => {
   test("expiry dates end at 23:59:59 in the Sammelband's time zone", async () => {
     const { as, user, inside } = await setup();
     await as(async () => {
-      await expect(tenantService.setTimezone("Mars/Olympus")).rejects.toThrow("Unknown");
-      expect((await tenantService.setTimezone("Asia/Kolkata")).timezone).toBe("Asia/Kolkata");
+      await expect(tenantService.updateCurrentTenant({ timezone: "Mars/Olympus" })).rejects.toThrow(
+        "Unknown",
+      );
+      const updated = await tenantService.updateCurrentTenant({ timezone: "Asia/Kolkata" });
+      expect(updated.timezone).toBe("Asia/Kolkata");
       const link = await shareService.createShare(
         { albumId: inside.album.id },
         { expiresOn: "2099-06-15" },

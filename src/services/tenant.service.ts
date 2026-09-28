@@ -37,10 +37,23 @@ export async function currentTenant(): Promise<TenantInfo> {
   return { id, name, quota_bytes, storage_used_bytes, timezone: timezone ?? "UTC" };
 }
 
-/** Tenant admin: the zone share-link expiry dates refer to. */
-export async function setTimezone(timezone: string): Promise<TenantInfo> {
-  if (!isValidTimeZone(timezone)) throw new AppError(400, "Unknown time zone");
-  await db.updateTable("tenants").set({ timezone }).where("id", "=", currentTenantId()).execute();
+/** Tenant admin: settings of the own Sammelband (name, time zone for share-link expiry). */
+export async function updateCurrentTenant(patch: {
+  name?: string;
+  timezone?: string;
+}): Promise<TenantInfo> {
+  if (patch.name !== undefined && !patch.name.trim()) throw new AppError(400, "Name required");
+  if (patch.timezone !== undefined && !isValidTimeZone(patch.timezone)) {
+    throw new AppError(400, "Unknown time zone");
+  }
+  await db
+    .updateTable("tenants")
+    .set({
+      ...(patch.name !== undefined && { name: patch.name.trim() }),
+      ...(patch.timezone !== undefined && { timezone: patch.timezone }),
+    })
+    .where("id", "=", currentTenantId())
+    .execute();
   return currentTenant();
 }
 

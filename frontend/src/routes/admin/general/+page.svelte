@@ -4,33 +4,70 @@ import { attempt } from "$lib/attempt";
 import SimpleSelect from "$lib/components/app/simple-select.svelte";
 import { Button } from "$lib/components/ui/button";
 import * as Card from "$lib/components/ui/card";
+import { Input } from "$lib/components/ui/input";
 import { auth } from "$lib/stores/auth.svelte";
 import { browserTimeZone, formatInZone } from "$lib/timezone";
 import type { TenantInfo } from "$lib/types";
 
+/** Settings of the admin's own Sammelband. */
+async function save(patch: { name?: string; timezone?: string }, message: string) {
+  const updated = await attempt(
+    () => api<TenantInfo>("/tenant", { method: "PATCH", body: patch }),
+    message,
+  );
+  if (updated) auth.tenant = updated;
+  return Boolean(updated);
+}
+
+// Name
+let name = $state(auth.tenant?.name ?? "");
+let savingName = $state(false);
+async function saveName(e: SubmitEvent) {
+  e.preventDefault();
+  savingName = true;
+  await save({ name }, "Name saved");
+  savingName = false;
+}
+
+// Time zone
 const zones = Intl.supportedValuesOf("timeZone").map((z) => ({
   value: z,
   label: z.replaceAll("_", " "),
 }));
 const browserZone = browserTimeZone();
 let timezone = $state(auth.tenant?.timezone ?? browserZone);
-let saving = $state(false);
+let savingZone = $state(false);
 const example = $derived(formatInZone(Date.now(), timezone));
-
-async function save() {
-  saving = true;
-  const updated = await attempt(
-    () => api<TenantInfo>("/tenant", { method: "PATCH", body: { timezone } }),
-    "Time zone saved",
-  );
-  saving = false;
-  if (updated) auth.tenant = updated;
+async function saveZone() {
+  savingZone = true;
+  await save({ timezone }, "Time zone saved");
+  savingZone = false;
 }
 </script>
 
 <svelte:head><title>General · Admin · Sammelband</title></svelte:head>
 
 <div class="grid max-w-2xl gap-6">
+  <Card.Root>
+    <Card.Header>
+      <Card.Title>Name</Card.Title>
+      <Card.Description>
+        Shown in the menu, on invite links and to everyone in this Sammelband.
+      </Card.Description>
+    </Card.Header>
+    <Card.Content>
+      <form class="flex flex-wrap gap-2" onsubmit={saveName}>
+        <Input bind:value={name} required maxlength={100} aria-label="Name" class="max-w-sm" />
+        <Button
+          type="submit"
+          disabled={savingName || !name.trim() || name.trim() === auth.tenant?.name}
+        >
+          Save
+        </Button>
+      </form>
+    </Card.Content>
+  </Card.Root>
+
   <Card.Root>
     <Card.Header>
       <Card.Title>Time zone</Card.Title>
@@ -58,7 +95,9 @@ async function save() {
       {/if}
     </Card.Content>
     <Card.Footer>
-      <Button onclick={save} disabled={saving || timezone === auth.tenant?.timezone}>Save</Button>
+      <Button onclick={saveZone} disabled={savingZone || timezone === auth.tenant?.timezone}
+        >Save</Button
+      >
     </Card.Footer>
   </Card.Root>
 </div>

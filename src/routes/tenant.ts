@@ -11,6 +11,12 @@ export const tenantRoutes = new Hono<AuthEnv>()
   .patch(
     "/",
     requireAdmin,
-    validate("json", z.object({ timezone: z.string().max(64) })),
-    async (c) => c.json(await tenantService.setTimezone(c.req.valid("json").timezone)),
+    validate(
+      "json",
+      z.object({
+        name: z.string().trim().min(1).max(100).optional(),
+        timezone: z.string().max(64).optional(),
+      }),
+    ),
+    async (c) => c.json(await tenantService.updateCurrentTenant(c.req.valid("json"))),
   );

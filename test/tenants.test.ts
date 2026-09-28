@@ -71,6 +71,17 @@ describe("quota", () => {
   });
 });
 
+describe("tenant settings", () => {
+  test("admins rename their own Sammelband; blank names are refused", async () => {
+    const tenant = await createTenant("Old");
+    await runInTenant(tenant.id, async () => {
+      expect((await tenantService.updateCurrentTenant({ name: "  Family  " })).name).toBe("Family");
+      await expect(tenantService.updateCurrentTenant({ name: " " })).rejects.toThrow("Name");
+      expect((await tenantService.currentTenant()).name).toBe("Family");
+    });
+  });
+});
+
 describe("storage counter", () => {
   test("reconciling corrects a drifted counter from the stored files", async () => {
     const tenant = await createTenant();
