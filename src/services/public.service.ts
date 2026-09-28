@@ -7,7 +7,7 @@ import type { PhotoWithImage } from "../lib/events";
 import { runInTenant, tdb } from "../lib/tenant-context";
 import * as albumService from "./album.service";
 import * as folderService from "./folder.service";
-import * as imageService from "./image.service";
+import * as imageDelivery from "./image-delivery.service";
 
 // The visitor side of public links: no account, access to exactly one album or
 // one folder subtree. Everything runs inside the link's tenant and returns
@@ -252,6 +252,6 @@ export function image(
       ? q.where("a.id", "=", share.album_id)
       : q.where("a.folder_id", "in", await subtree(share.folder_id ?? ""));
     if (!(await q.executeTakeFirst())) throw new AppError(404, "Image not found");
-    return imageService.serveVariant(filename, width, format);
+    return imageDelivery.serveVariant(filename, width, format);
   });
 }

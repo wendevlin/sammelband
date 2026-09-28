@@ -6,6 +6,7 @@ import * as albumService from "../src/services/album.service";
 import * as blockService from "../src/services/block.service";
 import * as folderService from "../src/services/folder.service";
 import * as imageService from "../src/services/image.service";
+import * as imageDelivery from "../src/services/image-delivery.service";
 import * as userService from "../src/services/user.service";
 import { createTenant, createUser, originalFile, png } from "./helpers";
 
@@ -105,11 +106,11 @@ describe("tenant isolation", () => {
       );
       await expect(imageService.updateCaption(upload.photo.id, "x")).rejects.toThrow("not found");
       await expect(imageService.deletePhoto(upload.photo.id)).rejects.toThrow("not found");
-      await expect(imageService.serveOriginal(upload.imageFile.filename)).rejects.toThrow(
+      await expect(imageDelivery.serveOriginal(upload.imageFile.filename)).rejects.toThrow(
         "not found",
       );
       await expect(
-        imageService.serveVariant(upload.imageFile.filename, 400, "webp"),
+        imageDelivery.serveVariant(upload.imageFile.filename, 400, "webp"),
       ).rejects.toThrow("not found");
       await imageService.reorderPhotos(block.id, [{ id: upload.photo.id, sortOrder: 9 }]);
       expect(await imageService.photosWithImage({ blockId: block.id })).toEqual([]);

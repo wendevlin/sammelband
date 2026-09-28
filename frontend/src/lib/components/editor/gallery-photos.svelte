@@ -4,7 +4,7 @@ import X from "@lucide/svelte/icons/x";
 import { toast } from "svelte-sonner";
 import { api, del, patch, post } from "$lib/api";
 import { attempt } from "$lib/attempt";
-import ConfirmDialog from "$lib/components/app/confirm-dialog.svelte";
+import ConfirmDialog from "$lib/components/dialogs/confirm-dialog.svelte";
 import { Button } from "$lib/components/ui/button";
 import { Input } from "$lib/components/ui/input";
 import { imageSrc } from "$lib/images";

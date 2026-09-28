@@ -2,7 +2,7 @@
 import TriangleAlert from "@lucide/svelte/icons/triangle-alert";
 import { post } from "$lib/api";
 import { attempt } from "$lib/attempt";
-import ConfirmDialog from "$lib/components/app/confirm-dialog.svelte";
+import ConfirmDialog from "$lib/components/dialogs/confirm-dialog.svelte";
 import * as Alert from "$lib/components/ui/alert";
 import { Button } from "$lib/components/ui/button";
 import * as Card from "$lib/components/ui/card";

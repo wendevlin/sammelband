@@ -3,7 +3,7 @@ import Pencil from "@lucide/svelte/icons/pencil";
 import Share from "@lucide/svelte/icons/share-2";
 import { getAlbumState } from "$lib/album-state.svelte";
 import AlbumContent from "$lib/components/album/album-content.svelte";
-import ShareDialog from "$lib/components/app/share-dialog.svelte";
+import ShareDialog from "$lib/components/share/share-dialog.svelte";
 import * as Breadcrumb from "$lib/components/ui/breadcrumb";
 import { Button } from "$lib/components/ui/button";
 import { albumPath } from "$lib/links";

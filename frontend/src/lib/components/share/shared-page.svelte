@@ -2,6 +2,8 @@
 import { invalidateAll } from "$app/navigation";
 import { post } from "$lib/api";
 import AlbumContent from "$lib/components/album/album-content.svelte";
+import AlbumCard from "$lib/components/library/album-card.svelte";
+import FolderCard from "$lib/components/library/folder-card.svelte";
 import * as Alert from "$lib/components/ui/alert";
 import * as Breadcrumb from "$lib/components/ui/breadcrumb";
 import { Button } from "$lib/components/ui/button";
@@ -10,8 +12,6 @@ import { Input } from "$lib/components/ui/input";
 import { Label } from "$lib/components/ui/label";
 import { sharePath } from "$lib/public";
 import type { AlbumBlock, Photo, SharedView } from "$lib/types";
-import AlbumCard from "./album-card.svelte";
-import FolderCard from "./folder-card.svelte";
 
 /** A public link page: password prompt, shared folder or shared album. */
 let { token, view }: { token: string; view: SharedView } = $props();

@@ -6,18 +6,18 @@ import { toast } from "svelte-sonner";
 import { goto, invalidateAll } from "$app/navigation";
 import { api, del, patch, post } from "$lib/api";
 import { attempt } from "$lib/attempt";
+import SimpleSelect from "$lib/components/app/simple-select.svelte";
+import ConfirmDialog from "$lib/components/dialogs/confirm-dialog.svelte";
+import PromptDialog from "$lib/components/dialogs/prompt-dialog.svelte";
+import AlbumCard from "$lib/components/library/album-card.svelte";
+import FolderCard from "$lib/components/library/folder-card.svelte";
+import MoveMenuItems from "$lib/components/library/move-menu-items.svelte";
+import ShareDialog from "$lib/components/share/share-dialog.svelte";
 import * as Breadcrumb from "$lib/components/ui/breadcrumb";
 import { Button } from "$lib/components/ui/button";
 import { albumPath } from "$lib/links";
 import type { Album, Folder, FolderTile, SortMode } from "$lib/types";
 import { cn } from "$lib/utils";
-import AlbumCard from "./album-card.svelte";
-import ConfirmDialog from "./confirm-dialog.svelte";
-import FolderCard from "./folder-card.svelte";
-import MoveMenuItems from "./move-menu-items.svelte";
-import PromptDialog from "./prompt-dialog.svelte";
-import ShareDialog from "./share-dialog.svelte";
-import SimpleSelect from "./simple-select.svelte";
 
 /** Contents of one folder (or the root when `folder` is null). */
 let {

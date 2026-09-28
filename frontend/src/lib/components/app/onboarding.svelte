@@ -3,11 +3,11 @@ import { goto } from "$app/navigation";
 import { page } from "$app/state";
 import { post } from "$lib/api";
 import { attempt } from "$lib/attempt";
+import AuthShell from "$lib/components/app/auth-shell.svelte";
 import { Button } from "$lib/components/ui/button";
 import { Input } from "$lib/components/ui/input";
 import { Label } from "$lib/components/ui/label";
 import { auth } from "$lib/stores/auth.svelte";
-import AuthShell from "./auth-shell.svelte";
 
 let code = $state(page.url.searchParams.get("code") ?? "");
 let sammelband = $state("");

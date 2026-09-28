@@ -1,19 +1,14 @@
-import { existsSync, mkdirSync, rmSync } from "node:fs";
-import { join } from "node:path";
-import { config, isSrcsetWidth, SRCSET_WIDTHS, type SrcsetWidth } from "../config";
+import { mkdirSync, rmSync } from "node:fs";
+import { config, SRCSET_WIDTHS } from "../config";
 import type { Album, ImageFile, Photo } from "../db/schema";
 import { AppError, must } from "../lib/errors";
 import { emit, emitAlbumPatch, type PhotoWithImage, topics } from "../lib/events";
-import { originalsDir, variantsDir } from "../lib/storage-paths";
+import { originalPath, originalsDir, variantPath } from "../lib/storage-paths";
 import { currentTenantId, tdb } from "../lib/tenant-context";
 import { releaseStorage, reserveStorage } from "./tenant.service";
 
 /** Largest accepted image, in pixels (e.g. 12,000 × 8,000). */
 const MAX_PIXELS = 100_000_000;
-
-const originalPath = (filename: string) => join(originalsDir(currentTenantId()), filename);
-const variantPath = (filename: string, width: number, format: string) =>
-  join(variantsDir(currentTenantId()), `${filename}_${width}.${format}`);
 
 export type UploadedPhoto = {
   photo: Photo;
@@ -335,54 +330,4 @@ export async function reorderPhotos(
     await albumChanged(block.album_id);
     emitAlbumPatch(block.album_id, { photos: await photosWithImage({ blockId, ids }) });
   }
-}
-
-// Stored filenames are "<uuid>.bin". Anything else (e.g. "../") is rejected
-// before it reaches the filesystem.
-const FILENAME_RE = /^[0-9a-f-]{36}\.bin$/;
-
-/** 404 unless the image exists in the current tenant (on top of the tenant path). */
-async function assertImage(filename: string): Promise<void> {
-  if (!FILENAME_RE.test(filename)) throw new AppError(404, "Image not found");
-  const row = await tdb()
-    .selectFrom("image_files")
-    .select("id")
-    .where("filename", "=", filename)
-    .executeTakeFirst();
-  if (!row) throw new AppError(404, "Image not found");
-}
-
-const IMAGE_CACHE = "private, max-age=31536000, immutable";
-
-export async function serveVariant(
-  filename: string,
-  width: number,
-  format: "webp" | "jpeg" = "webp",
-): Promise<Response> {
-  if (!isSrcsetWidth(width)) throw new AppError(400, "Unsupported width");
-  await assertImage(filename);
-  const path = variantPath(filename, width, format);
-  const headers = { "Content-Type": `image/${format}`, "Cache-Control": IMAGE_CACHE };
-  const cached = Bun.file(path);
-  if (await cached.exists()) return new Response(cached, { headers });
-
-  const original = originalPath(filename);
-  if (!existsSync(original)) throw new AppError(404, "Image not found");
-
-  const pipeline = new Bun.Image(original).resize(width as SrcsetWidth);
-  const output =
-    format === "webp"
-      ? await pipeline.webp({ quality: 80 }).bytes()
-      : await pipeline.jpeg({ quality: 85 }).bytes();
-
-  mkdirSync(variantsDir(currentTenantId()), { recursive: true });
-  await Bun.write(path, output);
-  return new Response(output as BodyInit, { headers });
-}
-
-export async function serveOriginal(filename: string): Promise<Response> {
-  await assertImage(filename);
-  const file = Bun.file(originalPath(filename));
-  if (!(await file.exists())) throw new AppError(404, "Image not found");
-  return new Response(file, { headers: { "Cache-Control": IMAGE_CACHE } });
 }

@@ -8,11 +8,11 @@ import UserIcon from "@lucide/svelte/icons/user";
 import { mode, setMode } from "mode-watcher";
 import { goto } from "$app/navigation";
 import { page } from "$app/state";
+import Logo from "$lib/components/app/logo.svelte";
 import { Button } from "$lib/components/ui/button";
 import * as DropdownMenu from "$lib/components/ui/dropdown-menu";
 import { auth } from "$lib/stores/auth.svelte";
 import { cn } from "$lib/utils";
-import Logo from "./logo.svelte";
 
 const links = $derived([
   { href: "/", label: "Library", active: !page.url.pathname.startsWith("/admin") },

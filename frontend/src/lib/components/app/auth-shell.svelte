@@ -1,7 +1,7 @@
 <script lang="ts">
 import type { Snippet } from "svelte";
+import Logo from "$lib/components/app/logo.svelte";
 import * as Card from "$lib/components/ui/card";
-import Logo from "./logo.svelte";
 
 let { title, description, children }: { title: string; description?: string; children: Snippet } =
   $props();
