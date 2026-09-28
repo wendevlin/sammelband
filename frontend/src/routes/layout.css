@@ -132,15 +132,20 @@
   html {
     @apply font-sans;
   }
-  /* Tailwind v4 resets buttons to the default cursor. */
-  button:not(:disabled),
-  [role="button"]:not([aria-disabled="true"]),
-  [role="menuitem"]:not([data-disabled]),
-  [role="option"]:not([data-disabled]),
-  summary,
-  label[for] {
-    cursor: pointer;
-  }
+}
+
+/* Pointer cursor on everything clickable. Unlayered on purpose: Tailwind v4
+   resets buttons to the default cursor and the generated menu items carry an
+   explicit cursor-default utility, both of which unlayered CSS overrides. */
+button:not(:disabled),
+[role="button"]:not([aria-disabled="true"]),
+[role="menuitem"]:not([data-disabled]),
+[role="menuitemradio"]:not([data-disabled]),
+[role="option"]:not([data-disabled]),
+[role="switch"]:not([data-disabled]),
+summary,
+label[for] {
+  cursor: pointer;
 }
 
 /* Saturation/lightness for the "auto" group background; hue comes from the photos. */

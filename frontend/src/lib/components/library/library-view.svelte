@@ -5,7 +5,6 @@ import { toast } from "svelte-sonner";
 import { goto, invalidateAll } from "$app/navigation";
 import { api, del, patch, post } from "$lib/api";
 import { attempt } from "$lib/attempt";
-import SimpleSelect from "$lib/components/app/simple-select.svelte";
 import ConfirmDialog from "$lib/components/dialogs/confirm-dialog.svelte";
 import PromptDialog from "$lib/components/dialogs/prompt-dialog.svelte";
 import AlbumCard from "$lib/components/library/album-card.svelte";
@@ -17,6 +16,7 @@ import { Button } from "$lib/components/ui/button";
 import { albumPath } from "$lib/links";
 import type { Album, Folder, FolderTile, SortMode } from "$lib/types";
 import { cn } from "$lib/utils";
+import SortMenu from "./sort-menu.svelte";
 
 /** Contents of one folder (or the root when `folder` is null). */
 let {
@@ -35,12 +35,6 @@ let {
 
 // --- Sort order (per user and folder) ------------------------------------------
 
-const SORT_OPTIONS = [
-  { value: "created", label: "Newest first" },
-  { value: "name", label: "Name" },
-  { value: "modified", label: "Recently changed" },
-  { value: "manual", label: "Manual" },
-];
 /** API base of this container: the library root or the folder. */
 const base = $derived(folder ? `/folders/${folder.id}` : "/library");
 
@@ -265,13 +259,7 @@ const deleteFolder = () =>
     <h1 class="font-heading text-4xl">{folder?.name ?? 'Library'}</h1>
   </div>
   <div class="flex flex-wrap items-center gap-2">
-    <SimpleSelect
-      label="Sort order"
-      value={sort}
-      options={SORT_OPTIONS}
-      onchange={setSort}
-      class="w-44"
-    />
+    <SortMenu value={sort} onchange={setSort} />
     {#if folder}
       <ShareButton target={{ folderId: folder.id }} name={folder.name} />
     {/if}
@@ -351,16 +339,17 @@ const deleteFolder = () =>
 {/if}
 
 <section>
-  {#if folderOrder.length > 0}
+  {#if folderOrder.length > 0 && albumOrder.length > 0}
     <h2 class="mb-4 text-xs font-semibold tracking-widest text-muted-foreground uppercase">
       Albums
     </h2>
   {/if}
-  {#if albumOrder.length === 0}
-    <div class="rounded-2xl border border-dashed px-6 py-16 text-center text-muted-foreground">
-      {folder ? 'No albums in this folder yet.' : 'No albums yet. Create the first one.'}
-    </div>
-  {:else}
+  {#if albumOrder.length === 0 && folderOrder.length === 0}
+    <!-- Only when there's nothing at all; otherwise an empty albums area just gets in the way. -->
+    <p class="py-10 text-center text-sm text-muted-foreground">
+      {folder ? 'This folder is empty.' : 'Nothing here yet. Create a folder or an album to start.'}
+    </p>
+  {:else if albumOrder.length > 0}
     <div class="grid grid-cols-1 gap-x-6 gap-y-10 sm:grid-cols-2 lg:grid-cols-3">
       {#each albumOrder as album, i (album.id)}
         <div
