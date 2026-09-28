@@ -231,13 +231,14 @@ Naming: `tenant` in code, **"Sammelband"** in the UI (a Sammelband is a book bin
 - [x] Items without a manual position (newly added albums) go to the end, oldest first.
 
 ### 5. Public links
-- [ ] Share an album or folder via a public link, without the recipient needing an account.
-- [ ] Links are random, unguessable tokens; tenant-scoped, bypassing login only for that one share.
-- [ ] Per-link settings: optional password, optional expiry date, optional download permission (view only vs. download originals).
-- [ ] Revoke a link at any time; revoking doesn't affect other links to the same content.
-- [ ] Publicly shared photos are served from Sammelband's own storage/cache; never pass live Nextcloud/Immich credentials through for anonymous visitors.
-- [ ] Public pages get `noindex` headers and basic rate limiting (password brute force, mass downloads).
-- [ ] Consider view tracking (link opened / download count) for the owner, optional and disclosed.
+- [x] Share an album or folder (with its sub-folders) via a public link at `/s/<token>`, without the recipient needing an account. "Share" button in the album view and in folders; everyone in the Sammelband can create and revoke links.
+- [x] Links are random, unguessable tokens (24 bytes); tenant-scoped, bypassing login only for that one album or folder subtree. Tokens are stored as is so links can be copied again later. Public responses carry only what rendering needs (no user or tenant ids).
+- [x] Per-link settings: optional password (argon2; unlocking sets a signed cookie for that link, invalidated by a new password), optional expiry date (end of the chosen day).
+- [x] ~~Download permission~~: dropped (decided 2026-09-28). Public links serve resized versions only (up to 1920 px), never originals, no zip download. A browser can't enforce "view only" anyway; download can come back as a link option if needed.
+- [x] Revoke a link at any time (deletes it); other links to the same content keep working. Deleting the album/folder removes its links; suspended Sammelbände' links stop working.
+- [ ] Publicly shared photos are served from Sammelband's own storage/cache; never pass live Nextcloud/Immich credentials through for anonymous visitors. (Holds today; keep it when the photo-source plugins arrive.)
+- [x] Public pages get `X-Robots-Tag: noindex` (API and SPA) plus a robots meta tag, and per-IP rate limits: browsing 300/10 min, password attempts 10/10 min, images 3000/10 min.
+- [ ] View tracking (link opened / download count): not done, optional.
 
 ### 6. Update notifications in the admin area
 - [ ] Backend checks the GitHub Releases API every 12–24 h and caches the result (never from the browser).

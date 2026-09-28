@@ -1,7 +1,7 @@
 <script lang="ts">
 import PhotoSwipeLightbox from "photoswipe/lightbox";
 import "photoswipe/style.css";
-import { imageSrc, srcset } from "$lib/images";
+import { imageUrls } from "$lib/images";
 import {
   type AlbumBlock,
   type GalleryContent,
@@ -15,6 +15,7 @@ import BlockGallery from "./block-gallery.svelte";
 import BlockGroup from "./block-group.svelte";
 
 let { blocks, photos }: { blocks: AlbumBlock[]; photos: Photo[] } = $props();
+const images = imageUrls();
 
 const bySort = (a: { sort_order: number }, b: { sort_order: number }) =>
   a.sort_order - b.sort_order;
@@ -75,8 +76,8 @@ function open(index: number) {
   lightbox.loadAndOpen(
     index,
     sequence.slides.map((p) => ({
-      src: imageSrc(p.filename, 1920),
-      srcset: srcset(p.filename),
+      src: images.src(p.filename, 1920),
+      srcset: images.srcset(p.filename),
       width: p.width,
       height: p.height,
       alt: p.caption ?? "",

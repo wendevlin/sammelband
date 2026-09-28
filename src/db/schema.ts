@@ -105,6 +105,19 @@ export type FolderPosition = {
   position: number;
 };
 
+/** A public link to an album or a folder (with its sub-folders). */
+export type ShareLink = {
+  id: string;
+  tenant_id: string;
+  token: string;
+  album_id: string | null;
+  folder_id: string | null;
+  password_hash: string | null;
+  expires_at: number | null;
+  created_by: string | null;
+  created_at: number;
+};
+
 /** The columns of better-auth's tables that app code touches directly. */
 type UserTable = {
   id: string;
@@ -141,4 +154,5 @@ export type Database = {
   folder_sort: FolderSort;
   album_positions: AlbumPosition;
   folder_positions: FolderPosition;
+  share_links: ShareLink;
 };

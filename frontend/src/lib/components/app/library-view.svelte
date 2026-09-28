@@ -1,6 +1,7 @@
 <script lang="ts">
 import FolderPlus from "@lucide/svelte/icons/folder-plus";
 import Plus from "@lucide/svelte/icons/plus";
+import Share from "@lucide/svelte/icons/share-2";
 import { toast } from "svelte-sonner";
 import { goto, invalidateAll } from "$app/navigation";
 import { api, del, patch, post } from "$lib/api";
@@ -15,6 +16,7 @@ import ConfirmDialog from "./confirm-dialog.svelte";
 import FolderCard from "./folder-card.svelte";
 import MoveMenuItems from "./move-menu-items.svelte";
 import PromptDialog from "./prompt-dialog.svelte";
+import ShareDialog from "./share-dialog.svelte";
 import SimpleSelect from "./simple-select.svelte";
 
 /** Contents of one folder (or the root when `folder` is null). */
@@ -119,6 +121,7 @@ const trail = $derived.by(() => {
   return chain;
 });
 
+let shareOpen = $state(false);
 let newFolderOpen = $state(false);
 let newAlbumOpen = $state(false);
 let renameTarget = $state<Folder | null>(null);
@@ -179,6 +182,9 @@ const deleteFolder = () =>
       onchange={setSort}
       class="w-44"
     />
+    {#if folder}
+      <Button variant="outline" onclick={() => (shareOpen = true)}><Share /> Share</Button>
+    {/if}
     <Button variant="outline" onclick={() => (newFolderOpen = true)}>
       <FolderPlus />
       Folder
@@ -284,6 +290,9 @@ const deleteFolder = () =>
   {/if}
 </section>
 
+{#if folder}
+  <ShareDialog bind:open={shareOpen} target={{ folderId: folder.id }} name={folder.name} />
+{/if}
 <PromptDialog
   bind:open={newFolderOpen}
   title="New folder"

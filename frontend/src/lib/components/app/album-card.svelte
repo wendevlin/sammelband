@@ -4,20 +4,33 @@ import ImageIcon from "@lucide/svelte/icons/image";
 import type { Snippet } from "svelte";
 import { Button } from "$lib/components/ui/button";
 import * as DropdownMenu from "$lib/components/ui/dropdown-menu";
-import { imageSrc } from "$lib/images";
+import { imageUrls } from "$lib/images";
 import { albumPath } from "$lib/links";
 import type { Album } from "$lib/types";
 
-/** An album in the library grid. `menu` adds a "⋯" menu next to the title. */
-let { album, menu }: { album: Album; menu?: Snippet } = $props();
+type CardAlbum = Pick<Album, "title" | "description" | "short_id"> & {
+  cover_filename?: string | null;
+  slug?: string;
+};
+
+/**
+ * An album in the library grid; links to the album unless `href` says
+ * otherwise (public link pages). `menu` adds a "⋯" menu next to the title.
+ */
+let {
+  album,
+  href = albumPath({ slug: album.slug ?? "", short_id: album.short_id }),
+  menu,
+}: { album: CardAlbum; href?: string; menu?: Snippet } = $props();
+const images = imageUrls();
 </script>
 
 <div class="group">
-  <a href={albumPath(album)} class="block" draggable="false">
+  <a {href} class="block" draggable="false">
     <div class="relative aspect-[4/3] overflow-hidden rounded-xl bg-muted">
       {#if album.cover_filename}
         <img
-          src={imageSrc(album.cover_filename, 800)}
+          src={images.src(album.cover_filename, 800)}
           alt=""
           loading="lazy"
           draggable="false"
@@ -31,7 +44,7 @@ let { album, menu }: { album: Album; menu?: Snippet } = $props();
     </div>
   </a>
   <div class="flex items-start gap-2 pt-3">
-    <a href={albumPath(album)} class="min-w-0 flex-1" draggable="false">
+    <a {href} class="min-w-0 flex-1" draggable="false">
       <h3 class="font-heading text-lg leading-snug group-hover:underline">{album.title}</h3>
       {#if album.description}
         <p class="mt-1 line-clamp-2 text-sm text-muted-foreground">{album.description}</p>

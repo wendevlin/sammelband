@@ -31,5 +31,7 @@ export const spaRoutes = new Hono()
       );
     }
     c.header("Cache-Control", "no-cache");
+    // Public link pages stay out of search engines.
+    if (c.req.path.startsWith("/s/")) c.header("X-Robots-Tag", "noindex, nofollow");
     return c.body(await index.arrayBuffer(), 200, { "Content-Type": "text/html; charset=utf-8" });
   });

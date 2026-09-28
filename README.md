@@ -16,7 +16,9 @@ none can see another's.
   invite links.
 - Everyone in a Sammelband can see and edit all of its folders and albums.
 
-There are no public share links (yet).
+Albums and folders can be shared with a public link (optionally with a
+password and an expiry date). Visitors need no account and see photos in web
+size, never the originals.
 
 ## Stack
 

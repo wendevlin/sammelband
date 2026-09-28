@@ -2,6 +2,7 @@ import type { Migration } from "kysely";
 import * as initial from "./0001_initial";
 import * as tenants from "./0002_tenants";
 import * as sortOrder from "./0003_sort_order";
+import * as shareLinks from "./0004_share_links";
 
 /**
  * All migrations, in order. Listed statically (instead of read from disk) so
@@ -12,4 +13,5 @@ export const migrations: Record<string, Migration> = {
   "0001_initial": initial,
   "0002_tenants": tenants,
   "0003_sort_order": sortOrder,
+  "0004_share_links": shareLinks,
 };

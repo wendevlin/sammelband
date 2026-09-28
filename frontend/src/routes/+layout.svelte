@@ -1,6 +1,7 @@
 <script lang="ts">
 import "./layout.css";
 import { ModeWatcher } from "mode-watcher";
+import { page } from "$app/state";
 import favicon from "$lib/assets/favicon.svg";
 import AppHeader from "$lib/components/app/app-header.svelte";
 import NavProgress from "$lib/components/app/nav-progress.svelte";
@@ -20,7 +21,10 @@ let { children } = $props();
 <NavProgress />
 <Toaster richColors />
 
-{#if auth.needsOnboarding}
+{#if page.url.pathname.startsWith('/s/')}
+  <!-- Public link pages bring their own minimal layout, signed in or not. -->
+  {@render children()}
+{:else if auth.needsOnboarding}
   <Onboarding />
 {:else if auth.user}
   <AppHeader />

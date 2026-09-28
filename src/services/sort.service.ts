@@ -25,13 +25,16 @@ const collator = new Intl.Collator(undefined, { sensitivity: "base", numeric: tr
 
 const keyOf = (folderId: string | null) => folderId ?? ROOT;
 
-export async function getMode(userId: string, folderId: string | null): Promise<SortMode> {
+export async function getMode(userId: string | null, folderId: string | null): Promise<SortMode> {
   return (await getModes(userId, [keyOf(folderId)])).get(keyOf(folderId)) ?? DEFAULT_MODE;
 }
 
-/** Stored modes for several containers; missing ones use DEFAULT_MODE. */
-export async function getModes(userId: string, keys: string[]): Promise<Map<string, SortMode>> {
-  if (keys.length === 0) return new Map();
+/** Stored modes for several containers; missing ones (and a null user) use DEFAULT_MODE. */
+export async function getModes(
+  userId: string | null,
+  keys: string[],
+): Promise<Map<string, SortMode>> {
+  if (!userId || keys.length === 0) return new Map();
   const rows = await tdb()
     .selectFrom("folder_sort")
     .select(["folder_key", "mode"])
@@ -60,11 +63,11 @@ export async function setMode(userId: string, folderId: string | null, mode: Sor
 
 /** The user's manual positions of the given items. */
 export async function getPositions(
-  userId: string,
+  userId: string | null,
   kind: Kind,
   ids: string[],
 ): Promise<Map<string, number>> {
-  if (ids.length === 0) return new Map();
+  if (!userId || ids.length === 0) return new Map();
   const rows =
     kind === "album"
       ? await tdb()

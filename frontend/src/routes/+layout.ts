@@ -6,7 +6,8 @@ import { auth } from "$lib/stores/auth.svelte";
 export const ssr = false;
 export const prerender = false;
 
-const isPublic = (path: string) => path === "/login" || path.startsWith("/invite/");
+const isPublic = (path: string) =>
+  path === "/login" || path.startsWith("/invite/") || path.startsWith("/s/");
 
 export const load = async ({ url }) => {
   await auth.init();

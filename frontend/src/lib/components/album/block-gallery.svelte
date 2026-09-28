@@ -1,7 +1,7 @@
 <script lang="ts">
 import ChevronLeft from "@lucide/svelte/icons/chevron-left";
 import ChevronRight from "@lucide/svelte/icons/chevron-right";
-import { GALLERY_SIZES, imageSrc, srcset } from "$lib/images";
+import { GALLERY_SIZES, imageUrls } from "$lib/images";
 import type { GalleryLayout, Photo } from "$lib/types";
 import { cn } from "$lib/utils";
 
@@ -15,6 +15,7 @@ let {
   /** Open the album-wide lightbox at this gallery's photo index. */
   onopen: (index: number) => void;
 } = $props();
+const images = imageUrls();
 
 let strip = $state<HTMLElement | null>(null);
 let canLeft = $state(false);
@@ -56,7 +57,7 @@ const containerClass = $derived(
   >
     {#each photos as p, i (p.id)}
       <a
-        href={imageSrc(p.filename, 1920)}
+        href={images.src(p.filename, 1920)}
         class={cn(
 					'relative block break-inside-avoid overflow-hidden rounded-lg bg-muted',
 					layout === 'grid' && 'aspect-square',
@@ -78,8 +79,8 @@ const containerClass = $derived(
         <img
           loading="lazy"
           alt={p.caption ?? ''}
-          src={imageSrc(p.filename, 800)}
-          srcset={srcset(p.filename)}
+          src={images.src(p.filename, 800)}
+          srcset={images.srcset(p.filename)}
           sizes={GALLERY_SIZES}
           width={p.width}
           height={p.height}

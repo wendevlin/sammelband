@@ -151,7 +151,10 @@ const albumItem = (a: Album): SortableItem => ({
  * holds only sub-folders, of the albums in those (one level deep, newest
  * first). Albums without any image are skipped.
  */
-export async function withPreviews(folders: Folder[], userId: string): Promise<FolderTile[]> {
+export async function withPreviews(
+  folders: Folder[],
+  userId: string | null,
+): Promise<FolderTile[]> {
   if (folders.length === 0) return [];
   const ids = folders.map((f) => f.id);
   const children = await tdb()
@@ -237,7 +240,11 @@ async function childrenOf(parentId: string | null) {
   return { folders, albums };
 }
 
-async function contentsOf(parentId: string | null, userId: string): Promise<Contents> {
+/** A container's contents in `userId`'s order (null: the default order). */
+export async function contentsOf(
+  parentId: string | null,
+  userId: string | null,
+): Promise<Contents> {
   const { folders, albums } = await childrenOf(parentId);
   const sort = await sortService.getMode(userId, parentId);
   // Tiles first: their modified_at feeds the "modified" order.

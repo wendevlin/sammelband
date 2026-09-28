@@ -137,6 +137,48 @@ export type StorageStats = {
   orphans: { missing_on_disk: number; unknown_on_disk: number };
 };
 
+/** A public link to an album or folder, as its owners see it. */
+export type ShareLinkInfo = {
+  id: string;
+  url: string;
+  has_password: boolean;
+  expires_at: number | null;
+  created_at: number;
+  created_by_name: string | null;
+};
+
+/** What a public link shows (GET /api/public/:token). */
+export type SharedView =
+  | { status: "locked" }
+  | {
+      status: "ok";
+      kind: "album";
+      album: Pick<Album, "id" | "title" | "description" | "short_id">;
+      blocks: Pick<AlbumBlock, "id" | "parent_id" | "sort_order" | "type" | "content">[];
+      photos: Pick<
+        Photo,
+        | "id"
+        | "block_id"
+        | "sort_order"
+        | "caption"
+        | "filename"
+        | "width"
+        | "height"
+        | "placeholder"
+      >[];
+      trail: { id: string; name: string }[];
+    }
+  | {
+      status: "ok";
+      kind: "folder";
+      folder: { id: string; name: string };
+      folders: Pick<FolderTile, "id" | "name" | "covers" | "album_count" | "folder_count">[];
+      albums: (Pick<Album, "id" | "title" | "description" | "short_id"> & {
+        cover_filename: string | null;
+      })[];
+      trail: { id: string; name: string }[];
+    };
+
 export function parseContent<T>(block: AlbumBlock): T {
   try {
     return JSON.parse(block.content) as T;

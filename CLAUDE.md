@@ -35,6 +35,12 @@ Self-hosted photo book app. See README.md for setup; TASKS.md for the plan and b
   Files live under `uploads/tenants/<id>/` (`lib/storage-paths.ts`); WS topics are
   per tenant. New tenant tables go into `TENANT_COLUMNS` and get isolation tests
   (`test/isolation.test.ts`).
+- Public links: `/api/public/:token` needs no login. `services/public.service.ts` resolves
+  the token, then runs inside the link's tenant and checks that every album, folder and
+  image requested belongs to the shared album or folder subtree. It serves resized images
+  only and returns trimmed rows (no user/tenant ids). SPA pages live under `/s/<token>`;
+  components that render there take image URLs from `imageUrls()` (`$lib/images`), not
+  `imageSrc()`.
 - Permissions: `requireAuth` for all content (everyone in a tenant edits everything),
   `requireAdmin` for `/api/admin/*` (users, invites, storage of the own tenant),
   `requireSuperadmin` for `/api/instance/*` (tenant management, metadata only). No
