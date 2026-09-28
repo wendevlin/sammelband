@@ -103,6 +103,13 @@ The reference for each is the old Lit page in git history (`frontend/src/pages/.
 - Magic link / password reset by mail.
 - ~~Tests~~ and ~~migrations~~ → now roadmap items 1 and 12. Playwright for the frontend stays later.
 - Backup strategy for DB + uploads (with multi-tenancy: exportable per tenant too?).
+- Update notifications in the admin area (was roadmap item 6; do it after the first GitHub release):
+  - [ ] Backend checks the GitHub Releases API every 12–24 h and caches the result (never from the browser).
+  - [ ] Current version and build commit/date are injected at build time (Docker build args / env vars).
+  - [ ] Channel-aware: stable compares against the latest non-prerelease; beta includes prereleases; nightly compares build date/commit and shows "newer nightly available". Note: SemVer sorts `-nightly.YYYYMMDD` above `-beta.N`, so never compare across channels.
+  - [ ] Banner in the admin area (superadmin only) with current vs. latest version and release notes (from the GitHub release body written by release-please).
+  - [ ] Setting to disable the update check (privacy); document that no data is sent.
+  - [ ] `semver` from npm or `Bun.semver` (Bun-specific, relevant for the Bun investigation in item 12).
 
 ## Verification
 
@@ -241,12 +248,7 @@ Naming: `tenant` in code, **"Sammelband"** in the UI (a Sammelband is a book bin
 - [ ] View tracking (link opened / download count): not done, optional.
 
 ### 6. Update notifications in the admin area
-- [ ] Backend checks the GitHub Releases API every 12–24 h and caches the result (never from the browser).
-- [ ] Current version and build commit/date are injected at build time (Docker build args / env vars).
-- [ ] Channel-aware: stable compares against the latest non-prerelease; beta includes prereleases; nightly compares build date/commit and shows "newer nightly available". Note: SemVer sorts `-nightly.YYYYMMDD` above `-beta.N`, so never compare across channels.
-- [ ] Banner in the admin area (superadmin only) with current vs. latest version and release notes (from the GitHub release body written by release-please).
-- [ ] Setting to disable the update check (privacy); document that no data is sent.
-- [ ] `semver` from npm or `Bun.semver` (Bun-specific, relevant for the Bun investigation in item 12).
+Moved to "Later" (2026-09-28): easier to build once there is a real release on GitHub to test against.
 
 ### 7. First beta release
 - [ ] One container image with the Bun backend and the built SvelteKit SPA (backend serves the static files). Already exists in the `Dockerfile` incl. HEALTHCHECK; make sure it stays that way.
