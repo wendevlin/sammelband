@@ -1,9 +1,8 @@
 <script lang="ts">
 import Pencil from "@lucide/svelte/icons/pencil";
-import Share from "@lucide/svelte/icons/share-2";
 import { getAlbumState } from "$lib/album-state.svelte";
 import AlbumContent from "$lib/components/album/album-content.svelte";
-import ShareDialog from "$lib/components/share/share-dialog.svelte";
+import ShareButton from "$lib/components/share/share-button.svelte";
 import * as Breadcrumb from "$lib/components/ui/breadcrumb";
 import { Button } from "$lib/components/ui/button";
 import { albumPath } from "$lib/links";
@@ -14,7 +13,6 @@ let { data } = $props();
 // Album, blocks and photos come from the layout's live state; `data` still
 // carries the folders.
 const live = getAlbumState();
-let shareOpen = $state(false);
 
 const trail = $derived.by(() => {
   const chain: Folder[] = [];
@@ -50,11 +48,9 @@ const trail = $derived.by(() => {
       {/if}
     </div>
     <div class="flex gap-2">
-      <Button variant="outline" onclick={() => (shareOpen = true)}><Share /> Share</Button>
+      <ShareButton target={{ albumId: live.album.id }} name={live.album.title} />
       <Button variant="outline" href={albumPath(live.album, "/edit")}><Pencil /> Edit</Button>
     </div>
   </div>
   <AlbumContent blocks={live.blocks} photos={live.photos} />
 </article>
-
-<ShareDialog bind:open={shareOpen} target={{ albumId: live.album.id }} name={live.album.title} />
