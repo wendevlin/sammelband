@@ -4,6 +4,7 @@ import { Hono } from "hono";
 import { websocket } from "hono/bun";
 import { csrf } from "hono/csrf";
 import { HTTPException } from "hono/http-exception";
+import { secureHeaders } from "hono/secure-headers";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 import { auth } from "./auth";
 import { config } from "./config";
@@ -33,14 +34,11 @@ mkdirSync(join(config.UPLOADS_PATH, "tenants"), { recursive: true });
 await migrate();
 await initOnboarding();
 
-const allowedOrigins = [
-  new URL(config.BASE_URL).origin,
-  ...config.TRUSTED_ORIGINS.map((o) => new URL(o).origin),
-];
-
 const app = new Hono();
 
 app.onError((err, c) => {
+  // Error pages of public links stay out of search engines too.
+  if (c.req.path.startsWith("/api/public/")) c.header("X-Robots-Tag", "noindex, nofollow");
   if (err instanceof AppError) {
     return c.json({ error: err.message }, err.statusCode as ContentfulStatusCode);
   }
@@ -49,11 +47,33 @@ app.onError((err, c) => {
   return c.json({ error: "Internal server error" }, 500);
 });
 
+app.use(
+  "*",
+  secureHeaders({
+    // HSTS belongs to the TLS-terminating proxy; the default includeSubDomains
+    // could affect other services on the same domain.
+    strictTransportSecurity: false,
+    contentSecurityPolicy: {
+      defaultSrc: ["'self'"],
+      // SvelteKit's CSP meta tag narrows inline scripts to its bootstrap's hash.
+      scriptSrc: ["'self'", "'unsafe-inline'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", "data:", "blob:"],
+      fontSrc: ["'self'", "data:"],
+      connectSrc: ["'self'"],
+      objectSrc: ["'none'"],
+      baseUri: ["'self'"],
+      formAction: ["'self'"],
+      frameAncestors: ["'none'"],
+    },
+  }),
+);
+
 app.get("/health", (c) => c.json({ ok: true }));
 
 // Cross-origin form/multipart posts are rejected. JSON bodies can't be sent
 // cross-origin without a CORS preflight, which this server never answers.
-app.use("/api/*", csrf({ origin: allowedOrigins }));
+app.use("/api/*", csrf({ origin: config.ALLOWED_ORIGINS }));
 
 // Auth. Closed instance: accounts are created by an admin, an invite link or
 // the first-run setup, all server-side, so the public sign-up endpoint is blocked.

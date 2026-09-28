@@ -6,6 +6,11 @@ import { type AuthEnv, requireAuth } from "../middleware/auth.middleware";
 import * as blockService from "../services/block.service";
 
 const blockType = z.enum(["heading", "text", "gallery", "group"]);
+/** Block content is free-form JSON; cap its size (text blocks are the big ones). */
+const MAX_CONTENT_BYTES = 64 * 1024;
+const content = z
+  .unknown()
+  .refine((v) => JSON.stringify(v ?? {}).length <= MAX_CONTENT_BYTES, "Block content is too large");
 const order = z.object({
   order: z.array(z.object({ id: z.string(), sortOrder: z.number() })),
 });
@@ -21,7 +26,7 @@ export const blockRoutes = new Hono<AuthEnv>()
       "json",
       z.object({
         type: blockType,
-        content: z.unknown(),
+        content,
         parentId: z.string().nullable().optional(),
         afterId: z.string().optional(),
       }),
@@ -48,7 +53,7 @@ export const blockRoutes = new Hono<AuthEnv>()
       "json",
       z.object({
         type: blockType.optional(),
-        content: z.unknown().optional(),
+        content: content.optional(),
         parentId: z.string().nullable().optional(),
       }),
     ),

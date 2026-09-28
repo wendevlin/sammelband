@@ -10,8 +10,10 @@ none can see another's.
 
 - The **instance owner** sets the instance up and gets the first Sammelband.
   They create further Sammelbände (with an optional storage limit), send an
-  invite link to each one's first admin, and can suspend or delete them. They
-  see names and storage numbers of other Sammelbände, never their content.
+  invite link to each one's first admin, and can suspend or delete them. The
+  app shows them names and storage numbers of other Sammelbände, not their
+  content. (Whoever runs the server can of course read its database and files;
+  host Sammelbände only for people who trust you with their photos.)
 - **Admins** manage the users of their Sammelband: create accounts or send
   invite links.
 - Everyone in a Sammelband can see and edit all of its folders and albums.
@@ -66,7 +68,16 @@ docker compose logs app  # shows the setup link on first start
 ```
 
 Data lives in two volumes: the SQLite database (`/data`, unused with Postgres) and the photos
-(`/uploads`, originals plus a regenerable cache of resized versions).
+(`/uploads`, originals plus a regenerable cache of resized versions). The
+container runs as the unprivileged user `bun` (uid 1000): named volumes work as
+is, bind mounts must be writable by uid 1000.
+
+Put a reverse proxy with TLS in front (Caddy, Traefik, nginx). Set
+`TRUST_PROXY=true` so rate limits see the real client IP, and configure HSTS
+there; the app doesn't send it.
+
+The backend alone also runs in Docker for development:
+`docker compose -f docker-compose.dev.yml up`, with `bun run dev:frontend` on the host.
 
 ## Configuration
 
@@ -74,12 +85,14 @@ Data lives in two volumes: the SQLite database (`/data`, unused with Postgres) a
 |---|---|---|
 | `PORT` | `3000` | HTTP port |
 | `BASE_URL` | `http://localhost:3000` | Public URL, used for the CSRF origin check |
-| `SECRET_KEY` | dev placeholder | Signs sessions. Required in production |
+| `SECRET_KEY` | dev placeholder | Signs sessions and share-link cookies. Required in production, at least 32 characters |
 | `DATABASE_URL` | unset | `postgres://user:pass@host:5432/db` to use PostgreSQL instead of SQLite |
 | `DATABASE_PATH` | `./sammelband.db` | SQLite file (when `DATABASE_URL` is unset) |
 | `UPLOADS_PATH` | `./uploads` | Photo storage |
 | `FRONTEND_DIST` | `./dist/frontend` | Built SPA served by the backend |
 | `TRUSTED_ORIGINS` | `http://localhost:5173` in dev | Extra origins allowed to make requests |
+| `TRUST_PROXY` | `false` | Use `X-Forwarded-For` for rate limiting. Only behind a proxy that sets it |
+| `MAX_UPLOAD_MB` | `50` | Largest accepted photo |
 
 ## Database
 
@@ -98,3 +111,12 @@ To change the schema, add a new file to `src/db/migrations/` and register it in
 Use Kysely's schema builder and avoid dialect-specific SQL; if something can't
 be expressed portably, branch on the adapter as `0001_initial.ts` does for
 its trigger.
+
+## Security
+
+See [SECURITY.md](SECURITY.md) for how to report vulnerabilities.
+
+## License
+
+The code is licensed under the [Apache License 2.0](LICENSE). The name
+"Sammelband" and the Sammelband logo are not covered by that license.

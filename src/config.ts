@@ -29,13 +29,31 @@ const trustedOrigins = (() => {
   return isDev ? ["http://localhost:5173"] : [];
 })();
 
+// Production secrets sign sessions and share-link cookies: require real entropy.
+const secretKey = required(
+  "SECRET_KEY",
+  isDev ? "dev-secret-not-for-production-change-me" : undefined,
+);
+if (!isDev && secretKey.length < 32) {
+  throw new Error("SECRET_KEY must be at least 32 characters (e.g. openssl rand -hex 32)");
+}
+
+const baseUrl = required("BASE_URL", isDev ? "http://localhost:3000" : undefined);
+
 export const config = {
   NODE_ENV,
   isDev,
   PORT: Number(process.env.PORT ?? 3000),
-  BASE_URL: required("BASE_URL", isDev ? "http://localhost:3000" : undefined),
+  BASE_URL: baseUrl,
   TRUSTED_ORIGINS: trustedOrigins,
-  SECRET_KEY: required("SECRET_KEY", isDev ? "dev-secret-not-for-production-change-me" : undefined),
+  /** Origins allowed to make state-changing requests and open the WebSocket. */
+  ALLOWED_ORIGINS: [baseUrl, ...trustedOrigins].map((o) => new URL(o).origin),
+  SECRET_KEY: secretKey,
+  // Honor X-Forwarded-For / X-Real-IP for rate limiting. Only enable behind a
+  // reverse proxy that sets these headers itself.
+  TRUST_PROXY: process.env.TRUST_PROXY === "true",
+  /** Largest accepted photo upload. */
+  MAX_UPLOAD_BYTES: Number(process.env.MAX_UPLOAD_MB ?? 50) * 1024 * 1024,
   // postgres://… selects PostgreSQL; otherwise SQLite at DATABASE_PATH.
   DATABASE_URL: optional("DATABASE_URL"),
   DATABASE_PATH: process.env.DATABASE_PATH ?? "./sammelband.db",

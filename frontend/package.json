@@ -1,7 +1,7 @@
 {
-  "name": "frontend",
+  "name": "sammelband-frontend",
   "private": true,
-  "version": "0.0.1",
+  "version": "0.1.0",
   "type": "module",
   "scripts": {
     "dev": "vite dev",
@@ -37,5 +37,6 @@
     "tw-animate-css": "^1.4.0",
     "typescript": "^6.0.3",
     "vite": "^8.0.16"
-  }
+  },
+  "license": "Apache-2.0"
 }

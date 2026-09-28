@@ -41,6 +41,9 @@ Self-hosted photo book app. See README.md for setup; TASKS.md for the plan and b
   only and returns trimmed rows (no user/tenant ids). SPA pages live under `/s/<token>`;
   components that render there take image URLs from `imageUrls()` (`$lib/images`), not
   `imageSrc()`.
+- Security headers and the CSP are set in `index.ts` (`secureHeaders`). A feature that
+  loads from other hosts (e.g. map tiles) has to extend the CSP there. Don't add
+  `{@html}`; block content is rendered as text.
 - Permissions: `requireAuth` for all content (everyone in a tenant edits everything),
   `requireAdmin` for `/api/admin/*` (users, invites, storage of the own tenant),
   `requireSuperadmin` for `/api/instance/*` (tenant management, metadata only). No

@@ -14,7 +14,7 @@ uploads/
 .env.local
 .env.*.local
 
-# Editor
-.vscode/
+# Editor and tool state (shared editor settings in .vscode/ and .zed/ are tracked)
 .idea/
+.claude/
 .DS_Store

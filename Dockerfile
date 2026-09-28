@@ -20,7 +20,10 @@ COPY --from=frontend /app/dist/frontend ./dist/frontend
 COPY src/ ./src/
 COPY package.json tsconfig.json bunfig.toml ./
 
-RUN mkdir -p /data /uploads/tenants
+# Run as the image's unprivileged "bun" user (uid 1000). Named volumes take
+# over this ownership; bind mounts must be writable by uid 1000.
+RUN mkdir -p /data /uploads/tenants && chown -R bun:bun /data /uploads
+USER bun
 
 EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 \

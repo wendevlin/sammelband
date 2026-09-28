@@ -22,6 +22,9 @@ export default defineConfig({
         fallback: "index.html",
         strict: false,
       }),
+      // Hashes the inline bootstrap script into a CSP meta tag, so only it may
+      // run inline. The backend's CSP header covers everything else.
+      csp: { mode: "hash", directives: { "script-src": ["self"] } },
     }),
   ],
   server: {

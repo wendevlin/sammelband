@@ -296,7 +296,9 @@ Moved to "Later" (2026-09-28): easier to build once there is a real release on G
 - [ ] Deploy via GitHub Action on merge to `main`.
 
 ### 12. Quality & security
-- [ ] Another thorough security review of the codebase, now including tenant isolation (check every endpoint for cross-tenant access, including `/ws` and image delivery).
-- [ ] Verify `.gitignore` / `.dockerignore` cover everything (secrets, local DBs, uploads, build output).
+- [x] Another thorough security review of the codebase, including tenant isolation (2026-09-28). No high findings; fixed in batch 1: rate limits no longer trust `X-Forwarded-For` unless `TRUST_PROXY=true` (buckets are pruned), the setup code is rate-limited, the container runs as uid 1000, uploads are capped (`MAX_UPLOAD_MB`, 100 MP), captions/descriptions/block content have size limits, security headers + CSP (SvelteKit hashes its inline bootstrap script), `SECRET_KEY` ≥ 32 chars in production, WebSocket upgrades check the Origin, public-link errors carry `noindex`.
+- [x] Verify `.gitignore` / `.dockerignore` cover everything (secrets, local DBs, uploads, build output). `.claude/` ignored, shared editor settings (`.vscode/`, `.zed/`) tracked, no secrets or data in the git history.
+- [x] DB review (2026-09-28): composite tenant indexes (migration `0005_indexes`), migration `0002` made safe to fail (file move before commit, `IF NOT EXISTS`).
+- [ ] Batch 2 from the review: denormalized `albums.cover_filename` (library pages currently run ~2 queries per album), recompute `storage_used_bytes` (can drift after a crash), make the SQLite driver throw instead of hanging on a `db` query inside a transaction, advisory lock around `migrate()` on Postgres (better-auth's migrator isn't locked), `ON DELETE CASCADE` from `tenants` on all tenant tables, small structure moves (`routes/library.ts`, `photoRoutes` mounting, split `image.service.ts`, group `components/app/`).
 - [ ] Set up test coverage reporting.
 - [ ] Investigate how deeply the code depends on Bun and whether Bun could be replaced: list all Bun-specific APIs in use (`bun:sqlite`, `Bun.sql`, `Bun.serve`, `Bun.file`, `Bun.semver`, `hono/bun`). Hono is runtime-agnostic and runs on Bun and Node, which keeps the Bun dependency small.

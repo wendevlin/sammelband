@@ -41,6 +41,17 @@ describe("photos", () => {
   );
 
   test(
+    "rejects files over the upload limit before reading them",
+    inTenant(async () => {
+      const { user, block } = await gallery();
+      const huge = new File([new Uint8Array(51 * 1024 * 1024)], "huge.png", { type: "image/png" });
+      await expect(imageService.uploadPhoto(huge, block.id, user.id)).rejects.toThrow(
+        "at most 50 MB",
+      );
+    }),
+  );
+
+  test(
     "rejects non-images and non-gallery blocks",
     inTenant(async () => {
       const { user, album } = await gallery();

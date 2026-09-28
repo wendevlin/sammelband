@@ -37,7 +37,7 @@ export const photoRoutes = new Hono<AuthEnv>()
   )
   .patch(
     "/photos/:photoId",
-    validate("json", z.object({ caption: z.string().nullable() })),
+    validate("json", z.object({ caption: z.string().max(2000).nullable() })),
     async (c) =>
       c.json(await imageService.updateCaption(c.req.param("photoId"), c.req.valid("json").caption)),
   )

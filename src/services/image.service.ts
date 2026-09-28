@@ -1,12 +1,15 @@
 import { existsSync, mkdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
-import { isSrcsetWidth, SRCSET_WIDTHS, type SrcsetWidth } from "../config";
+import { config, isSrcsetWidth, SRCSET_WIDTHS, type SrcsetWidth } from "../config";
 import type { Album, ImageFile, Photo } from "../db/schema";
 import { AppError, must } from "../lib/errors";
 import { emit, emitAlbumPatch, type PhotoWithImage, topics } from "../lib/events";
 import { originalsDir, variantsDir } from "../lib/storage-paths";
 import { currentTenantId, tdb } from "../lib/tenant-context";
 import { releaseStorage, reserveStorage } from "./tenant.service";
+
+/** Largest accepted image, in pixels (e.g. 12,000 × 8,000). */
+const MAX_PIXELS = 100_000_000;
 
 const originalPath = (filename: string) => join(originalsDir(currentTenantId()), filename);
 const variantPath = (filename: string, width: number, format: string) =>
@@ -65,6 +68,9 @@ export async function uploadPhoto(
   blockId: string,
   uploaderId: string,
 ): Promise<UploadedPhoto> {
+  if (file.size > config.MAX_UPLOAD_BYTES) {
+    throw new AppError(413, `Photos can be at most ${config.MAX_UPLOAD_BYTES / 1024 / 1024} MB`);
+  }
   if (!file.type.startsWith("image/")) {
     throw new AppError(400, "Only image uploads are allowed");
   }
@@ -135,6 +141,11 @@ async function storeImageFile(buf: Buffer, contentHash: string): Promise<ImageFi
     .metadata()
     .catch(() => ({ width: 0, height: 0 }));
   if (!width || !height) throw new AppError(400, "Unable to read image dimensions");
+  // Checked before decoding the pixels: a small file can still decompress to
+  // gigabytes (a "decompression bomb").
+  if (width * height > MAX_PIXELS) {
+    throw new AppError(413, `Photos can have at most ${MAX_PIXELS / 1e6} megapixels`);
+  }
   const placeholder = await new Bun.Image(buf).placeholder();
 
   await reserveStorage(buf.byteLength);

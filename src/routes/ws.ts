@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { upgradeWebSocket } from "hono/bun";
 import type { WSContext } from "hono/ws";
+import { config } from "../config";
 import { type ChangeEvent, subscribe } from "../lib/events";
 import { type AuthEnv, requireAuth } from "../middleware/auth.middleware";
 
@@ -56,6 +57,15 @@ function parse(data: unknown): ClientMessage | null {
 
 export const wsRoutes = new Hono<AuthEnv>().get(
   "/ws",
+  // Browsers send Origin on WebSocket upgrades; refuse other sites' pages
+  // (the Lax session cookie already blocks most cross-site attempts).
+  async (c, next) => {
+    const origin = c.req.header("origin");
+    if (origin && !config.ALLOWED_ORIGINS.includes(origin)) {
+      return c.json({ error: "Forbidden" }, 403);
+    }
+    await next();
+  },
   requireAuth,
   upgradeWebSocket((c) => {
     const { tenantId } = c.get("user");

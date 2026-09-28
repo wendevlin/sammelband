@@ -1,7 +1,7 @@
 {
   "name": "sammelband",
   "version": "0.1.0",
-  "description": "Self-hosted block-based photo journal",
+  "description": "Self-hosted photo books for families and friends",
   "type": "module",
   "private": true,
   "scripts": {
@@ -19,16 +19,17 @@
   },
   "dependencies": {
     "@hono/zod-validator": "0.9.1",
-    "better-auth": "^1.2.0",
+    "better-auth": "1.6.13",
     "hono": "4.13.9",
     "kysely": "0.28.17",
     "pg": "8.23.0",
     "zod": "4.6.5"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.4.16",
-    "@types/bun": "latest",
+    "@biomejs/biome": "2.4.16",
+    "@types/bun": "1.3.14",
     "@types/pg": "8.23.1",
-    "typescript": "^5.7.2"
-  }
+    "typescript": "5.9.3"
+  },
+  "license": "Apache-2.0"
 }

@@ -4,7 +4,8 @@ import { validate } from "../lib/validate";
 import { type AuthEnv, requireAuth } from "../middleware/auth.middleware";
 import * as albumService from "../services/album.service";
 
-const nullableString = z.string().nullable().optional();
+const description = z.string().max(5000).nullable().optional();
+const nullableId = z.string().nullable().optional();
 
 export const albumRoutes = new Hono<AuthEnv>()
   .use("*", requireAuth)
@@ -15,8 +16,8 @@ export const albumRoutes = new Hono<AuthEnv>()
       "json",
       z.object({
         title: z.string().min(1).max(200),
-        description: nullableString,
-        folderId: nullableString,
+        description,
+        folderId: nullableId,
       }),
     ),
     async (c) => {
@@ -38,8 +39,8 @@ export const albumRoutes = new Hono<AuthEnv>()
       "json",
       z.object({
         title: z.string().min(1).max(200).optional(),
-        description: nullableString,
-        folderId: nullableString,
+        description,
+        folderId: nullableId,
       }),
     ),
     async (c) => c.json(await albumService.updateAlbum(c.req.param("id"), c.req.valid("json"))),

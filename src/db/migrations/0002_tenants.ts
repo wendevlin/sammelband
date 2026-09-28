@@ -27,27 +27,29 @@ export async function up(db: Kysely<any>): Promise<void> {
     await sql`PRAGMA foreign_keys = OFF`.execute(db);
     await sql`BEGIN`.execute(db);
   }
-  let tenantId: string | null = null;
   try {
-    tenantId = await migrate(db, postgres);
+    const tenantId = await migrate(db, postgres);
     if (!postgres) {
       const broken = await sql`PRAGMA foreign_key_check`.execute(db);
       if (broken.rows.length > 0) throw new Error("Foreign key check failed after migration");
-      await sql`COMMIT`.execute(db);
     }
+    // Before committing: if the move fails, the schema change rolls back too
+    // (on Postgres the migrator's transaction is still open here).
+    if (tenantId) moveFiles(tenantId);
+    if (!postgres) await sql`COMMIT`.execute(db);
   } catch (err) {
     if (!postgres) await sql`ROLLBACK`.execute(db);
     throw err;
   } finally {
     if (!postgres) await sql`PRAGMA foreign_keys = ON`.execute(db);
   }
-  if (tenantId) moveFiles(tenantId);
 }
 
 // biome-ignore lint/suspicious/noExplicitAny: see up()
 async function migrate(db: Kysely<any>, postgres: boolean): Promise<string | null> {
   await db.schema
     .createTable("tenants")
+    .ifNotExists()
     .addColumn("id", "text", (c) => c.primaryKey())
     .addColumn("name", "text", (c) => c.notNull())
     .addColumn("quota_bytes", "bigint")
@@ -58,6 +60,7 @@ async function migrate(db: Kysely<any>, postgres: boolean): Promise<string | nul
 
   await db.schema
     .createTable("tenant_invites")
+    .ifNotExists()
     .addColumn("id", "text", (c) => c.primaryKey())
     .addColumn("tenant_id", "text", (c) => c.notNull().references("tenants.id").onDelete("cascade"))
     .addColumn("token_hash", "text", (c) => c.notNull().unique())
@@ -68,6 +71,7 @@ async function migrate(db: Kysely<any>, postgres: boolean): Promise<string | nul
     .execute();
   await db.schema
     .createIndex("idx_tenant_invites_tenant")
+    .ifNotExists()
     .on("tenant_invites")
     .column("tenant_id")
     .execute();
