@@ -44,6 +44,14 @@ export const photoRoutes = new Hono<AuthEnv>()
     async (c) =>
       c.json(await imageService.updateCaption(c.req.param("photoId"), c.req.valid("json").caption)),
   )
+  .post(
+    "/:photoId/move",
+    validate("json", z.object({ blockId: z.string(), beforeId: z.string().nullable() })),
+    async (c) => {
+      const { blockId, beforeId } = c.req.valid("json");
+      return c.json(await imageService.movePhoto(c.req.param("photoId"), blockId, beforeId));
+    },
+  )
   .delete("/:photoId", async (c) => {
     await imageService.deletePhoto(c.req.param("photoId"));
     return c.json({ ok: true });

@@ -29,6 +29,7 @@ export const blockRoutes = new Hono<AuthEnv>()
         content,
         parentId: z.string().nullable().optional(),
         afterId: z.string().optional(),
+        beforeId: z.string().optional(),
       }),
     ),
     async (c) => {
@@ -38,7 +39,7 @@ export const blockRoutes = new Hono<AuthEnv>()
         type: body.type,
         content: body.content ?? {},
         parentId: body.parentId ?? null,
-        position: body.afterId ? { afterId: body.afterId } : undefined,
+        position: { afterId: body.afterId, beforeId: body.beforeId },
       });
       return c.json(block, 201);
     },

@@ -101,3 +101,27 @@ describe("blocks", () => {
     }),
   );
 });
+
+describe("inserting blocks", () => {
+  test("before a block, including before the first one", async () => {
+    await inTenant(async () => {
+      const { id: albumId } = await album();
+      const a = await blockService.createBlock({ albumId, type: "text", content: {} });
+      const b = await blockService.createBlock({ albumId, type: "text", content: {} });
+      const first = await blockService.createBlock({
+        albumId,
+        type: "heading",
+        content: {},
+        position: { beforeId: a.id },
+      });
+      const middle = await blockService.createBlock({
+        albumId,
+        type: "heading",
+        content: {},
+        position: { beforeId: b.id },
+      });
+      const order = (await blockService.listBlocks(albumId)).map((x) => x.id);
+      expect(order).toEqual([first.id, a.id, middle.id, b.id]);
+    })();
+  });
+});

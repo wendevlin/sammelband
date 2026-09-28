@@ -11,13 +11,13 @@ import { Input } from "$lib/components/ui/input";
 import { imageSrc } from "$lib/images";
 import type { Photo } from "$lib/types";
 import { cn } from "$lib/utils";
+import { photoDrag } from "./photo-drag.svelte";
 
 /** Photo manager for one gallery block: upload, caption, reorder, delete. */
 let { blockId, photos }: { blockId: string; photos: Photo[] } = $props();
 
 let over = $state(false);
 let uploading = $state(0);
-let dragId = $state<string | null>(null);
 let dropTarget = $state<{ id: string; after: boolean } | null>(null);
 let deleteTarget = $state<Photo | null>(null);
 let deleteOpen = $state(false);
@@ -66,23 +66,35 @@ async function saveCaption(p: Photo, raw: string) {
   await attempt(() => patch(`/photos/${p.id}`, { caption }));
 }
 
-async function drop(target: Photo) {
-  const from = photos.findIndex((p) => p.id === dragId);
+/**
+ * Drop the dragged photo (from this or another gallery) before or after
+ * `target`, or at the end of this gallery. One write either way.
+ */
+async function drop(target: Photo | null) {
+  const dragged = photoDrag.current;
   const after = dropTarget?.after ?? false;
-  dragId = null;
-  dropTarget = null;
-  if (from === -1) return;
-  const arr = [...photos];
-  const [moved] = arr.splice(from, 1);
-  if (!moved || moved.id === target.id) return;
-  const to = arr.findIndex((p) => p.id === target.id) + (after ? 1 : 0);
-  arr.splice(to, 0, moved);
-  await attempt(() =>
-    post(`/blocks/${blockId}/photos/reorder`, {
-      order: arr.map((p, i) => ({ id: p.id, sortOrder: i + 1 })),
-    }),
-  );
+  endDrag();
+  if (!dragged || dragged.id === target?.id) return;
+  let beforeId: string | null = null;
+  if (target) {
+    const rest = photos.filter((p) => p.id !== dragged.id);
+    beforeId = after
+      ? (rest[rest.findIndex((p) => p.id === target.id) + 1]?.id ?? null)
+      : target.id;
+  }
+  await attempt(() => post(`/photos/${dragged.id}/move`, { blockId, beforeId }));
 }
+
+function endDrag() {
+  photoDrag.current = null;
+  dropTarget = null;
+  over = false;
+}
+
+/** A photo from another gallery is being dragged over this one. */
+const draggingForeign = $derived(
+  photoDrag.current !== null && photoDrag.current.blockId !== blockId,
+);
 </script>
 
 {#if photos.length > 0}
@@ -92,12 +104,12 @@ async function drop(target: Photo) {
         role="listitem"
         class={cn(
 					'relative transition-opacity',
-					dragId === p.id && 'opacity-40',
+					photoDrag.current?.id === p.id && 'opacity-40',
 					dropTarget?.id === p.id &&
 						(dropTarget.after ? 'border-r-4 border-r-primary' : 'border-l-4 border-l-primary')
 				)}
         ondragover={(e) => {
-					if (!dragId || dragId === p.id) return;
+					if (!photoDrag.current || photoDrag.current.id === p.id) return;
 					e.preventDefault();
 					const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
 					dropTarget = { id: p.id, after: e.clientX > rect.left + rect.width / 2 };
@@ -112,11 +124,8 @@ async function drop(target: Photo) {
           aria-label={p.caption ?? 'Photo'}
           class="group relative aspect-square cursor-grab overflow-hidden rounded-lg bg-muted"
           draggable="true"
-          ondragstart={() => (dragId = p.id)}
-          ondragend={() => {
-						dragId = null;
-						dropTarget = null;
-					}}
+          ondragstart={() => (photoDrag.current = { id: p.id, blockId })}
+          ondragend={endDrag}
         >
           <img
             src={imageSrc(p.filename, 400)}
@@ -155,14 +164,17 @@ async function drop(target: Photo) {
 		over ? 'border-primary bg-muted' : 'hover:bg-muted/50'
 	)}
   ondragover={(e) => {
-		if (dragId) return;
+		if (photoDrag.current && !draggingForeign) return;
 		e.preventDefault();
 		over = true;
 	}}
   ondragleave={() => (over = false)}
   ondrop={(e) => {
-		if (dragId) return;
 		e.preventDefault();
+		if (photoDrag.current) {
+			if (draggingForeign) void drop(null);
+			return;
+		}
 		over = false;
 		if (e.dataTransfer?.files.length) void upload(e.dataTransfer.files);
 	}}
@@ -172,7 +184,9 @@ async function drop(target: Photo) {
   <ImagePlus class="size-5" />
   {uploading > 0
 		? `Uploading ${uploading} photo${uploading === 1 ? '' : 's'}…`
-		: 'Drop photos here or click to choose'}
+		: draggingForeign
+			? 'Drop to move the photo into this gallery'
+			: 'Drop photos here or click to choose'}
 </button>
 <input
   bind:this={input}

@@ -304,6 +304,55 @@ export async function deletePhotosByAlbum(albumId: string): Promise<void> {
   emit({ topic: topics.storageStats(), kind: "updated" });
 }
 
+/**
+ * Move a photo into a gallery of the same album, before `beforeId` (null: at
+ * the end). Also works within its own gallery.
+ */
+export async function movePhoto(
+  photoId: string,
+  blockId: string,
+  beforeId: string | null,
+): Promise<Photo> {
+  const photo = await getPhoto(photoId);
+  if (!photo) throw new AppError(404, "Photo not found");
+  const block = await tdb()
+    .selectFrom("album_blocks")
+    .select(["album_id", "type"])
+    .where("id", "=", blockId)
+    .executeTakeFirst();
+  if (!block || block.album_id !== photo.album_id) throw new AppError(404, "Gallery not found");
+  if (block.type !== "gallery") throw new AppError(400, "Block is not a gallery");
+
+  const others = tdb()
+    .selectFrom("photos")
+    .select("sort_order")
+    .where("block_id", "=", blockId)
+    .where("id", "!=", photoId);
+  let sortOrder: number;
+  if (beforeId) {
+    const before = await getPhoto(beforeId);
+    if (!before || before.block_id !== blockId) throw new AppError(404, "Target photo not found");
+    const prev = await others
+      .where("sort_order", "<", before.sort_order)
+      .orderBy("sort_order", "desc")
+      .limit(1)
+      .executeTakeFirst();
+    sortOrder = prev ? (prev.sort_order + before.sort_order) / 2 : before.sort_order - 1;
+  } else {
+    const last = await others.orderBy("sort_order", "desc").limit(1).executeTakeFirst();
+    sortOrder = (last?.sort_order ?? 0) + 1;
+  }
+
+  await tdb()
+    .updateTable("photos")
+    .set({ block_id: blockId, sort_order: sortOrder })
+    .where("id", "=", photoId)
+    .execute();
+  await albumChanged(photo.album_id);
+  emitAlbumPatch(photo.album_id, { photos: await photoWithImage(photoId) });
+  return must(await getPhoto(photoId), "Photo");
+}
+
 export async function reorderPhotos(
   blockId: string,
   order: { id: string; sortOrder: number }[],

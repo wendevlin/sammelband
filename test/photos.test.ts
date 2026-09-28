@@ -157,3 +157,47 @@ describe("photos", () => {
     }),
   );
 });
+
+describe("moving photos", () => {
+  test(
+    "into another gallery of the album, at a position or the end",
+    inTenant(async () => {
+      const { user, album, block } = await gallery();
+      const other = await blockService.createBlock({
+        albumId: album.id,
+        type: "gallery",
+        content: {},
+      });
+      const a = await imageService.uploadPhoto(png(), block.id, user.id);
+      const b = await imageService.uploadPhoto(png([0, 0, 255]), other.id, user.id);
+      const c = await imageService.uploadPhoto(png([0, 255, 0]), other.id, user.id);
+
+      await imageService.movePhoto(a.photo.id, other.id, c.photo.id);
+      const ids = async (blockId: string) =>
+        (await imageService.photosWithImage({ blockId })).map((p) => p.id);
+      expect(await ids(other.id)).toEqual([b.photo.id, a.photo.id, c.photo.id]);
+      expect(await ids(block.id)).toEqual([]);
+
+      await imageService.movePhoto(b.photo.id, other.id, null);
+      expect(await ids(other.id)).toEqual([a.photo.id, c.photo.id, b.photo.id]);
+    }),
+  );
+
+  test(
+    "only into galleries of the same album",
+    inTenant(async () => {
+      const { user, block } = await gallery();
+      const elsewhere = await gallery();
+      const text = await blockService.createBlock({
+        albumId: elsewhere.album.id,
+        type: "text",
+        content: {},
+      });
+      const p = await imageService.uploadPhoto(png(), block.id, user.id);
+      await expect(imageService.movePhoto(p.photo.id, elsewhere.block.id, null)).rejects.toThrow(
+        "Gallery not found",
+      );
+      await expect(imageService.movePhoto(p.photo.id, text.id, null)).rejects.toThrow("not found");
+    }),
+  );
+});

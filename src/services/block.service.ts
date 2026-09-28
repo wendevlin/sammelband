@@ -38,7 +38,8 @@ export async function createBlock(input: {
   type: string;
   content: unknown;
   parentId?: string | null;
-  position?: { afterId?: string };
+  /** Where among its siblings: after or before another block (default: at the end). */
+  position?: { afterId?: string; beforeId?: string };
 }): Promise<AlbumBlock> {
   if (!ALLOWED_TYPES.has(input.type)) {
     throw new AppError(400, "Invalid block type");
@@ -51,7 +52,7 @@ export async function createBlock(input: {
   if (!album) throw new AppError(404, "Album not found");
 
   const parentId = await resolveParent(input.albumId, input.type, input.parentId);
-  const sortOrder = await nextSortOrder(input.albumId, parentId, input.position?.afterId);
+  const sortOrder = await nextSortOrder(input.albumId, parentId, input.position);
 
   const id = Bun.randomUUIDv7();
   const now = Date.now();
@@ -88,8 +89,21 @@ function siblings(albumId: string, parentId: string | null) {
 async function nextSortOrder(
   albumId: string,
   parentId: string | null,
-  afterId?: string,
+  position: { afterId?: string; beforeId?: string } = {},
 ): Promise<number> {
+  const { afterId, beforeId } = position;
+  if (beforeId) {
+    const before = await getBlock(beforeId);
+    if (!before || before.album_id !== albumId || before.parent_id !== parentId) {
+      throw new AppError(404, "Anchor block not found");
+    }
+    const prev = await siblings(albumId, parentId)
+      .where("sort_order", "<", before.sort_order)
+      .orderBy("sort_order", "desc")
+      .limit(1)
+      .executeTakeFirst();
+    return prev ? (prev.sort_order + before.sort_order) / 2 : before.sort_order - 1;
+  }
   if (!afterId) {
     const last = await siblings(albumId, parentId)
       .orderBy("sort_order", "desc")
