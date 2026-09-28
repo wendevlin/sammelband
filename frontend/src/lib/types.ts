@@ -110,11 +110,20 @@ export type AlbumPatch = {
   removedPhotos?: string[];
 };
 
-export type FolderContents = {
-  folder: Folder;
-  folders: Folder[];
+/** A folder as a library tile: up to four album covers as a preview, plus counts. */
+export type FolderTile = Folder & {
+  /** Cover filenames of its albums (or of its sub-folders' albums), newest first. */
+  covers: string[];
+  album_count: number;
+  folder_count: number;
+};
+
+export type LibraryContents = {
+  folders: FolderTile[];
   albums: Album[];
 };
+
+export type FolderContents = LibraryContents & { folder: Folder };
 
 export type StorageStats = {
   quota: { used_bytes: number; limit_bytes: number | null };

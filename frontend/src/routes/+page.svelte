@@ -10,9 +10,4 @@ live(
 );
 </script>
 
-<LibraryView
-  folder={null}
-  folders={data.folders.filter((f) => !f.parent_id)}
-  albums={data.albums.filter((a) => !a.folder_id)}
-  allFolders={data.folders}
-/>
+<LibraryView folder={null} folders={data.folders} albums={data.albums} allFolders={[]} />

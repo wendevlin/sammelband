@@ -215,11 +215,12 @@ Naming: `tenant` in code, **"Sammelband"** in the UI (a Sammelband is a book bin
 - [x] First-run setup creates the superadmin and names their Sammelband.
 
 ### 3. Folder tiles in the library view
-- [ ] Folder tiles the same size as album tiles (consistent grid, no more small list-style entries).
-- [ ] A folder tile previews the covers of the albums inside (e.g. a 2×2 grid of the first albums).
-- [ ] Fallbacks for fewer albums: 1 cover full size, 2 side by side, 3 as 1 large + 2 small. No covers or no albums: neutral folder placeholder in the Sammelband style.
-- [ ] Keep folders distinguishable from albums (folder icon or label overlay).
-- [ ] Nested folders: if a folder contains only subfolders, use the covers of those subfolders' albums (one level deep is enough).
+- [x] Folder tiles the same size as album tiles (consistent grid, no more small list-style entries).
+- [x] A folder tile previews the covers of the albums inside (2×2 grid of the four newest albums with an image; follows the folder's sort order once item 4 exists).
+- [x] Fallbacks for fewer albums: 1 cover full size, 2 side by side, 3 as 1 large + 2 small. No covers or no albums: neutral folder placeholder in the Sammelband style.
+- [x] Keep folders distinguishable from albums: "Folder" label on the tile, two sheets peeking out behind it (a stack), album/folder counts under the name.
+- [x] Nested folders: if a folder contains only subfolders, use the covers of those subfolders' albums (one level deep).
+- [x] `GET /api/library` returns the top level like `GET /api/folders/:id` (folder tiles + albums with covers), so the library no longer loads every album.
 
 ### 4. Folder sort order
 - [ ] Sort options per folder: name, created date, modified date and manual (drag & drop).

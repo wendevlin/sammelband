@@ -2,7 +2,6 @@ import { Hono } from "hono";
 import { z } from "zod";
 import { validate } from "../lib/validate";
 import { type AuthEnv, requireAuth } from "../middleware/auth.middleware";
-import * as albumService from "../services/album.service";
 import * as folderService from "../services/folder.service";
 
 const nullableId = z.string().nullable().optional();
@@ -23,10 +22,7 @@ export const folderRoutes = new Hono<AuthEnv>()
       return c.json(folder, 201);
     },
   )
-  .get("/:id", async (c) => {
-    const contents = await folderService.getFolderContents(c.req.param("id"));
-    return c.json({ ...contents, albums: await albumService.attachCovers(contents.albums) });
-  })
+  .get("/:id", async (c) => c.json(await folderService.getFolderContents(c.req.param("id"))))
   .patch(
     "/:id",
     validate(
@@ -39,3 +35,8 @@ export const folderRoutes = new Hono<AuthEnv>()
     await folderService.deleteFolder(c.req.param("id"));
     return c.json({ ok: true });
   });
+
+/** The top level of the library: root folders as tiles and albums outside any folder. */
+export const libraryRoutes = new Hono<AuthEnv>()
+  .use("*", requireAuth)
+  .get("/", async (c) => c.json(await folderService.getLibrary()));

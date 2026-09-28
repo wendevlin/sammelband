@@ -1,7 +1,8 @@
-import type { Album, Folder } from "../db/schema";
+import type { Folder } from "../db/schema";
 import { AppError, must } from "../lib/errors";
 import { emit, topics } from "../lib/events";
 import { currentTenantId, tdb } from "../lib/tenant-context";
+import { type AlbumWithCover, attachCovers, coverFilename } from "./album.service";
 
 export function listFolders(): Promise<Folder[]> {
   return tdb()
@@ -122,25 +123,81 @@ export async function deleteFolder(id: string): Promise<void> {
   }
 }
 
-/** Folder + direct sub-folders + albums inside it. */
+/** A folder as a library tile: up to four album covers as a preview, plus counts. */
+export type FolderTile = Folder & {
+  covers: string[];
+  album_count: number;
+  folder_count: number;
+};
+
+const PREVIEW_COVERS = 4;
+
+/**
+ * Preview covers for folder tiles: the covers of the albums in the folder, or,
+ * if it holds only sub-folders, of the albums in those (one level deep).
+ * Albums without any image are skipped.
+ */
+export async function withPreviews(folders: Folder[]): Promise<FolderTile[]> {
+  if (folders.length === 0) return [];
+  const ids = folders.map((f) => f.id);
+  const children = await tdb()
+    .selectFrom("folders")
+    .select(["id", "parent_id"])
+    .where("parent_id", "in", ids)
+    .execute();
+  const albums = await tdb()
+    .selectFrom("albums")
+    .selectAll()
+    .where("folder_id", "in", [...ids, ...children.map((c) => c.id)])
+    .orderBy("created_at", "desc")
+    .execute();
+
+  const albumsIn = (folderIds: string[]) =>
+    albums.filter((a) => folderIds.includes(a.folder_id ?? ""));
+  return Promise.all(
+    folders.map(async (folder) => {
+      const subfolders = children.filter((c) => c.parent_id === folder.id).map((c) => c.id);
+      const own = albumsIn([folder.id]);
+      const candidates = own.length > 0 ? own : albumsIn(subfolders);
+      const covers: string[] = [];
+      for (const album of candidates) {
+        if (covers.length === PREVIEW_COVERS) break;
+        const cover = await coverFilename(album);
+        if (cover) covers.push(cover);
+      }
+      return { ...folder, covers, album_count: own.length, folder_count: subfolders.length };
+    }),
+  );
+}
+
+/** Folder + direct sub-folders (as tiles) + albums inside it. */
 export async function getFolderContents(id: string): Promise<{
   folder: Folder;
-  folders: Folder[];
-  albums: Album[];
+  folders: FolderTile[];
+  albums: AlbumWithCover[];
 }> {
   const folder = await getFolder(id);
   if (!folder) throw new AppError(404, "Folder not found");
+  return { folder, ...(await contentsOf(id)) };
+}
+
+/** The top level of the library: root folders (as tiles) and albums outside any folder. */
+export function getLibrary(): Promise<{ folders: FolderTile[]; albums: AlbumWithCover[] }> {
+  return contentsOf(null);
+}
+
+async function contentsOf(parentId: string | null) {
   const folders = await tdb()
     .selectFrom("folders")
     .selectAll()
-    .where("parent_id", "=", id)
+    .where("parent_id", parentId === null ? "is" : "=", parentId)
     .orderBy("name")
     .execute();
   const albums = await tdb()
     .selectFrom("albums")
     .selectAll()
-    .where("folder_id", "=", id)
+    .where("folder_id", parentId === null ? "is" : "=", parentId)
     .orderBy("created_at", "desc")
     .execute();
-  return { folder, folders, albums };
+  return { folders: await withPreviews(folders), albums: await attachCovers(albums) };
 }

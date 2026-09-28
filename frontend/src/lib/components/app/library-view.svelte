@@ -1,20 +1,16 @@
 <script lang="ts">
-import EllipsisVertical from "@lucide/svelte/icons/ellipsis-vertical";
-import FolderIcon from "@lucide/svelte/icons/folder";
 import FolderPlus from "@lucide/svelte/icons/folder-plus";
-import Pencil from "@lucide/svelte/icons/pencil";
 import Plus from "@lucide/svelte/icons/plus";
-import Trash from "@lucide/svelte/icons/trash-2";
 import { goto } from "$app/navigation";
 import { del, patch, post } from "$lib/api";
 import { attempt } from "$lib/attempt";
 import * as Breadcrumb from "$lib/components/ui/breadcrumb";
 import { Button } from "$lib/components/ui/button";
-import * as DropdownMenu from "$lib/components/ui/dropdown-menu";
 import { albumPath } from "$lib/links";
-import type { Album, Folder } from "$lib/types";
+import type { Album, Folder, FolderTile } from "$lib/types";
 import AlbumCard from "./album-card.svelte";
 import ConfirmDialog from "./confirm-dialog.svelte";
+import FolderCard from "./folder-card.svelte";
 import PromptDialog from "./prompt-dialog.svelte";
 
 /** Contents of one folder (or the root when `folder` is null). */
@@ -23,7 +19,12 @@ let {
   folders,
   albums,
   allFolders,
-}: { folder: Folder | null; folders: Folder[]; albums: Album[]; allFolders: Folder[] } = $props();
+}: {
+  folder: Folder | null;
+  folders: FolderTile[];
+  albums: Album[];
+  allFolders: Folder[];
+} = $props();
 
 const trail = $derived.by(() => {
   const chain: Folder[] = [];
@@ -101,46 +102,19 @@ const deleteFolder = () =>
     <h2 class="mb-4 text-xs font-semibold tracking-widest text-muted-foreground uppercase">
       Folders
     </h2>
-    <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+    <div class="grid grid-cols-1 gap-x-6 gap-y-10 sm:grid-cols-2 lg:grid-cols-3">
       {#each folders as f (f.id)}
-        <div
-          class="flex items-center rounded-xl border bg-card transition-colors hover:bg-muted/60"
-        >
-          <a href="/folders/{f.id}" class="flex min-w-0 flex-1 items-center gap-3 px-4 py-3">
-            <FolderIcon class="size-4 shrink-0 text-muted-foreground" />
-            <span class="truncate">{f.name}</span>
-          </a>
-          <DropdownMenu.Root>
-            <DropdownMenu.Trigger>
-              {#snippet child({ props })}
-                <Button {...props} variant="ghost" size="icon-sm" aria-label="Folder actions">
-                  <EllipsisVertical />
-                </Button>
-              {/snippet}
-            </DropdownMenu.Trigger>
-            <DropdownMenu.Content align="end">
-              <DropdownMenu.Item
-                onclick={() => {
-									renameTarget = f;
-									renameOpen = true;
-								}}
-              >
-                <Pencil />
-                Rename
-              </DropdownMenu.Item>
-              <DropdownMenu.Item
-                variant="destructive"
-                onclick={() => {
-									deleteTarget = f;
-									deleteOpen = true;
-								}}
-              >
-                <Trash />
-                Delete
-              </DropdownMenu.Item>
-            </DropdownMenu.Content>
-          </DropdownMenu.Root>
-        </div>
+        <FolderCard
+          folder={f}
+          onrename={() => {
+            renameTarget = f;
+            renameOpen = true;
+          }}
+          ondelete={() => {
+            deleteTarget = f;
+            deleteOpen = true;
+          }}
+        />
       {/each}
     </div>
   </section>
