@@ -128,6 +128,8 @@ type UserTable = {
   role: "admin" | "user";
   tenantId: string | null;
   superadmin: boolean | number; // SQLite returns 0/1
+  /** Avatar URL (better-auth's field), set by the profile service. */
+  image: string | null;
   createdAt: string | Date;
   updatedAt: string | Date;
 };

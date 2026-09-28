@@ -11,10 +11,11 @@ export type PublicUser = {
   name: string;
   role: Role;
   superadmin: boolean;
+  image: string | null;
   createdAt: string;
 };
 
-const COLUMNS = ["id", "email", "name", "role", "superadmin", "createdAt"] as const;
+const COLUMNS = ["id", "email", "name", "role", "superadmin", "image", "createdAt"] as const;
 
 // SQLite stores better-auth dates as ISO strings and booleans as 0/1.
 function toPublic(u: {
@@ -23,6 +24,7 @@ function toPublic(u: {
   name: string;
   role: Role;
   superadmin: boolean | number | null;
+  image: string | null;
   createdAt: string | Date;
 }): PublicUser {
   return { ...u, superadmin: !!u.superadmin, createdAt: new Date(u.createdAt).toISOString() };

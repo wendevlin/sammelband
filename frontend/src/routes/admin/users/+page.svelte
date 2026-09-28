@@ -9,6 +9,7 @@ import { invalidate } from "$app/navigation";
 import { del, patch, post } from "$lib/api";
 import { attempt } from "$lib/attempt";
 import SimpleSelect from "$lib/components/app/simple-select.svelte";
+import UserAvatar from "$lib/components/app/user-avatar.svelte";
 import ConfirmDialog from "$lib/components/dialogs/confirm-dialog.svelte";
 import InviteLinkDialog from "$lib/components/dialogs/invite-link-dialog.svelte";
 import PromptDialog from "$lib/components/dialogs/prompt-dialog.svelte";
@@ -136,6 +137,11 @@ const locked = (u: User) => isSelf(u) || lastAdmin(u) || u.superadmin;
     {#each data.users as u (u.id)}
       <Table.Row>
         <Table.Cell class="font-medium">
+          <UserAvatar
+            name={u.name}
+            image={u.image}
+            class="mr-2 inline-flex size-7 align-middle text-[10px]"
+          />
           {u.name}
           {#if isSelf(u)}
             <Badge variant="secondary" class="ml-2">You</Badge>

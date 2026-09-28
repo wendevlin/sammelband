@@ -7,6 +7,8 @@ export type User = {
   role: Role;
   /** The instance owner; can't be demoted or deleted. */
   superadmin: boolean;
+  /** Avatar URL, or null. */
+  image: string | null;
   createdAt: string;
 };
 

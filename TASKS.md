@@ -141,11 +141,12 @@ Added since the last status (not committed yet, see `git status`):
 ## Backlog: next session
 
 ### 1. Profile page
-- [ ] Route `/profile`, linked from the account menu (desktop) and the hamburger menu (mobile).
-- [ ] Change name, change own password (better-auth `changePassword`, ask for current password, optionally sign out other sessions).
-- [ ] Avatar editor: upload, square crop with zoom/pan, round preview. Store via better-auth's `image` field or an own column; downscale the image (e.g. 256 px), don't keep the original.
+- [x] Route `/profile`, linked from the account menu (desktop) and the hamburger menu (mobile). Admin pages moved behind "Admin settings" in the same menu (tabs: Users, Storage, Sammelbände).
+- [x] Change name, email (needs the current password) and own password (better-auth `changePassword`, signs out other sessions).
+- [x] Avatar: upload, centered square crop in the browser, re-encoded server-side to 256 px WebP (drops EXIF) in the tenant's directory, stored in better-auth's `image` field.
+- [ ] Avatar crop with zoom/pan instead of the automatic centered crop.
 - [ ] Fun presets: a set of hand-drawn animal avatars as inline SVG in the logo's style (ideas: sloth with camera, owl with reading glasses, capybara in a photo album, raccoon as photo thief, penguin with polaroid, hedgehog with film roll). Light/dark friendly.
-- [ ] Show the avatar in the header instead of the user icon, fallback initials.
+- [x] Show the avatar in the header instead of the user icon (and in the user list), fallback initials.
 - [ ] 2FA: better-auth `twoFactor` plugin (TOTP). Setup with QR code + confirmation code, show/regenerate backup codes, disable with password. Extend the login flow with the TOTP step (backup code too). Tenant admin can reset a user's 2FA (`/admin/users`). Add the plugin's schema tables.
 
 ### 2. Plugin system foundation

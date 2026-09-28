@@ -27,3 +27,8 @@ export function originalPath(filename: string): string {
 export function variantPath(filename: string, width: number, format: string): string {
   return join(variantsDir(currentTenantId()), `${filename}_${width}.${format}`);
 }
+
+/** A user's avatar in the current tenant. */
+export function avatarPath(userId: string): string {
+  return join(tenantDir(currentTenantId()), "avatars", `${userId}.webp`);
+}

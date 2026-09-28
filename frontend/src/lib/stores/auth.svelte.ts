@@ -9,6 +9,8 @@ export type SessionUser = {
   role: Role;
   tenantId: string;
   superadmin: boolean;
+  /** Avatar URL, or null. */
+  image: string | null;
 };
 
 class AuthStore {

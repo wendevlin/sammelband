@@ -66,10 +66,13 @@ export function createUser(role: "admin" | "user" = "user") {
   });
 }
 
-/** A solid-color 40×30 PNG; different colors give different content hashes. */
-export function png(rgb: [number, number, number] = [255, 0, 0], name = "photo.png"): File {
-  const width = 40;
-  const height = 30;
+/** A solid-color PNG (40×30 by default); different colors give different content hashes. */
+export function png(
+  rgb: [number, number, number] = [255, 0, 0],
+  name = "photo.png",
+  width = 40,
+  height = 30,
+): File {
   const row = [0, ...Array.from({ length: width }, () => rgb).flat()]; // filter byte + pixels
   const pixels = new Uint8Array(Array.from({ length: height }, () => row).flat());
   const chunk = (type: string, data: Uint8Array) => {
