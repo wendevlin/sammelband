@@ -32,7 +32,9 @@ async function submit(e: SubmitEvent) {
 
 <AuthShell
   title="Set up Sammelband"
-  description="Use the setup code printed in the server log when it started. You become the owner of this instance and can later create Sammelbände for others."
+  description={auth.multiTenant
+    ? 'Use the setup code printed in the server log when it started. You become the owner of this instance and can later create Sammelbände for others.'
+    : 'Use the setup code printed in the server log when it started. You become the owner and first admin.'}
 >
   <form class="grid gap-4" onsubmit={submit}>
     <div class="grid gap-2">

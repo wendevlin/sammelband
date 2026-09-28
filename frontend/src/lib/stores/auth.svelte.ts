@@ -18,6 +18,8 @@ class AuthStore {
   /** The user's Sammelband. */
   tenant = $state<TenantInfo | null>(null);
   needsOnboarding = $state(false);
+  /** The server hosts several Sammelbände (MULTI_TENANT=true). */
+  multiTenant = $state(false);
   #initialized = false;
 
   get isAdmin(): boolean {
@@ -33,12 +35,14 @@ class AuthStore {
     if (this.#initialized) return;
     this.#initialized = true;
     const [status] = await Promise.all([
-      api<{ needsOnboarding: boolean }>("/onboarding/status").catch(() => ({
+      api<{ needsOnboarding: boolean; multiTenant: boolean }>("/onboarding/status").catch(() => ({
         needsOnboarding: false,
+        multiTenant: false,
       })),
       this.refresh(),
     ]);
     this.needsOnboarding = status.needsOnboarding;
+    this.multiTenant = status.multiTenant;
   }
 
   async refresh(): Promise<void> {

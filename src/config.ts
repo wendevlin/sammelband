@@ -52,6 +52,10 @@ export const config = {
   // Honor X-Forwarded-For / X-Real-IP for rate limiting. Only enable behind a
   // reverse proxy that sets these headers itself.
   TRUST_PROXY: process.env.TRUST_PROXY === "true",
+  // Host several independent Sammelbände (tenants) on this instance. Off by
+  // default: one Sammelband, no tenant management. Existing tenants keep
+  // working if it is switched off again; only managing them is hidden.
+  MULTI_TENANT: process.env.MULTI_TENANT === "true",
   /** Largest accepted photo upload. */
   MAX_UPLOAD_BYTES: Number(process.env.MAX_UPLOAD_MB ?? 50) * 1024 * 1024,
   // postgres://… selects PostgreSQL; otherwise SQLite at DATABASE_PATH.

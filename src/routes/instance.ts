@@ -1,5 +1,7 @@
 import { Hono } from "hono";
 import { z } from "zod";
+import { config } from "../config";
+import { AppError } from "../lib/errors";
 import { validate } from "../lib/validate";
 import { type AuthEnv, requireSuperadmin } from "../middleware/auth.middleware";
 import * as tenantService from "../services/tenant.service";
@@ -9,6 +11,10 @@ const quotaBytes = z.number().int().positive().nullable();
 
 /** Superadmin: the Sammelbände of this instance. Metadata only, never content. */
 export const instanceRoutes = new Hono<AuthEnv>()
+  .use("*", async (_c, next) => {
+    if (!config.MULTI_TENANT) throw new AppError(404, "Multiple Sammelbände are not enabled");
+    await next();
+  })
   .use("*", requireSuperadmin)
   .get("/", async (c) =>
     c.json({

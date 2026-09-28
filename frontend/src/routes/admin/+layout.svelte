@@ -8,7 +8,9 @@ let { children } = $props();
 const tabs = $derived([
   { href: "/admin/users", label: "Users" },
   { href: "/admin/storage", label: "Storage" },
-  ...(auth.isSuperadmin ? [{ href: "/admin/instance", label: "Sammelbände" }] : []),
+  ...(auth.isSuperadmin && auth.multiTenant
+    ? [{ href: "/admin/instance", label: "Sammelbände" }]
+    : []),
 ]);
 </script>
 

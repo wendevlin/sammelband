@@ -1,5 +1,5 @@
 import { randomBytes } from "node:crypto";
-import { appUrl } from "../config";
+import { appUrl, config } from "../config";
 import { db } from "../db/client";
 import { AppError } from "../lib/errors";
 import { createFirstTenant } from "./tenant.service";
@@ -52,8 +52,8 @@ export async function initOnboarding(): Promise<void> {
   );
 }
 
-export function getStatus(): { needsOnboarding: boolean } {
-  return { needsOnboarding: bootstrapCode !== null && !consumed };
+export function getStatus(): { needsOnboarding: boolean; multiTenant: boolean } {
+  return { needsOnboarding: bootstrapCode !== null && !consumed, multiTenant: config.MULTI_TENANT };
 }
 
 export async function claim(input: {

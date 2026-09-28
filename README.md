@@ -4,9 +4,9 @@ Self-hosted digital photo books. Folders hold albums; an album is a sequence of
 blocks (headings, text, photo galleries and groups of those). Photos are
 deduplicated on disk and resized on demand.
 
-One installation hosts several independent **Sammelbände**, e.g. one per family
-or group of friends. Each has its own users, folders, albums and photos, and
-none can see another's.
+One installation can host several independent **Sammelbände**, e.g. one per
+family or group of friends (off by default, enable with `MULTI_TENANT=true`).
+Each has its own users, folders, albums and photos, and none can see another's.
 
 - The **instance owner** sets the instance up and gets the first Sammelband.
   They create further Sammelbände (with an optional storage limit), send an
@@ -93,6 +93,7 @@ The backend alone also runs in Docker for development:
 | `TRUSTED_ORIGINS` | `http://localhost:5173` in dev | Extra origins allowed to make requests |
 | `TRUST_PROXY` | `false` | Use `X-Forwarded-For` for rate limiting. Only behind a proxy that sets it |
 | `MAX_UPLOAD_MB` | `50` | Largest accepted photo |
+| `MULTI_TENANT` | `false` | Host several Sammelbände; the owner manages them under Admin settings |
 
 ## Database
 
