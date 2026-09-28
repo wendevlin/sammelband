@@ -220,9 +220,10 @@ describe("superadmin", () => {
     await runInTenant(tenant.id, () => imageService.uploadPhoto(png(), block.id, user.id));
     expect(existsSync(tenantDir(tenant.id))).toBe(true);
 
-    await expect(tenantService.deleteTenant(own.id, tenant.id, "doomed")).rejects.toThrow("name");
+    await expect(tenantService.deleteTenant(own.id, tenant.id, "Doom")).rejects.toThrow("name");
     await expect(tenantService.deleteTenant(own.id, own.id, "Own")).rejects.toThrow("own");
-    await tenantService.deleteTenant(own.id, tenant.id, "Doomed");
+    // Capitalisation doesn't matter (form labels display names in capitals).
+    await tenantService.deleteTenant(own.id, tenant.id, " DOOMED ");
 
     expect(existsSync(tenantDir(tenant.id))).toBe(false);
     for (const table of ["albums", "album_blocks", "photos", "image_files", "folders"] as const) {

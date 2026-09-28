@@ -241,7 +241,8 @@ export async function deleteTenant(
 ): Promise<void> {
   const tenant = await requireTenant(id);
   if (id === ownTenantId) throw new AppError(400, "You cannot delete your own Sammelband");
-  if (confirmName.trim() !== tenant.name) {
+  // Case-insensitive: the confirmation guards against slips, not typos in capitalisation.
+  if (confirmName.trim().toLowerCase() !== tenant.name.toLowerCase()) {
     throw new AppError(400, "Type the Sammelband's name to confirm");
   }
   await db.transaction().execute(async (trx) => {

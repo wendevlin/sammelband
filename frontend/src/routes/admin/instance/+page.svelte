@@ -79,6 +79,9 @@ let quotaGb = $state<GbInput>(null);
 let suspendOpen = $state(false);
 let deleteOpen = $state(false);
 let confirmName = $state("");
+const confirmMatches = $derived(
+  confirmName.trim().toLowerCase() === (target?.name ?? "").toLowerCase(),
+);
 
 async function rename(name: string) {
   if (!target) return false;
@@ -363,14 +366,16 @@ function open(t: TenantOverview, what: "rename" | "quota" | "suspend" | "delete"
         </Dialog.Description>
       </Dialog.Header>
       <div class="grid gap-2">
-        <Label for="confirm-name">Type <strong>{target?.name}</strong> to confirm</Label>
+        <Label for="confirm-name">
+          <span
+            >Type <strong class="normal-case tracking-normal">{target?.name}</strong> to confirm</span
+          >
+        </Label>
         <Input id="confirm-name" bind:value={confirmName} autocomplete="off" />
       </div>
       <Dialog.Footer>
         <Button variant="outline" onclick={() => (deleteOpen = false)}>Cancel</Button>
-        <Button type="submit" variant="destructive" disabled={confirmName.trim() !== target?.name}>
-          Delete
-        </Button>
+        <Button type="submit" variant="destructive" disabled={!confirmMatches}> Delete </Button>
       </Dialog.Footer>
     </form>
   </Dialog.Content>
