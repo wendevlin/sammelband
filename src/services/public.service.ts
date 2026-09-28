@@ -255,3 +255,90 @@ export function image(
     return imageDelivery.serveVariant(filename, width, format);
   });
 }
+
+// --- Link previews (WhatsApp, Telegram, …) ------------------------------------------
+
+export type LinkPreview = {
+  title: string;
+  description: string;
+  /** Absolute URL of a resized JPEG, with its size. */
+  image: { url: string; width: number; height: number } | null;
+};
+
+const PREVIEW_WIDTH = 1200;
+const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
+
+/**
+ * What messengers show for a link. Their preview bots fetch the HTML without
+ * running JavaScript or holding a cookie, so the backend puts this into the
+ * page. Password links get a neutral preview: no title, no photo.
+ */
+export async function linkPreview(
+  token: string,
+  at: { albumRef?: string; folderId?: string },
+): Promise<LinkPreview | null> {
+  let share: ShareLink;
+  try {
+    share = await findShare(token);
+  } catch {
+    return null;
+  }
+  if (share.password_hash) {
+    return {
+      title: "Password-protected link",
+      description: "Shared on Sammelband",
+      image: null,
+    };
+  }
+  const shown = await view({ share, unlocked: true }, at).catch(() => null);
+  if (shown?.status !== "ok") return null;
+
+  let title: string;
+  let description: string;
+  let cover: string | null;
+  if (shown.kind === "album") {
+    title = shown.album.title;
+    description = shown.album.description || plural(shown.photos.length, "photo");
+    cover = await runInTenant(
+      share.tenant_id,
+      async () => (await albumService.getAlbum(shown.album.id))?.cover_filename ?? null,
+    );
+  } else {
+    title = shown.folder.name;
+    const parts = [
+      shown.albums.length > 0 && plural(shown.albums.length, "album"),
+      shown.folders.length > 0 && plural(shown.folders.length, "folder"),
+    ].filter(Boolean);
+    description = parts.join(" · ") || "Shared on Sammelband";
+    cover =
+      shown.albums.find((a) => a.cover_filename)?.cover_filename ??
+      shown.folders.find((f) => f.covers.length > 0)?.covers[0] ??
+      null;
+  }
+
+  const image = cover
+    ? await runInTenant(share.tenant_id, () =>
+        tdb()
+          .selectFrom("image_files")
+          .select(["width", "height"])
+          .where("filename", "=", cover)
+          .executeTakeFirst(),
+      )
+    : undefined;
+  return {
+    title,
+    description,
+    image:
+      cover && image
+        ? {
+            url: new URL(
+              `/api/public/${token}/images/${cover}?w=${PREVIEW_WIDTH}&format=jpeg`,
+              config.BASE_URL,
+            ).href,
+            // Variants are always scaled to the requested width.
+            width: PREVIEW_WIDTH,
+            height: Math.round((image.height * PREVIEW_WIDTH) / image.width),
+          }
+        : null,
+  };
+}

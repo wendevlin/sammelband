@@ -206,6 +206,44 @@ describe("share links", () => {
     });
   });
 
+  test("link previews show the cover, but nothing behind a password", async () => {
+    const { as, user, family, inside } = await setup();
+    const albumLink = await as(() =>
+      shareService.createShare({ albumId: inside.album.id }, {}, user.id),
+    );
+    const preview = await publicService.linkPreview(tokenOf(albumLink.url), {});
+    expect(preview?.title).toBe("Inside");
+    expect(preview?.description).toBe("1 photo");
+    expect(preview?.image?.url).toMatch(
+      new RegExp(
+        `/api/public/${tokenOf(albumLink.url)}/images/${inside.filename}\\?w=1200&format=jpeg$`,
+      ),
+    );
+    // The test PNG is 40 × 30; the variant is scaled to 1200 wide.
+    expect([preview?.image?.width, preview?.image?.height]).toEqual([1200, 900]);
+
+    const folderLink = await as(() =>
+      shareService.createShare({ folderId: family.id }, {}, user.id),
+    );
+    const folderPreview = await publicService.linkPreview(tokenOf(folderLink.url), {});
+    expect(folderPreview?.title).toBe("Family");
+    expect(folderPreview?.description).toBe("1 album · 1 folder");
+    expect(folderPreview?.image?.url).toContain(inside.filename);
+
+    const locked = await as(() =>
+      shareService.createShare({ albumId: inside.album.id }, { password: "secret" }, user.id),
+    );
+    const lockedPreview = await publicService.linkPreview(tokenOf(locked.url), {});
+    expect(lockedPreview).toEqual({
+      title: "Password-protected link",
+      description: "Shared on Sammelband",
+      image: null,
+    });
+    expect(JSON.stringify(lockedPreview)).not.toContain("Inside");
+
+    expect(await publicService.linkPreview("nope", {})).toBeNull();
+  });
+
   test("deleting the album removes its links", async () => {
     const { as, user, inside } = await setup();
     const link = await as(() =>

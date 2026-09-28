@@ -245,6 +245,7 @@ Naming: `tenant` in code, **"Sammelband"** in the UI (a Sammelband is a book bin
 - [x] Revoke a link at any time (deletes it); other links to the same content keep working. Deleting the album/folder removes its links; suspended Sammelbände' links stop working.
 - [ ] Publicly shared photos are served from Sammelband's own storage/cache; never pass live Nextcloud/Immich credentials through for anonymous visitors. (Holds today; keep it when the photo-source plugins arrive.)
 - [x] Public pages get `X-Robots-Tag: noindex` (API and SPA) plus a robots meta tag, and per-IP rate limits: browsing 300/10 min, password attempts 10/10 min, images 3000/10 min.
+- [x] Link previews in messengers (WhatsApp, Telegram, …): the backend adds Open Graph tags to `/s/<token>` pages (title, description, cover as a 1200 px JPEG), since preview bots don't run JavaScript. Password links get a neutral preview without title or photo. Needs `BASE_URL` to be the public https URL.
 - [ ] View tracking (link opened / download count): not done, optional.
 
 ### 6. Update notifications in the admin area

@@ -2,6 +2,7 @@ import { join } from "node:path";
 import { Hono } from "hono";
 import { serveStatic } from "hono/bun";
 import { config } from "../config";
+import { type LinkPreview, linkPreview } from "../services/public.service";
 
 /**
  * Serves the built SvelteKit SPA from FRONTEND_DIST. Existing files are served
@@ -31,7 +32,47 @@ export const spaRoutes = new Hono()
       );
     }
     c.header("Cache-Control", "no-cache");
-    // Public link pages stay out of search engines.
-    if (c.req.path.startsWith("/s/")) c.header("X-Robots-Tag", "noindex, nofollow");
-    return c.body(await index.arrayBuffer(), 200, { "Content-Type": "text/html; charset=utf-8" });
+    let html = await index.text();
+    const share = SHARE_PATH.exec(c.req.path);
+    if (share?.[1]) {
+      // Public link pages stay out of search engines, but get a link preview.
+      c.header("X-Robots-Tag", "noindex, nofollow");
+      const preview = await linkPreview(share[1], {
+        albumRef: share[2] === "albums" ? share[3] : undefined,
+        folderId: share[2] === "folders" ? share[3] : undefined,
+      });
+      if (preview) html = html.replace("</head>", `${previewTags(preview, c.req.url)}</head>`);
+    }
+    return c.html(html);
   });
+
+/** /s/<token>, /s/<token>/albums/<ref>, /s/<token>/folders/<id> */
+const SHARE_PATH = /^\/s\/([A-Za-z0-9_-]+)(?:\/(albums|folders)\/([A-Za-z0-9_-]+))?\/?$/;
+
+const escapeHtml = (s: string) => s.replace(/[&<>"']/g, (ch) => `&#${ch.charCodeAt(0)};`);
+
+/** Open Graph / Twitter tags that messengers read for link previews. */
+function previewTags(p: LinkPreview, pageUrl: string): string {
+  const url = new URL(new URL(pageUrl).pathname, config.BASE_URL).href;
+  const tags: [string, string, string][] = [
+    ["property", "og:site_name", "Sammelband"],
+    ["property", "og:type", "website"],
+    ["property", "og:url", url],
+    ["property", "og:title", p.title],
+    ["property", "og:description", p.description],
+    ["name", "description", p.description],
+    ["name", "twitter:card", p.image ? "summary_large_image" : "summary"],
+  ];
+  if (p.image) {
+    tags.push(
+      ["property", "og:image", p.image.url],
+      ["property", "og:image:type", "image/jpeg"],
+      ["property", "og:image:width", String(p.image.width)],
+      ["property", "og:image:height", String(p.image.height)],
+    );
+  }
+  // No <title>: the SPA sets it at runtime, and a static one would stick.
+  return tags
+    .map(([attr, key, value]) => `<meta ${attr}="${key}" content="${escapeHtml(value)}">`)
+    .join("\n");
+}
