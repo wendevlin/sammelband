@@ -35,9 +35,13 @@ export function endOfDayIn(date: string, tz: string): number {
 
 /** "Sep 30, 2026, 23:59 CEST": a moment as seen in `tz`. */
 export function formatInZone(ms: number, tz: string): string {
+  // Explicit fields: browsers reject dateStyle/timeStyle combined with timeZoneName.
   return new Intl.DateTimeFormat(undefined, {
-    dateStyle: "medium",
-    timeStyle: "short",
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
     hourCycle: "h23",
     timeZone: tz,
     timeZoneName: "short",

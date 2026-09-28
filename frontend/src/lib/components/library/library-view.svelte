@@ -1,6 +1,7 @@
 <script lang="ts">
 import FolderPlus from "@lucide/svelte/icons/folder-plus";
 import Plus from "@lucide/svelte/icons/plus";
+import { flip } from "svelte/animate";
 import { toast } from "svelte-sonner";
 import { goto, invalidateAll } from "$app/navigation";
 import { api, del, patch, post } from "$lib/api";
@@ -77,58 +78,123 @@ function step(kind: Kind, id: string, delta: -1 | 1) {
   if (beforeId !== undefined) void move(kind, id, beforeId);
 }
 
-// Drag and drop (desktop). Dropping onto a tile of the same kind takes its
-// place; dropping onto a folder (its middle, for folders) or a breadcrumb
-// moves the item into that folder, after a confirmation.
-type Hover = { id: string; mode: "reorder" | "into" };
-let drag = $state<{ kind: Kind; id: string } | null>(null);
-let hover = $state<Hover | null>(null);
+// Drag and drop (desktop), like a sortable list: while dragging, the other
+// tiles make room and a dashed placeholder shows where the item will land;
+// dropping commits that order. Dropping onto a folder (its middle, for
+// folders) or a breadcrumb moves the item into that folder, after a
+// confirmation. The drag image is a small card, easier to aim with.
+type Drag = { kind: Kind; id: string };
+let drag = $state<Drag | null>(null);
+/** The order shown while dragging (ids of the dragged kind). */
+let preview = $state<string[] | null>(null);
+/** A folder tile the item would move into. */
+let intoTarget = $state<string | null>(null);
 let crumbTarget = $state<string | null>(null); // folder id, or "root"
+let lastShift = 0;
+
+const byId = <T extends { id: string }>(list: T[], ids: string[]) =>
+  ids.map((id) => list.find((i) => i.id === id)).filter((i): i is T => i !== undefined);
+const shownFolders = $derived(
+  drag?.kind === "folder" && preview ? byId(folderOrder, preview) : folderOrder,
+);
+const shownAlbums = $derived(
+  drag?.kind === "album" && preview ? byId(albumOrder, preview) : albumOrder,
+);
+
+function startDrag(e: DragEvent, kind: Kind, id: string) {
+  drag = { kind, id };
+  preview = listOf(kind).map((i) => i.id);
+  setDragImage(e);
+}
+
+/** A small card (first image + title) as the drag image instead of the whole tile. */
+function setDragImage(e: DragEvent) {
+  const tile = e.currentTarget as HTMLElement;
+  const card = document.createElement("div");
+  card.style.cssText =
+    "position:fixed;top:-1000px;left:-1000px;width:140px;padding:6px;border-radius:12px;" +
+    "background:var(--card);color:var(--foreground);box-shadow:0 8px 24px rgb(0 0 0 / .25);" +
+    "font:600 12px/1.3 system-ui,sans-serif";
+  const img = tile.querySelector("img");
+  const picture = img ? (img.cloneNode() as HTMLElement) : document.createElement("div");
+  picture.style.cssText =
+    "display:block;width:128px;height:96px;object-fit:cover;border-radius:8px;background:var(--muted)";
+  const title = document.createElement("div");
+  title.textContent = tile.querySelector("h3")?.textContent?.trim() ?? "";
+  title.style.cssText = "margin-top:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis";
+  card.append(picture, title);
+  document.body.append(card);
+  e.dataTransfer?.setDragImage(card, 70, 50);
+  setTimeout(() => card.remove());
+}
+
+/** Make room at `targetId`: the dragged item takes its place, from either side. */
+function shiftTo(targetId: string) {
+  if (!drag || !preview || targetId === drag.id) return;
+  // Tiles are still sliding into place; hit-testing them now would bounce back.
+  if (performance.now() - lastShift < 180) return;
+  const from = preview.indexOf(drag.id);
+  const to = preview.indexOf(targetId);
+  if (from < 0 || to < 0 || from === to) return;
+  const next = [...preview];
+  next.splice(from, 1);
+  next.splice(to, 0, drag.id);
+  preview = next;
+  lastShift = performance.now();
+}
 
 function dragOverFolder(e: DragEvent, f: FolderTile) {
   if (!drag || drag.id === f.id) return;
-  let mode: Hover["mode"] = "into";
-  if (drag.kind === "folder") {
-    // Outer quarters reorder, the middle moves into the folder.
-    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-    const x = (e.clientX - rect.left) / rect.width;
-    if (x < 0.25 || x > 0.75) mode = "reorder";
-  }
   e.preventDefault();
-  hover = { id: f.id, mode };
+  e.stopPropagation();
+  // Albums always go into a folder. Folders: the middle moves into it, the
+  // outer quarters make room next to it.
+  const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+  const x = (e.clientX - rect.left) / rect.width;
+  if (drag.kind === "album" || (x >= 0.25 && x <= 0.75)) {
+    intoTarget = f.id;
+  } else {
+    intoTarget = null;
+    shiftTo(f.id);
+  }
 }
 
 function dragOverAlbum(e: DragEvent, album: Album) {
-  if (drag?.kind !== "album" || drag.id === album.id) return;
+  if (drag?.kind !== "album") return;
   e.preventDefault();
-  hover = { id: album.id, mode: "reorder" };
+  e.stopPropagation();
+  intoTarget = null;
+  shiftTo(album.id);
 }
 
-/** Move `id` into the place of `targetId`, from either side. */
-function reorderOnto(kind: Kind, id: string, targetId: string) {
-  const list = listOf(kind);
-  const from = list.findIndex((i) => i.id === id);
-  const to = list.findIndex((i) => i.id === targetId);
-  const rest = list.filter((i) => i.id !== id);
-  const at = rest.findIndex((i) => i.id === targetId);
-  const beforeId = from < to ? (rest[at + 1]?.id ?? null) : targetId;
-  void move(kind, id, beforeId);
+/** Dropping anywhere in the grid of the dragged kind commits the shown order. */
+function dragOverGrid(e: DragEvent, kind: Kind) {
+  if (drag?.kind !== kind) return;
+  e.preventDefault();
 }
 
-function dropOnTile(e: DragEvent, targetId: string) {
+function drop(e: DragEvent) {
   e.preventDefault();
+  e.stopPropagation();
   const d = drag;
-  const h = hover;
+  const order = preview;
+  const into = intoTarget;
   endDrag();
-  if (!d || !h || h.id !== targetId) return;
-  if (h.mode === "reorder") reorderOnto(d.kind, d.id, targetId);
-  else askMove(d, folderOrder.find((f) => f.id === targetId) ?? null);
+  if (!d) return;
+  if (into) {
+    askMove(d, folderOrder.find((f) => f.id === into) ?? null);
+    return;
+  }
+  if (!order) return;
+  const original = listOf(d.kind).map((i) => i.id);
+  if (order.join() === original.join()) return;
+  void move(d.kind, d.id, order[order.indexOf(d.id) + 1] ?? null);
 }
 
-/** Clear the feedback when the pointer really leaves a tile (not just enters a child). */
-function leaveTile(e: DragEvent, id: string) {
+/** Leaving a folder tile ends "move into" (entering its children doesn't). */
+function leaveFolder(e: DragEvent, id: string) {
   const tile = e.currentTarget as HTMLElement;
-  if (hover?.id === id && !tile.contains(e.relatedTarget as Node | null)) hover = null;
+  if (intoTarget === id && !tile.contains(e.relatedTarget as Node | null)) intoTarget = null;
 }
 
 function dragOverCrumb(e: DragEvent, key: string) {
@@ -144,9 +210,11 @@ function dropOnCrumb(e: DragEvent, target: Folder | null) {
   if (d) askMove(d, target);
 }
 
+/** Also runs when the drop lands outside any target: the original order comes back. */
 function endDrag() {
   drag = null;
-  hover = null;
+  preview = null;
+  intoTarget = null;
   crumbTarget = null;
 }
 
@@ -271,20 +339,19 @@ const deleteFolder = () =>
   </div>
 </div>
 
-<!-- Drop feedback over a whole tile: a frame to take its place, or "Move into". -->
+<!-- Drag feedback: a dashed placeholder where the dragged item will land, or "Move into". -->
 {#snippet dropOverlay(id: string, name = "")}
-  {#if hover?.id === id}
+  {#if drag?.id === id && !intoTarget}
     <div
-      class={cn(
-        'pointer-events-none absolute -inset-2 rounded-2xl ring-2 ring-primary',
-        hover.mode === 'into' && 'flex items-center justify-center bg-primary/10'
-      )}
+      class="pointer-events-none absolute -inset-2 rounded-2xl border-2 border-dashed border-primary/60 bg-primary/5"
+    ></div>
+  {:else if intoTarget === id}
+    <div
+      class="pointer-events-none absolute -inset-2 flex items-center justify-center rounded-2xl bg-primary/10 ring-2 ring-primary"
     >
-      {#if hover.mode === 'into'}
-        <span class="rounded-full bg-background px-3 py-1 text-sm font-medium shadow">
-          Move into “{name}”
-        </span>
-      {/if}
+      <span class="rounded-full bg-background px-3 py-1 text-sm font-medium shadow">
+        Move into “{name}”
+      </span>
     </div>
   {/if}
 {/snippet}
@@ -300,37 +367,45 @@ const deleteFolder = () =>
     <h2 class="mb-4 text-xs font-semibold tracking-widest text-muted-foreground uppercase">
       Folders
     </h2>
-    <div class="grid grid-cols-1 gap-x-6 gap-y-10 sm:grid-cols-2 lg:grid-cols-3">
-      {#each folderOrder as f, i (f.id)}
+    <div
+      role="list"
+      class="grid grid-cols-1 gap-x-6 gap-y-10 sm:grid-cols-2 lg:grid-cols-3"
+      ondragover={(e) => dragOverGrid(e, 'folder')}
+      ondrop={drop}
+    >
+      {#each shownFolders as f, i (f.id)}
         <div
           role="listitem"
-          class={cn('relative', drag?.id === f.id && 'opacity-40')}
+          class="relative"
+          animate:flip={{ duration: 180 }}
           draggable="true"
-          ondragstart={() => (drag = { kind: 'folder', id: f.id })}
+          ondragstart={(e) => startDrag(e, 'folder', f.id)}
           ondragend={endDrag}
           ondragover={(e) => dragOverFolder(e, f)}
-          ondragleave={(e) => leaveTile(e, f.id)}
-          ondrop={(e) => dropOnTile(e, f.id)}
+          ondragleave={(e) => leaveFolder(e, f.id)}
+          ondrop={drop}
         >
-          <FolderCard
-            folder={f}
-            onrename={() => {
+          <div class={cn('transition-opacity', drag?.id === f.id && 'opacity-25')}>
+            <FolderCard
+              folder={f}
+              onrename={() => {
               renameTarget = f;
               renameOpen = true;
             }}
-            ondelete={() => {
+              ondelete={() => {
               deleteTarget = f;
               deleteOpen = true;
             }}
-          >
-            {#snippet menu()}
-              <MoveMenuItems
-                first={i === 0}
-                last={i === folderOrder.length - 1}
-                onmove={(d) => step('folder', f.id, d)}
-              />
-            {/snippet}
-          </FolderCard>
+            >
+              {#snippet menu()}
+                <MoveMenuItems
+                  first={i === 0}
+                  last={i === folderOrder.length - 1}
+                  onmove={(d) => step('folder', f.id, d)}
+                />
+              {/snippet}
+            </FolderCard>
+          </div>
           {@render dropOverlay(f.id, f.name)}
         </div>
       {/each}
@@ -350,27 +425,34 @@ const deleteFolder = () =>
       {folder ? 'This folder is empty.' : 'Nothing here yet. Create a folder or an album to start.'}
     </p>
   {:else if albumOrder.length > 0}
-    <div class="grid grid-cols-1 gap-x-6 gap-y-10 sm:grid-cols-2 lg:grid-cols-3">
-      {#each albumOrder as album, i (album.id)}
+    <div
+      role="list"
+      class="grid grid-cols-1 gap-x-6 gap-y-10 sm:grid-cols-2 lg:grid-cols-3"
+      ondragover={(e) => dragOverGrid(e, 'album')}
+      ondrop={drop}
+    >
+      {#each shownAlbums as album, i (album.id)}
         <div
           role="listitem"
-          class={cn('relative', drag?.id === album.id && 'opacity-40')}
+          class="relative"
+          animate:flip={{ duration: 180 }}
           draggable="true"
-          ondragstart={() => (drag = { kind: 'album', id: album.id })}
+          ondragstart={(e) => startDrag(e, 'album', album.id)}
           ondragend={endDrag}
           ondragover={(e) => dragOverAlbum(e, album)}
-          ondragleave={(e) => leaveTile(e, album.id)}
-          ondrop={(e) => dropOnTile(e, album.id)}
+          ondrop={drop}
         >
-          <AlbumCard {album}>
-            {#snippet menu()}
-              <MoveMenuItems
-                first={i === 0}
-                last={i === albumOrder.length - 1}
-                onmove={(d) => step('album', album.id, d)}
-              />
-            {/snippet}
-          </AlbumCard>
+          <div class={cn('transition-opacity', drag?.id === album.id && 'opacity-25')}>
+            <AlbumCard {album}>
+              {#snippet menu()}
+                <MoveMenuItems
+                  first={i === 0}
+                  last={i === albumOrder.length - 1}
+                  onmove={(d) => step('album', album.id, d)}
+                />
+              {/snippet}
+            </AlbumCard>
+          </div>
           {@render dropOverlay(album.id)}
         </div>
       {/each}
