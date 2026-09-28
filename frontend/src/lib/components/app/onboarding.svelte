@@ -8,6 +8,7 @@ import { Button } from "$lib/components/ui/button";
 import { Input } from "$lib/components/ui/input";
 import { Label } from "$lib/components/ui/label";
 import { auth } from "$lib/stores/auth.svelte";
+import { browserTimeZone } from "$lib/timezone";
 
 let code = $state(page.url.searchParams.get("code") ?? "");
 let sammelband = $state("");
@@ -20,7 +21,15 @@ async function submit(e: SubmitEvent) {
   e.preventDefault();
   busy = true;
   const ok = await attempt(
-    () => post("/onboarding/claim", { code, sammelband, email, password, name: name || undefined }),
+    () =>
+      post("/onboarding/claim", {
+        code,
+        sammelband,
+        email,
+        password,
+        name: name || undefined,
+        timezone: browserTimeZone(),
+      }),
     "Your Sammelband is ready. Sign in to continue.",
   );
   busy = false;

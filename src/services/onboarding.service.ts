@@ -62,6 +62,7 @@ export async function claim(input: {
   password: string;
   name?: string;
   sammelband: string;
+  timezone?: string;
 }): Promise<{ ok: true }> {
   if (consumed) throw new AppError(410, "Onboarding already completed");
   if (!bootstrapCode) throw new AppError(410, "Onboarding not active");
@@ -76,7 +77,7 @@ export async function claim(input: {
     throw new AppError(410, "Onboarding already completed");
   }
 
-  const tenant = await createFirstTenant(input.sammelband);
+  const tenant = await createFirstTenant(input.sammelband, input.timezone);
   try {
     await createAccount({
       tenantId: tenant.id,

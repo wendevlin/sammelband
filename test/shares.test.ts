@@ -167,11 +167,7 @@ describe("share links", () => {
   test("links are listed per item and managed within the tenant only", async () => {
     const { as, user, inside, family } = await setup();
     await as(() =>
-      shareService.createShare(
-        { albumId: inside.album.id },
-        { expiresAt: Date.now() + 60_000 },
-        user.id,
-      ),
+      shareService.createShare({ albumId: inside.album.id }, { expiresOn: "2099-12-31" }, user.id),
     );
     await as(() => shareService.createShare({ folderId: family.id }, {}, user.id));
     const albumLinks = await as(() => shareService.listShares({ albumId: inside.album.id }));
@@ -182,7 +178,7 @@ describe("share links", () => {
       as(() =>
         shareService.createShare(
           { albumId: inside.album.id },
-          { expiresAt: Date.now() - 1 },
+          { expiresOn: "2000-01-01" },
           user.id,
         ),
       ),
@@ -242,6 +238,20 @@ describe("share links", () => {
     expect(JSON.stringify(lockedPreview)).not.toContain("Inside");
 
     expect(await publicService.linkPreview("nope", {})).toBeNull();
+  });
+
+  test("expiry dates end at 23:59:59 in the Sammelband's time zone", async () => {
+    const { as, user, inside } = await setup();
+    await as(async () => {
+      await expect(tenantService.setTimezone("Mars/Olympus")).rejects.toThrow("Unknown");
+      expect((await tenantService.setTimezone("Asia/Kolkata")).timezone).toBe("Asia/Kolkata");
+      const link = await shareService.createShare(
+        { albumId: inside.album.id },
+        { expiresOn: "2099-06-15" },
+        user.id,
+      );
+      expect(new Date(link.expires_at ?? 0).toISOString()).toBe("2099-06-15T18:29:59.999Z");
+    });
   });
 
   test("deleting the album removes its links", async () => {

@@ -6,13 +6,16 @@ import type { Tenant } from "../db/schema";
 import { AppError, must } from "../lib/errors";
 import { tenantDir } from "../lib/storage-paths";
 import { currentTenantId } from "../lib/tenant-context";
+import { isValidTimeZone, serverTimeZone } from "../lib/timezone";
 import { type CreatedInvite, createInvite } from "./invite.service";
 
 // Tenants ("Sammelbände"). The instance functions here are for the superadmin
 // and work across tenants on purpose: they see names, counts and storage
 // numbers, never content.
 
-export type TenantInfo = Pick<Tenant, "id" | "name" | "quota_bytes" | "storage_used_bytes">;
+export type TenantInfo = Pick<Tenant, "id" | "name" | "quota_bytes" | "storage_used_bytes"> & {
+  timezone: string;
+};
 
 async function getTenant(id: string): Promise<Tenant | null> {
   return (
@@ -28,8 +31,17 @@ async function requireTenant(id: string): Promise<Tenant> {
 
 /** The signed-in user's tenant. */
 export async function currentTenant(): Promise<TenantInfo> {
-  const { id, name, quota_bytes, storage_used_bytes } = await requireTenant(currentTenantId());
-  return { id, name, quota_bytes, storage_used_bytes };
+  const { id, name, quota_bytes, storage_used_bytes, timezone } = await requireTenant(
+    currentTenantId(),
+  );
+  return { id, name, quota_bytes, storage_used_bytes, timezone: timezone ?? "UTC" };
+}
+
+/** Tenant admin: the zone share-link expiry dates refer to. */
+export async function setTimezone(timezone: string): Promise<TenantInfo> {
+  if (!isValidTimeZone(timezone)) throw new AppError(400, "Unknown time zone");
+  await db.updateTable("tenants").set({ timezone }).where("id", "=", currentTenantId()).execute();
+  return currentTenant();
 }
 
 /**
@@ -79,8 +91,14 @@ export async function reconcileStorage(tenantId?: string): Promise<void> {
   await q.execute();
 }
 
-async function insertTenant(name: string, quotaBytes: number | null): Promise<Tenant> {
+async function insertTenant(
+  name: string,
+  quotaBytes: number | null,
+  timezone: string | undefined,
+): Promise<Tenant> {
   if (!name.trim()) throw new AppError(400, "Name required");
+  // The creating browser's zone, else the server's.
+  const zone = timezone && isValidTimeZone(timezone) ? timezone : serverTimeZone();
   const tenant: Tenant = {
     id: Bun.randomUUIDv7(),
     name: name.trim(),
@@ -88,14 +106,15 @@ async function insertTenant(name: string, quotaBytes: number | null): Promise<Te
     storage_used_bytes: 0,
     suspended_at: null,
     created_at: Date.now(),
+    timezone: zone,
   };
   await db.insertInto("tenants").values(tenant).execute();
   return tenant;
 }
 
 /** First-run setup: the superadmin's own tenant. */
-export function createFirstTenant(name: string): Promise<Tenant> {
-  return insertTenant(name, null);
+export function createFirstTenant(name: string, timezone?: string): Promise<Tenant> {
+  return insertTenant(name, null, timezone);
 }
 
 // --- Superadmin ---------------------------------------------------------------
@@ -150,8 +169,9 @@ export async function listTenants(ownTenantId: string): Promise<TenantOverview[]
 export async function createTenant(input: {
   name: string;
   quotaBytes: number | null;
+  timezone?: string;
 }): Promise<{ tenant: Tenant; invite: CreatedInvite }> {
-  const tenant = await insertTenant(input.name, input.quotaBytes);
+  const tenant = await insertTenant(input.name, input.quotaBytes, input.timezone);
   const invite = await createInvite(tenant.id, "admin");
   return { tenant, invite };
 }

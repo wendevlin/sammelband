@@ -25,7 +25,11 @@ export const shareRoutes = new Hono<AuthEnv>()
       "json",
       target.extend({
         password: z.string().max(128).nullable().optional(),
-        expiresAt: z.number().int().positive().nullable().optional(),
+        expiresOn: z
+          .string()
+          .regex(/^\d{4}-\d{2}-\d{2}$/, "Use YYYY-MM-DD")
+          .nullable()
+          .optional(),
       }),
     ),
     async (c) => {

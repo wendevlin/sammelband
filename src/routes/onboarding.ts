@@ -18,6 +18,8 @@ export const onboardingRoutes = new Hono()
         password: z.string().min(8).max(128),
         name: z.string().min(1).max(200).optional(),
         sammelband: z.string().trim().min(1).max(100),
+        /** The browser's time zone, for share-link expiry dates. */
+        timezone: z.string().max(64).optional(),
       }),
     ),
     async (c) => c.json(await onboardingService.claim(c.req.valid("json"))),

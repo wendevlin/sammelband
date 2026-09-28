@@ -22,6 +22,7 @@ import { Input } from "$lib/components/ui/input";
 import { Label } from "$lib/components/ui/label";
 import * as Table from "$lib/components/ui/table";
 import { formatBytes } from "$lib/images";
+import { browserTimeZone } from "$lib/timezone";
 import type { CreatedInvite, TenantOverview } from "$lib/types";
 
 let { data } = $props();
@@ -59,6 +60,7 @@ async function create(e: SubmitEvent) {
     post<{ invite: CreatedInvite }>("/instance/tenants", {
       name: form.name,
       quotaBytes: toBytes(form.quotaGb),
+      timezone: browserTimeZone(),
     }),
   );
   creating = false;

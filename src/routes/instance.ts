@@ -24,12 +24,20 @@ export const instanceRoutes = new Hono<AuthEnv>()
   )
   .post(
     "/tenants",
-    validate("json", z.object({ name, quotaBytes: quotaBytes.optional() })),
+    validate(
+      "json",
+      z.object({
+        name,
+        quotaBytes: quotaBytes.optional(),
+        timezone: z.string().max(64).optional(),
+      }),
+    ),
     async (c) => {
       const body = c.req.valid("json");
       const created = await tenantService.createTenant({
         name: body.name,
         quotaBytes: body.quotaBytes ?? null,
+        timezone: body.timezone,
       });
       return c.json(created, 201);
     },

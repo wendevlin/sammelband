@@ -18,6 +18,8 @@ export type TenantInfo = {
   name: string;
   quota_bytes: number | null;
   storage_used_bytes: number;
+  /** IANA zone that share-link expiry dates refer to. */
+  timezone: string;
 };
 
 /** A Sammelband as the instance owner sees it: metadata, never content. */

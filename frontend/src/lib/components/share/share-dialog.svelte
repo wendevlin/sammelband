@@ -12,6 +12,8 @@ import * as Dialog from "$lib/components/ui/dialog";
 import { Input } from "$lib/components/ui/input";
 import { Label } from "$lib/components/ui/label";
 import { Switch } from "$lib/components/ui/switch";
+import { auth } from "$lib/stores/auth.svelte";
+import { endOfDayIn, formatInZone } from "$lib/timezone";
 import type { ShareLinkInfo } from "$lib/types";
 import { isExpired } from "./share-status";
 
@@ -46,7 +48,10 @@ $effect(() => {
   if (open) creating = links.length === 0;
 });
 
+// Expiry dates refer to the Sammelband's time zone (Admin settings → General).
+const zone = $derived(auth.tenant?.timezone ?? "UTC");
 const today = new Date().toISOString().slice(0, 10);
+const expiryPreview = $derived(expires ? formatInZone(endOfDayIn(expires, zone), zone) : null);
 
 function resetForm() {
   creating = false;
@@ -59,15 +64,15 @@ function resetForm() {
 async function create(e: SubmitEvent) {
   e.preventDefault();
   busy = true;
-  // The link works until the end of the chosen day.
-  const expiresAt = withExpiry && expires ? new Date(`${expires}T23:59:59`).getTime() : null;
+  // The server ends the link at 23:59:59 of that day in the Sammelband's zone.
   const created = await attempt(() =>
     post<ShareLinkInfo>("/shares", {
       ...target,
       password: withPassword ? password : null,
-      expiresAt,
+      expiresOn: withExpiry && expires ? expires : null,
     }),
   );
+
   busy = false;
   if (!created) return;
   resetForm();
@@ -138,7 +143,7 @@ async function revoke(link: ShareLinkInfo) {
               {/if}
               <span>
                 {#if link.expires_at}
-                  {expired ? 'Expired' : 'Expires'} {new Date(link.expires_at).toLocaleDateString()}
+                  {expired ? 'Expired' : 'Stops working'} {formatInZone(link.expires_at, zone)}
                 {:else}
                   No expiry
                 {/if}
@@ -177,6 +182,11 @@ async function revoke(link: ShareLinkInfo) {
           </div>
           {#if withExpiry}
             <Input type="date" bind:value={expires} min={today} aria-label="Expires on" required />
+            <p class="text-xs text-muted-foreground">
+              {expiryPreview
+                ? `The link stops working on ${expiryPreview} (${zone}).`
+                : `Links stop working at the end of the chosen day, 23:59 in ${zone}.`}
+            </p>
           {/if}
         </div>
         <div class="flex justify-end gap-2">

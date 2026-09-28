@@ -6,6 +6,7 @@ import { cn } from "$lib/utils";
 let { children } = $props();
 
 const tabs = $derived([
+  { href: "/admin/general", label: "General" },
   { href: "/admin/users", label: "Users" },
   { href: "/admin/storage", label: "Storage" },
   ...(auth.isSuperadmin && auth.multiTenant

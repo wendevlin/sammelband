@@ -2,6 +2,8 @@ import { randomBytes } from "node:crypto";
 import { appUrl } from "../config";
 import { AppError } from "../lib/errors";
 import { currentTenantId, tdb } from "../lib/tenant-context";
+import { endOfDayIn } from "../lib/timezone";
+import { currentTenant } from "./tenant.service";
 
 // Managing public links (signed-in side, confined to the current tenant). The
 // visitor side is public.service.ts.
@@ -67,7 +69,8 @@ export async function listShares(target: ShareTarget): Promise<ShareLinkInfo[]> 
 
 export async function createShare(
   target: ShareTarget,
-  opts: { password?: string | null; expiresAt?: number | null },
+  /** `expiresOn`: "YYYY-MM-DD"; the link works until the end of that day in the tenant's zone. */
+  opts: { password?: string | null; expiresOn?: string | null },
   userId: string,
 ): Promise<ShareLinkInfo> {
   await requireTarget(target);
@@ -75,8 +78,11 @@ export async function createShare(
   if (password && password.length < MIN_PASSWORD) {
     throw new AppError(400, `Passwords need at least ${MIN_PASSWORD} characters`);
   }
-  if (opts.expiresAt && opts.expiresAt <= Date.now()) {
-    throw new AppError(400, "The expiry date must be in the future");
+  let expiresAt: number | null = null;
+  if (opts.expiresOn) {
+    const { timezone } = await currentTenant();
+    expiresAt = endOfDayIn(opts.expiresOn, timezone);
+    if (expiresAt <= Date.now()) throw new AppError(400, "The expiry date must be in the future");
   }
   const id = Bun.randomUUIDv7();
   const token = randomBytes(24).toString("base64url");
@@ -89,7 +95,7 @@ export async function createShare(
       album_id: "albumId" in target ? target.albumId : null,
       folder_id: "folderId" in target ? target.folderId : null,
       password_hash: password ? await Bun.password.hash(password) : null,
-      expires_at: opts.expiresAt ?? null,
+      expires_at: expiresAt,
       created_by: userId,
       created_at: Date.now(),
     })

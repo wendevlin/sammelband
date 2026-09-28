@@ -1,8 +1,16 @@
 import { Hono } from "hono";
-import { type AuthEnv, requireAuth } from "../middleware/auth.middleware";
+import { z } from "zod";
+import { validate } from "../lib/validate";
+import { type AuthEnv, requireAdmin, requireAuth } from "../middleware/auth.middleware";
 import * as tenantService from "../services/tenant.service";
 
 /** The signed-in user's Sammelband. */
 export const tenantRoutes = new Hono<AuthEnv>()
-  .use("*", requireAuth)
-  .get("/", async (c) => c.json(await tenantService.currentTenant()));
+  .get("/", requireAuth, async (c) => c.json(await tenantService.currentTenant()))
+  // Tenant admins: settings of their own Sammelband.
+  .patch(
+    "/",
+    requireAdmin,
+    validate("json", z.object({ timezone: z.string().max(64) })),
+    async (c) => c.json(await tenantService.setTimezone(c.req.valid("json").timezone)),
+  );
