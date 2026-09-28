@@ -27,6 +27,8 @@ export default defineConfig({
   server: {
     host: "0.0.0.0",
     port: 5173,
+    // Allow access by MagicDNS name over Tailscale (dev only).
+    allowedHosts: [".ts.net"],
     // Same-origin proxy so cookies and the CSRF origin check work without CORS.
     proxy: {
       "/api": { target: BACKEND, changeOrigin: false },

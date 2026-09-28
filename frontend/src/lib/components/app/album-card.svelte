@@ -1,12 +1,13 @@
 <script lang="ts">
 import ImageIcon from "@lucide/svelte/icons/image";
 import { imageSrc } from "$lib/images";
+import { albumPath } from "$lib/links";
 import type { Album } from "$lib/types";
 
 let { album }: { album: Album } = $props();
 </script>
 
-<a href="/albums/{album.id}" class="group block">
+<a href={albumPath(album)} class="group block">
   <div class="relative aspect-[4/3] overflow-hidden rounded-xl bg-muted">
     {#if album.cover_filename}
       <img

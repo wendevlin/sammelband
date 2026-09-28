@@ -20,6 +20,8 @@ export type Album = {
   id: string;
   title: string;
   slug: string;
+  /** URL id; album links are /albums/<slug>-<short_id> (see $lib/links). */
+  short_id: string;
   description: string | null;
   folder_id: string | null;
   cover_photo_id: string | null;
@@ -70,6 +72,15 @@ export type AlbumDetail = {
   album: Album;
   blocks: AlbumBlock[];
   photos: Photo[];
+};
+
+/** Album change pushed over /ws: full rows to upsert by id, and removed ids. */
+export type AlbumPatch = {
+  album?: Album;
+  blocks?: AlbumBlock[];
+  photos?: Photo[];
+  removedBlocks?: string[];
+  removedPhotos?: string[];
 };
 
 export type FolderContents = {

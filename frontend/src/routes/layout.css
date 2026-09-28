@@ -8,74 +8,75 @@
 @plugin "@tailwindcss/typography";
 
 :root {
-  /* Burgundy on warm paper. Hue ~18 is burgundy; ~60 keeps the neutrals warm. */
-  --background: oklch(0.985 0.006 70);
-  --foreground: oklch(0.22 0.025 20);
-  --card: oklch(0.995 0.004 70);
-  --card-foreground: oklch(0.22 0.025 20);
-  --popover: oklch(0.995 0.004 70);
-  --popover-foreground: oklch(0.22 0.025 20);
-  --primary: oklch(0.42 0.13 18);
-  --primary-foreground: oklch(0.98 0.01 70);
-  --secondary: oklch(0.95 0.018 30);
-  --secondary-foreground: oklch(0.32 0.09 18);
-  --muted: oklch(0.955 0.012 55);
-  --muted-foreground: oklch(0.5 0.035 25);
-  --accent: oklch(0.94 0.028 18);
-  --accent-foreground: oklch(0.36 0.12 18);
-  --destructive: oklch(0.55 0.22 27);
-  --border: oklch(0.9 0.016 40);
-  --input: oklch(0.86 0.02 35);
-  --ring: oklch(0.55 0.13 18);
-  --chart-1: oklch(0.42 0.13 18);
-  --chart-2: oklch(0.55 0.12 30);
-  --chart-3: oklch(0.65 0.1 50);
-  --chart-4: oklch(0.35 0.08 350);
-  --chart-5: oklch(0.75 0.06 70);
+  /* Derived from the logo: burgundy #7B1E2E on paper #FAF6F1, with the
+     album's dusty rose (#D9C3B9, #EADAD2) and warm brown (#5A4A45) as support. */
+  --background: oklch(0.975 0.008 74);
+  --foreground: oklch(0.25 0.03 25);
+  --card: oklch(0.99 0.005 74);
+  --card-foreground: oklch(0.25 0.03 25);
+  --popover: oklch(0.99 0.005 74);
+  --popover-foreground: oklch(0.25 0.03 25);
+  --primary: oklch(0.392 0.127 16);
+  --primary-foreground: oklch(0.975 0.008 74);
+  --secondary: oklch(0.899 0.021 48);
+  --secondary-foreground: oklch(0.33 0.09 16);
+  --muted: oklch(0.941 0.011 63);
+  --muted-foreground: oklch(0.47 0.03 38);
+  --accent: oklch(0.925 0.02 40);
+  --accent-foreground: oklch(0.34 0.11 16);
+  --destructive: oklch(0.55 0.2 27);
+  --border: oklch(0.88 0.02 50);
+  --input: oklch(0.833 0.029 46);
+  --ring: oklch(0.52 0.12 16);
+  --chart-1: oklch(0.392 0.127 16);
+  --chart-2: oklch(0.55 0.1 30);
+  --chart-3: oklch(0.833 0.029 46);
+  --chart-4: oklch(0.424 0.023 38);
+  --chart-5: oklch(0.7 0.06 60);
   --radius: 0.75rem;
-  --sidebar: oklch(0.97 0.01 60);
-  --sidebar-foreground: oklch(0.22 0.025 20);
-  --sidebar-primary: oklch(0.42 0.13 18);
-  --sidebar-primary-foreground: oklch(0.98 0.01 70);
-  --sidebar-accent: oklch(0.94 0.028 18);
-  --sidebar-accent-foreground: oklch(0.36 0.12 18);
-  --sidebar-border: oklch(0.9 0.016 40);
-  --sidebar-ring: oklch(0.55 0.13 18);
+  --sidebar: oklch(0.955 0.011 63);
+  --sidebar-foreground: oklch(0.25 0.03 25);
+  --sidebar-primary: oklch(0.392 0.127 16);
+  --sidebar-primary-foreground: oklch(0.975 0.008 74);
+  --sidebar-accent: oklch(0.925 0.02 40);
+  --sidebar-accent-foreground: oklch(0.34 0.11 16);
+  --sidebar-border: oklch(0.88 0.02 50);
+  --sidebar-ring: oklch(0.52 0.12 16);
 }
 
 .dark {
-  /* Deep wine black with a lighter rosé-burgundy accent. */
-  --background: oklch(0.17 0.018 15);
+  /* Deep wine black; the logo's burgundy lifted to a readable rosé. */
+  --background: oklch(0.18 0.02 16);
   --foreground: oklch(0.94 0.012 60);
-  --card: oklch(0.21 0.024 15);
+  --card: oklch(0.22 0.025 16);
   --card-foreground: oklch(0.94 0.012 60);
-  --popover: oklch(0.22 0.026 15);
+  --popover: oklch(0.23 0.027 16);
   --popover-foreground: oklch(0.94 0.012 60);
-  --primary: oklch(0.7 0.12 15);
-  --primary-foreground: oklch(0.18 0.03 15);
-  --secondary: oklch(0.27 0.035 15);
+  --primary: oklch(0.74 0.1 16);
+  --primary-foreground: oklch(0.2 0.04 16);
+  --secondary: oklch(0.28 0.035 20);
   --secondary-foreground: oklch(0.94 0.012 60);
-  --muted: oklch(0.25 0.024 15);
-  --muted-foreground: oklch(0.72 0.03 30);
-  --accent: oklch(0.3 0.055 15);
+  --muted: oklch(0.26 0.025 20);
+  --muted-foreground: oklch(0.74 0.028 46);
+  --accent: oklch(0.31 0.055 16);
   --accent-foreground: oklch(0.94 0.012 60);
   --destructive: oklch(0.68 0.19 22);
-  --border: oklch(0.31 0.03 15);
-  --input: oklch(0.38 0.035 15);
-  --ring: oklch(0.62 0.12 15);
-  --chart-1: oklch(0.7 0.12 15);
+  --border: oklch(0.32 0.03 18);
+  --input: oklch(0.39 0.035 18);
+  --ring: oklch(0.62 0.11 16);
+  --chart-1: oklch(0.74 0.1 16);
   --chart-2: oklch(0.65 0.1 30);
-  --chart-3: oklch(0.75 0.08 55);
+  --chart-3: oklch(0.833 0.029 46);
   --chart-4: oklch(0.55 0.1 350);
   --chart-5: oklch(0.82 0.05 70);
-  --sidebar: oklch(0.2 0.022 15);
+  --sidebar: oklch(0.21 0.023 16);
   --sidebar-foreground: oklch(0.94 0.012 60);
-  --sidebar-primary: oklch(0.7 0.12 15);
-  --sidebar-primary-foreground: oklch(0.18 0.03 15);
-  --sidebar-accent: oklch(0.3 0.055 15);
+  --sidebar-primary: oklch(0.74 0.1 16);
+  --sidebar-primary-foreground: oklch(0.2 0.04 16);
+  --sidebar-accent: oklch(0.31 0.055 16);
   --sidebar-accent-foreground: oklch(0.94 0.012 60);
-  --sidebar-border: oklch(0.31 0.03 15);
-  --sidebar-ring: oklch(0.62 0.12 15);
+  --sidebar-border: oklch(0.32 0.03 18);
+  --sidebar-ring: oklch(0.62 0.11 16);
 }
 
 @theme inline {

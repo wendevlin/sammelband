@@ -11,6 +11,7 @@ import { attempt } from "$lib/attempt";
 import * as Breadcrumb from "$lib/components/ui/breadcrumb";
 import { Button } from "$lib/components/ui/button";
 import * as DropdownMenu from "$lib/components/ui/dropdown-menu";
+import { albumPath } from "$lib/links";
 import type { Album, Folder } from "$lib/types";
 import AlbumCard from "./album-card.svelte";
 import ConfirmDialog from "./confirm-dialog.svelte";
@@ -48,7 +49,7 @@ async function createAlbum(title: string) {
   const album = await attempt(() =>
     post<Album>("/albums", { title, folderId: folder?.id ?? null }),
   );
-  if (album) await goto(`/albums/${album.id}/edit`);
+  if (album) await goto(albumPath(album, "/edit"));
   return Boolean(album);
 }
 

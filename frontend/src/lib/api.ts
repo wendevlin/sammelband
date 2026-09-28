@@ -61,6 +61,23 @@ export const patch = <T = unknown>(path: string, body: unknown) =>
   api<T>(path, { method: "PATCH", body });
 export const del = <T = unknown>(path: string) => api<T>(path, { method: "DELETE" });
 
+/**
+ * Login page URL that returns to `target` after sign-in. Only same-origin
+ * paths survive (see `safeNext`), so `next` can't become an open redirect.
+ */
+export function loginUrl(target: URL | string): string {
+  const path = typeof target === "string" ? target : target.pathname + target.search;
+  return path === "/" || path.startsWith("/login")
+    ? "/login"
+    : `/login?next=${encodeURIComponent(path)}`;
+}
+
+/** The post-login destination from `?next=`, or "/" if missing or not a local path. */
+export function safeNext(url: URL): string {
+  const next = url.searchParams.get("next");
+  return next?.startsWith("/") && !next.startsWith("//") && !next.startsWith("/\\") ? next : "/";
+}
+
 /** For load functions: map API failures to SvelteKit errors / the login redirect. */
 export async function load<T>(path: string, f: typeof fetch): Promise<T> {
   // While first-run setup is pending the root layout shows only the onboarding
@@ -70,7 +87,7 @@ export async function load<T>(path: string, f: typeof fetch): Promise<T> {
     return await api<T>(path, { fetch: f });
   } catch (e) {
     if (e instanceof ApiError) {
-      if (e.status === 401) redirect(307, "/login");
+      if (e.status === 401) redirect(307, loginUrl(location.href.slice(location.origin.length)));
       error(e.status, e.message);
     }
     throw e;

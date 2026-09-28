@@ -3,6 +3,7 @@ import ArrowLeft from "@lucide/svelte/icons/arrow-left";
 import Check from "@lucide/svelte/icons/check";
 import Trash from "@lucide/svelte/icons/trash-2";
 import { goto } from "$app/navigation";
+import { getAlbumState } from "$lib/album-state.svelte";
 import { del, patch, post } from "$lib/api";
 import { attempt } from "$lib/attempt";
 import ConfirmDialog from "$lib/components/app/confirm-dialog.svelte";
@@ -15,10 +16,15 @@ import { Label } from "$lib/components/ui/label";
 import * as Tabs from "$lib/components/ui/tabs";
 import { Textarea } from "$lib/components/ui/textarea";
 import { imageSrc } from "$lib/images";
+import { albumPath } from "$lib/links";
 import type { Folder } from "$lib/types";
 import { cn } from "$lib/utils";
 
 let { data } = $props();
+
+// Album, blocks and photos come from the layout's live state; `data` still
+// carries the folders.
+const live = getAlbumState();
 
 // Metadata drafts; refreshed from the server while there are no unsaved edits.
 let title = $state("");
@@ -29,7 +35,7 @@ let saving = $state(false);
 let deleteOpen = $state(false);
 
 $effect(() => {
-  const a = data.album;
+  const a = live.album;
   if (dirty) return;
   title = a.title;
   description = a.description ?? "";
@@ -59,7 +65,7 @@ async function saveMeta(e?: SubmitEvent) {
   saving = true;
   const ok = await attempt(
     () =>
-      patch(`/albums/${data.album.id}`, {
+      patch(`/albums/${live.album.id}`, {
         title: title.trim(),
         description: description.trim() || null,
         folderId: folderId || null,
@@ -71,18 +77,18 @@ async function saveMeta(e?: SubmitEvent) {
 }
 
 const setCover = (photoId: string | null) =>
-  attempt(() => post(`/albums/${data.album.id}/cover`, { photoId }));
+  attempt(() => post(`/albums/${live.album.id}/cover`, { photoId }));
 
 async function deleteAlbum() {
-  const ok = await attempt(() => del(`/albums/${data.album.id}`), "Album deleted");
-  if (ok) await goto(data.album.folder_id ? `/folders/${data.album.folder_id}` : "/");
+  const ok = await attempt(() => del(`/albums/${live.album.id}`), "Album deleted");
+  if (ok) await goto(live.album.folder_id ? `/folders/${live.album.folder_id}` : "/");
 }
 </script>
 
-<svelte:head><title>Edit {data.album.title} · Sammelband</title></svelte:head>
+<svelte:head><title>Edit {live.album.title} · Sammelband</title></svelte:head>
 
 <div class="mb-6 flex items-center justify-between gap-4">
-  <Button variant="ghost" href="/albums/{data.album.id}"><ArrowLeft /> View album</Button>
+  <Button variant="ghost" href={albumPath(live.album)}><ArrowLeft /> View album</Button>
   <Button variant="destructive" onclick={() => (deleteOpen = true)}><Trash /> Delete album</Button>
 </div>
 
@@ -128,35 +134,35 @@ async function deleteAlbum() {
     <Tabs.Trigger value="cover">Cover</Tabs.Trigger>
   </Tabs.List>
   <Tabs.Content value="content">
-    <BlockEditor albumId={data.album.id} blocks={data.blocks} photos={data.photos} />
+    <BlockEditor albumId={live.album.id} blocks={live.blocks} photos={live.photos} />
   </Tabs.Content>
   <Tabs.Content value="cover">
     <p class="mb-4 text-sm text-muted-foreground">
       Without a chosen cover the album shows its first image.
     </p>
-    {#if data.photos.length === 0}
+    {#if live.photos.length === 0}
       <p class="rounded-2xl border border-dashed px-6 py-10 text-center text-muted-foreground">
         No photos yet. Add some to a gallery first.
       </p>
     {:else}
       <Button
-        variant={data.album.cover_photo_id ? 'outline' : 'default'}
+        variant={live.album.cover_photo_id ? 'outline' : 'default'}
         size="sm"
         class="mb-4"
         onclick={() => setCover(null)}
       >
-        {#if !data.album.cover_photo_id}
+        {#if !live.album.cover_photo_id}
           <Check />
         {/if}
         Automatic
       </Button>
       <div class="grid grid-cols-3 gap-3 sm:grid-cols-5 lg:grid-cols-8">
-        {#each data.photos as p (p.id)}
+        {#each live.photos as p (p.id)}
           <button
             type="button"
             class={cn(
 							'relative aspect-square overflow-hidden rounded-lg bg-muted outline-offset-2',
-							data.album.cover_photo_id === p.id && 'outline-3 outline-primary'
+							live.album.cover_photo_id === p.id && 'outline-3 outline-primary'
 						)}
             onclick={() => setCover(p.id)}
             aria-label="Use as cover"
@@ -175,7 +181,7 @@ async function deleteAlbum() {
 
 <ConfirmDialog
   bind:open={deleteOpen}
-  title="Delete “{data.album.title}”?"
+  title="Delete “{live.album.title}”?"
   description="The album, its blocks and all its photos are deleted. This cannot be undone."
   onconfirm={deleteAlbum}
 />

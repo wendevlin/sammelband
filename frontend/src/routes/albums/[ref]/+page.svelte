@@ -1,15 +1,21 @@
 <script lang="ts">
 import Pencil from "@lucide/svelte/icons/pencil";
+import { getAlbumState } from "$lib/album-state.svelte";
 import AlbumContent from "$lib/components/album/album-content.svelte";
 import * as Breadcrumb from "$lib/components/ui/breadcrumb";
 import { Button } from "$lib/components/ui/button";
+import { albumPath } from "$lib/links";
 import type { Folder } from "$lib/types";
 
 let { data } = $props();
 
+// Album, blocks and photos come from the layout's live state; `data` still
+// carries the folders.
+const live = getAlbumState();
+
 const trail = $derived.by(() => {
   const chain: Folder[] = [];
-  let current = data.folders.find((f) => f.id === data.album.folder_id) ?? null;
+  let current = data.folders.find((f) => f.id === live.album.folder_id) ?? null;
   while (current) {
     chain.unshift(current);
     const parentId: string | null = current.parent_id;
@@ -19,7 +25,7 @@ const trail = $derived.by(() => {
 });
 </script>
 
-<svelte:head><title>{data.album.title} · Sammelband</title></svelte:head>
+<svelte:head><title>{live.album.title} · Sammelband</title></svelte:head>
 
 <article class="mx-auto max-w-4xl">
   <div class="mb-10 flex flex-wrap items-start justify-between gap-4">
@@ -35,12 +41,12 @@ const trail = $derived.by(() => {
           {/each}
         </Breadcrumb.List>
       </Breadcrumb.Root>
-      <h1 class="font-heading text-5xl leading-tight">{data.album.title}</h1>
-      {#if data.album.description}
-        <p class="mt-4 max-w-2xl text-lg text-muted-foreground">{data.album.description}</p>
+      <h1 class="font-heading text-5xl leading-tight">{live.album.title}</h1>
+      {#if live.album.description}
+        <p class="mt-4 max-w-2xl text-lg text-muted-foreground">{live.album.description}</p>
       {/if}
     </div>
-    <Button variant="outline" href="/albums/{data.album.id}/edit"><Pencil /> Edit</Button>
+    <Button variant="outline" href={albumPath(live.album, "/edit")}><Pencil /> Edit</Button>
   </div>
-  <AlbumContent blocks={data.blocks} photos={data.photos} />
+  <AlbumContent blocks={live.blocks} photos={live.photos} />
 </article>

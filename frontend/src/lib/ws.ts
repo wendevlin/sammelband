@@ -24,6 +24,7 @@ class WsClient extends EventTarget {
   private listeners = new Map<string, Set<Listener>>();
   private reconnectDelay = 500;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  private wasOpen = false;
 
   get isOpen(): boolean {
     return this.status === "open";
@@ -42,6 +43,9 @@ class WsClient extends EventTarget {
       // Replay subscriptions after reconnect.
       for (const topic of this.listeners.keys()) this.sendRaw({ type: "subscribe", topic });
       this.dispatchEvent(new Event("statuschange"));
+      // Events sent while we were offline are lost: tell pages to resync.
+      if (this.wasOpen) this.dispatchEvent(new Event("reconnect"));
+      this.wasOpen = true;
     });
 
     ws.addEventListener("message", (e) => {
@@ -124,4 +128,10 @@ export function subscribeAll(topics: string[], listener: Listener): () => void {
   return () => {
     for (const off of offs) off();
   };
+}
+
+/** Run `fn` after the connection comes back from a drop. Returns an unsubscribe. */
+export function onReconnect(fn: () => void): () => void {
+  ws.addEventListener("reconnect", fn);
+  return () => ws.removeEventListener("reconnect", fn);
 }

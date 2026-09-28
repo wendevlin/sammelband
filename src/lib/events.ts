@@ -10,6 +10,8 @@
  * stays the same.
  */
 
+import type { Album, AlbumBlock, Photo } from "../db/schema";
+
 export type EventKind = "created" | "updated" | "deleted";
 
 export type ChangeEvent = {
@@ -47,6 +49,31 @@ export function emit(event: ChangeEvent): void {
       console.error("[events] listener threw", { topic: event.topic, err });
     }
   }
+}
+
+/** A photo as the album page sees it: the row plus its image metadata. */
+export type PhotoWithImage = Photo & {
+  filename: string;
+  width: number;
+  height: number;
+  placeholder: string;
+};
+
+/**
+ * What changed in an album, as full rows. Clients replace rows by id and drop
+ * removed ids, so applying a patch twice or out of order is harmless. Rows are
+ * small (a photo is ~2 KB, mostly its blur placeholder); images never go here.
+ */
+export type AlbumPatch = {
+  album?: Album;
+  blocks?: AlbumBlock[];
+  photos?: PhotoWithImage[];
+  removedBlocks?: string[];
+  removedPhotos?: string[];
+};
+
+export function emitAlbumPatch(albumId: string, patch: AlbumPatch): void {
+  emit({ topic: topics.album(albumId), kind: "updated", id: albumId, data: patch });
 }
 
 // Convenience emitters used by services so the topic strings live in one place.

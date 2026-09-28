@@ -3,6 +3,7 @@ import "./layout.css";
 import { ModeWatcher } from "mode-watcher";
 import favicon from "$lib/assets/favicon.svg";
 import AppHeader from "$lib/components/app/app-header.svelte";
+import NavProgress from "$lib/components/app/nav-progress.svelte";
 import Onboarding from "$lib/components/app/onboarding.svelte";
 import { Toaster } from "$lib/components/ui/sonner";
 import { auth } from "$lib/stores/auth.svelte";
@@ -16,6 +17,7 @@ let { children } = $props();
 </svelte:head>
 
 <ModeWatcher />
+<NavProgress />
 <Toaster richColors />
 
 {#if auth.needsOnboarding}

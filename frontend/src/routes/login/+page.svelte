@@ -1,6 +1,7 @@
 <script lang="ts">
 import { goto } from "$app/navigation";
-import { ApiError } from "$lib/api";
+import { page } from "$app/state";
+import { ApiError, safeNext } from "$lib/api";
 import AuthShell from "$lib/components/app/auth-shell.svelte";
 import * as Alert from "$lib/components/ui/alert";
 import { Button } from "$lib/components/ui/button";
@@ -19,7 +20,7 @@ async function submit(e: SubmitEvent) {
   errorMessage = null;
   try {
     await auth.signIn(email, password);
-    await goto("/", { invalidateAll: true });
+    await goto(safeNext(page.url), { invalidateAll: true, replaceState: true });
   } catch (err) {
     errorMessage =
       err instanceof ApiError && err.status === 401

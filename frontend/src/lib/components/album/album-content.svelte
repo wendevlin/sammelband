@@ -46,7 +46,12 @@ let lightbox: PhotoSwipeLightbox | null = null;
 
 function open(index: number) {
   if (!lightbox) {
-    lightbox = new PhotoSwipeLightbox({ loop: false, pswpModule: () => import("photoswipe") });
+    lightbox = new PhotoSwipeLightbox({
+      loop: false,
+      // Solid backdrop: the page behind would otherwise show through at 0.8.
+      bgOpacity: 1,
+      pswpModule: () => import("photoswipe"),
+    });
     lightbox.on("uiRegister", () => {
       lightbox?.pswp?.ui?.registerElement({
         name: "sb-caption",
