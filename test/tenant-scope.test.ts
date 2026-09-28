@@ -1,6 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { db } from "../src/db/client";
 import { TenantScopePlugin } from "../src/db/tenant-scope";
+import { tdb } from "../src/lib/tenant-context";
+import { inTenant } from "./helpers";
 
 const scoped = db.withPlugin(new TenantScopePlugin("T1"));
 
@@ -72,4 +74,22 @@ describe("TenantScopePlugin", () => {
         .compile(),
     ).toThrow("must set tenant_id");
   });
+});
+
+describe("SQLite transaction guard", () => {
+  // Postgres has a pool, so a stray root query there doesn't deadlock.
+  test.skipIf(!!process.env.DATABASE_URL)(
+    "a root db query inside a transaction fails instead of hanging",
+    inTenant(async () => {
+      await expect(
+        tdb()
+          .transaction()
+          .execute(async () => {
+            await tdb().selectFrom("albums").select("id").execute();
+          }),
+      ).rejects.toThrow("use the transaction's trx handle");
+      // The connection is free again afterwards.
+      expect(await tdb().selectFrom("albums").select("id").execute()).toEqual([]);
+    }),
+  );
 });

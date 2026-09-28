@@ -1,4 +1,5 @@
 import type { Database } from "bun:sqlite";
+import { AsyncLocalStorage } from "node:async_hooks";
 import {
   CompiledQuery,
   type DatabaseConnection,
@@ -34,6 +35,19 @@ export class BunSqliteDialect implements Dialect {
   }
 }
 
+/**
+ * Marks the async context (one request) that holds the connection in a
+ * transaction. A query on the root `db` from inside the transaction callback
+ * would queue behind the transaction it is part of and wait forever, stalling
+ * every request; with the marker it fails right away instead.
+ */
+const transactionGuard = new AsyncLocalStorage<{ inTransaction: boolean }>();
+
+/** Run `fn` with its own transaction marker (runInTenant does this per request). */
+export function withTransactionGuard<T>(fn: () => T): T {
+  return transactionGuard.run({ inTransaction: false }, fn);
+}
+
 // SQLite has a single connection; queries and transactions take turns on it.
 class BunSqliteDriver implements Driver {
   readonly #connection: BunSqliteConnection;
@@ -47,6 +61,12 @@ class BunSqliteDriver implements Driver {
   async init() {}
 
   async acquireConnection(): Promise<DatabaseConnection> {
+    if (transactionGuard.getStore()?.inTransaction) {
+      throw new Error(
+        "Query on the root db inside a transaction: use the transaction's trx handle " +
+          "(SQLite has one connection, so this would wait forever)",
+      );
+    }
     const previous = this.#queue;
     let release!: () => void;
     this.#queue = new Promise((resolve) => {
@@ -59,11 +79,14 @@ class BunSqliteDriver implements Driver {
 
   async beginTransaction(connection: DatabaseConnection) {
     await connection.executeQuery(CompiledQuery.raw("begin"));
+    setInTransaction(true);
   }
   async commitTransaction(connection: DatabaseConnection) {
+    setInTransaction(false);
     await connection.executeQuery(CompiledQuery.raw("commit"));
   }
   async rollbackTransaction(connection: DatabaseConnection) {
+    setInTransaction(false);
     await connection.executeQuery(CompiledQuery.raw("rollback"));
   }
 
@@ -76,6 +99,11 @@ class BunSqliteDriver implements Driver {
   async destroy() {
     this.database.close();
   }
+}
+
+function setInTransaction(value: boolean): void {
+  const marker = transactionGuard.getStore();
+  if (marker) marker.inTransaction = value;
 }
 
 class BunSqliteConnection implements DatabaseConnection {

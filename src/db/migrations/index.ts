@@ -4,6 +4,7 @@ import * as tenants from "./0002_tenants";
 import * as sortOrder from "./0003_sort_order";
 import * as shareLinks from "./0004_share_links";
 import * as indexes from "./0005_indexes";
+import * as coverFilename from "./0006_cover_filename";
 
 /**
  * All migrations, in order. Listed statically (instead of read from disk) so
@@ -16,4 +17,5 @@ export const migrations: Record<string, Migration> = {
   "0003_sort_order": sortOrder,
   "0004_share_links": shareLinks,
   "0005_indexes": indexes,
+  "0006_cover_filename": coverFilename,
 };

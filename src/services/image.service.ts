@@ -22,13 +22,41 @@ export type UploadedPhoto = {
 };
 
 /**
- * Mark an album as changed (its "modified" sort order counts content edits,
- * not only title and description).
+ * The cover image of an album: the explicitly chosen cover, else its first
+ * image (first gallery in block order, first photo by sort_order), else null.
  */
-export async function touchAlbum(albumId: string): Promise<void> {
+async function computeCover(albumId: string): Promise<string | null> {
+  const chosen = await tdb()
+    .selectFrom("albums as a")
+    .innerJoin("photos as p", "p.id", "a.cover_photo_id")
+    .innerJoin("image_files as i", "i.id", "p.image_file_id")
+    .select("i.filename")
+    .where("a.id", "=", albumId)
+    .executeTakeFirst();
+  if (chosen) return chosen.filename;
+  const first = await tdb()
+    .selectFrom("photos as p")
+    .innerJoin("image_files as i", "i.id", "p.image_file_id")
+    .innerJoin("album_blocks as b", "b.id", "p.block_id")
+    .select("i.filename")
+    .where("p.album_id", "=", albumId)
+    .orderBy("b.sort_order")
+    .orderBy("p.sort_order")
+    .limit(1)
+    .executeTakeFirst();
+  return first?.filename ?? null;
+}
+
+/**
+ * Record that an album's content changed: bumps `updated_at` (the "recently
+ * changed" order counts content edits) and recomputes the stored
+ * `cover_filename`, so listing albums never has to look covers up. Every
+ * change to blocks, photos or the chosen cover must call this.
+ */
+export async function albumChanged(albumId: string): Promise<void> {
   await tdb()
     .updateTable("albums")
-    .set({ updated_at: Date.now() })
+    .set({ updated_at: Date.now(), cover_filename: await computeCover(albumId) })
     .where("id", "=", albumId)
     .execute();
 }
@@ -123,7 +151,7 @@ export async function uploadPhoto(
   };
   await tdb().insertInto("photos").values(photo).execute();
   // One small event per photo, so other viewers see a batch arrive one by one.
-  await touchAlbum(albumId);
+  await albumChanged(albumId);
   emitAlbumPatch(albumId, { photos: await photoWithImage(photo.id) });
   emit({
     topic: topics.photoPool(albumId),
@@ -178,7 +206,7 @@ export async function updateCaption(photoId: string, caption: string | null): Pr
   if (!(await getPhoto(photoId))) throw new AppError(404, "Photo not found");
   await tdb().updateTable("photos").set({ caption }).where("id", "=", photoId).execute();
   const updated = must(await getPhoto(photoId), "Photo");
-  await touchAlbum(updated.album_id);
+  await albumChanged(updated.album_id);
   emitAlbumPatch(updated.album_id, { photos: await photoWithImage(photoId) });
   emit({ topic: topics.photoPool(updated.album_id), kind: "updated", id: photoId });
   return updated;
@@ -244,7 +272,7 @@ export async function deletePhoto(photoId: string): Promise<void> {
   if (!photo) throw new AppError(404, "Photo not found");
 
   await deletePhotoRows([photo]);
-  await touchAlbum(photo.album_id);
+  await albumChanged(photo.album_id);
   // A trigger clears the cover if this photo was it, so resend the album row.
   const album = await getAlbumRow(photo.album_id);
   emitAlbumPatch(photo.album_id, { album, removedPhotos: [photoId] });
@@ -304,7 +332,7 @@ export async function reorderPhotos(
     .executeTakeFirst();
   const ids = order.map((e) => e.id);
   if (block && ids.length > 0) {
-    await touchAlbum(block.album_id);
+    await albumChanged(block.album_id);
     emitAlbumPatch(block.album_id, { photos: await photosWithImage({ blockId, ids }) });
   }
 }

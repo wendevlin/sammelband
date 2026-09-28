@@ -101,20 +101,40 @@ describe("photos", () => {
   );
 
   test(
-    "cover falls back to the first photo of the first gallery",
+    "the stored cover follows the chosen cover, else the first photo of the first gallery",
     inTenant(async () => {
       const { user, album, block } = await gallery();
-      expect(await albumService.coverFilename(album)).toBeNull();
+      const cover = async () => (await albumService.getAlbum(album.id))?.cover_filename;
+      expect(await cover()).toBeNull();
+
+      const red = await imageService.uploadPhoto(png(), block.id, user.id);
+      expect(await cover()).toBe(red.imageFile.filename);
+
+      // A gallery moved before it takes over.
       const earlier = await blockService.createBlock({
         albumId: album.id,
         type: "gallery",
         content: {},
-        position: { afterId: undefined },
       });
+      const blue = await imageService.uploadPhoto(png([0, 0, 255]), earlier.id, user.id);
+      expect(await cover()).toBe(red.imageFile.filename);
       await blockService.reorderBlocks(album.id, [{ id: earlier.id, sortOrder: 0 }]);
-      await imageService.uploadPhoto(png(), block.id, user.id);
-      const first = await imageService.uploadPhoto(png([0, 0, 255]), earlier.id, user.id);
-      expect(await albumService.coverFilename(album)).toBe(first.imageFile.filename);
+      expect(await cover()).toBe(blue.imageFile.filename);
+
+      // Reordering photos inside the first gallery.
+      const green = await imageService.uploadPhoto(png([0, 255, 0]), earlier.id, user.id);
+      await imageService.reorderPhotos(earlier.id, [{ id: green.photo.id, sortOrder: 0 }]);
+      expect(await cover()).toBe(green.imageFile.filename);
+
+      // An explicit cover wins; deleting it falls back again.
+      await albumService.setCover(album.id, red.photo.id);
+      expect(await cover()).toBe(red.imageFile.filename);
+      await imageService.deletePhoto(red.photo.id);
+      expect(await cover()).toBe(green.imageFile.filename);
+
+      // Deleting the first gallery falls back to nothing left.
+      await blockService.deleteBlock(earlier.id);
+      expect(await cover()).toBeNull();
     }),
   );
 

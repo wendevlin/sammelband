@@ -62,6 +62,23 @@ export async function releaseStorage(bytes: number): Promise<void> {
     .execute();
 }
 
+/**
+ * Recompute storage_used_bytes from the files that actually exist (one
+ * tenant, or all). The counter is updated incrementally on upload and delete;
+ * this corrects drift, e.g. after a crash between writing a file and
+ * recording it. Runs at startup and when the storage page loads.
+ */
+export async function reconcileStorage(tenantId?: string): Promise<void> {
+  let q = db.updateTable("tenants").set((eb) => ({
+    storage_used_bytes: eb
+      .selectFrom("image_files")
+      .select((e) => e.fn.coalesce(e.fn.sum<number>("file_size"), e.lit(0)).as("used"))
+      .whereRef("image_files.tenant_id", "=", "tenants.id"),
+  }));
+  if (tenantId) q = q.where("id", "=", tenantId);
+  await q.execute();
+}
+
 async function insertTenant(name: string, quotaBytes: number | null): Promise<Tenant> {
   if (!name.trim()) throw new AppError(400, "Name required");
   const tenant: Tenant = {

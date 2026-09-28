@@ -55,7 +55,14 @@ Self-hosted photo book app. See README.md for setup; TASKS.md for the plan and b
   and the album layout applies them to `AlbumState` (`$lib/album-state.svelte`)
   without refetching. Both resync after a WebSocket reconnect.
 - Inside `db.transaction().execute(async (trx) => …)` use `trx` for every query.
-  SQLite has one connection, so a query on `db` inside a transaction waits forever.
+  SQLite has one connection; inside `runInTenant` the driver throws on a root query
+  during a transaction (`withTransactionGuard`), elsewhere it would wait forever.
+- Every change to an album's blocks, photos or chosen cover calls
+  `imageService.albumChanged(albumId)`: it bumps `updated_at` and recomputes the stored
+  `albums.cover_filename` that library pages read.
+- Deleting a tenant (`tenant.service.deleteTenant`) removes rows table by table; a new
+  tenant table needs a line there (the "no row behind" test in `test/tenants.test.ts`
+  catches a forgotten one).
 - Frontend page loads `await parent()` first (root layout does the auth/onboarding
   gate) and fetch through `load()` from `$lib/api`; actions use `attempt()` for toasts.
 - Formatting and linting: Biome only, one root `biome.json` for backend and frontend

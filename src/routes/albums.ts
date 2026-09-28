@@ -9,7 +9,7 @@ const nullableId = z.string().nullable().optional();
 
 export const albumRoutes = new Hono<AuthEnv>()
   .use("*", requireAuth)
-  .get("/", async (c) => c.json(await albumService.attachCovers(await albumService.listAlbums())))
+  .get("/", async (c) => c.json(await albumService.listAlbums()))
   .post(
     "/",
     validate(

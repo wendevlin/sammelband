@@ -1,5 +1,6 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 import type { Kysely } from "kysely";
+import { withTransactionGuard } from "../db/bun-sqlite-dialect";
 import { db } from "../db/client";
 import type { Database } from "../db/schema";
 import { TenantScopePlugin } from "../db/tenant-scope";
@@ -11,7 +12,8 @@ import { TenantScopePlugin } from "../db/tenant-scope";
 const storage = new AsyncLocalStorage<{ tenantId: string; db: Kysely<Database> }>();
 
 export function runInTenant<T>(tenantId: string, fn: () => T): T {
-  return storage.run({ tenantId, db: db.withPlugin(new TenantScopePlugin(tenantId)) }, fn);
+  const ctx = { tenantId, db: db.withPlugin(new TenantScopePlugin(tenantId)) };
+  return storage.run(ctx, () => withTransactionGuard(fn));
 }
 
 export function currentTenantId(): string {

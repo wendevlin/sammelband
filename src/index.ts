@@ -28,10 +28,12 @@ import { spaRoutes } from "./routes/spa";
 import { tenantRoutes } from "./routes/tenant";
 import { wsRoutes } from "./routes/ws";
 import { initOnboarding } from "./services/onboarding.service";
+import { reconcileStorage } from "./services/tenant.service";
 
 mkdirSync(join(config.UPLOADS_PATH, "tenants"), { recursive: true });
 
 await migrate();
+await reconcileStorage();
 await initOnboarding();
 
 const app = new Hono();

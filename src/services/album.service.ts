@@ -96,6 +96,7 @@ export async function createAlbum(input: {
       description: input.description ?? null,
       folder_id: input.folderId,
       cover_photo_id: null,
+      cover_filename: null,
       created_by: input.createdBy,
       created_at: now,
       updated_at: now,
@@ -191,44 +192,14 @@ export async function setCover(albumId: string, photoId: string | null): Promise
   }
   await tdb()
     .updateTable("albums")
-    .set({ cover_photo_id: photoId, updated_at: Date.now() })
+    .set({ cover_photo_id: photoId })
     .where("id", "=", albumId)
     .execute();
+  await imageService.albumChanged(albumId);
   const updated = must(await getAlbum(albumId), "Album");
   emitAlbumPatch(albumId, { album: updated });
   emit({ topic: topics.albumList(), kind: "updated", id: albumId });
   return updated;
-}
-
-export type AlbumWithCover = Album & { cover_filename: string | null };
-
-// Cover image filename: the explicitly chosen cover, else the album's first
-// image (first gallery in block order, first photo by sort_order), else null.
-export async function coverFilename(album: Album): Promise<string | null> {
-  if (album.cover_photo_id) {
-    const row = await tdb()
-      .selectFrom("image_files as i")
-      .innerJoin("photos as p", "p.image_file_id", "i.id")
-      .select("i.filename")
-      .where("p.id", "=", album.cover_photo_id)
-      .executeTakeFirst();
-    if (row) return row.filename;
-  }
-  const first = await tdb()
-    .selectFrom("photos as p")
-    .innerJoin("image_files as i", "i.id", "p.image_file_id")
-    .innerJoin("album_blocks as b", "b.id", "p.block_id")
-    .select("i.filename")
-    .where("p.album_id", "=", album.id)
-    .orderBy("b.sort_order")
-    .orderBy("p.sort_order")
-    .limit(1)
-    .executeTakeFirst();
-  return first?.filename ?? null;
-}
-
-export function attachCovers(albums: Album[]): Promise<AlbumWithCover[]> {
-  return Promise.all(albums.map(async (a) => ({ ...a, cover_filename: await coverFilename(a) })));
 }
 
 export async function deleteAlbum(id: string): Promise<void> {

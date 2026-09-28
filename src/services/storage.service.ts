@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { emit, topics } from "../lib/events";
 import { originalsDir, variantsDir } from "../lib/storage-paths";
 import { currentTenantId, tdb } from "../lib/tenant-context";
-import { currentTenant } from "./tenant.service";
+import { currentTenant, reconcileStorage } from "./tenant.service";
 
 function dirStats(dir: string): { file_count: number; size_bytes: number } {
   try {
@@ -18,6 +18,7 @@ function dirStats(dir: string): { file_count: number; size_bytes: number } {
 /** Storage of the current tenant. */
 export async function getStorageStats() {
   const originals = originalsDir(currentTenantId());
+  await reconcileStorage(currentTenantId());
   const tenant = await currentTenant();
 
   // Orphans: rows in image_files whose `filename` is missing on disk, and

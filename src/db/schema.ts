@@ -20,6 +20,8 @@ export type Album = {
   description: string | null;
   folder_id: string | null;
   cover_photo_id: string | null;
+  /** Kept up to date by imageService.albumChanged(). */
+  cover_filename: string | null;
   created_by: string | null;
   created_at: number;
   updated_at: number;

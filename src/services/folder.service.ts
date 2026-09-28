@@ -2,7 +2,6 @@ import type { Album, Folder, SortMode } from "../db/schema";
 import { AppError, must } from "../lib/errors";
 import { emit, topics } from "../lib/events";
 import { currentTenantId, tdb } from "../lib/tenant-context";
-import { type AlbumWithCover, attachCovers, coverFilename } from "./album.service";
 import type { SortableItem } from "./sort.service";
 import * as sortService from "./sort.service";
 
@@ -188,12 +187,10 @@ export async function withPreviews(
               .sortItems(own.map(albumItem), mode, positions)
               .map((i) => must(own.find((a) => a.id === i.id)))
           : albumsIn(subfolders);
-      const covers: string[] = [];
-      for (const album of candidates) {
-        if (covers.length === PREVIEW_COVERS) break;
-        const cover = await coverFilename(album);
-        if (cover) covers.push(cover);
-      }
+      const covers = candidates
+        .map((a) => a.cover_filename)
+        .filter((c): c is string => c !== null)
+        .slice(0, PREVIEW_COVERS);
       return {
         ...folder,
         covers,
@@ -207,7 +204,7 @@ export async function withPreviews(
 
 export type Contents = {
   folders: FolderTile[];
-  albums: AlbumWithCover[];
+  albums: Album[];
   sort: SortMode;
 };
 
@@ -264,7 +261,7 @@ export async function contentsOf(
     .map((i) => must(albums.find((a) => a.id === i.id)));
   return {
     folders: sortService.sortItems(tiles, sort, folderPositions),
-    albums: await attachCovers(sortedAlbums),
+    albums: sortedAlbums,
     sort,
   };
 }

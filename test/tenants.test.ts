@@ -1,13 +1,17 @@
 import { describe, expect, test } from "bun:test";
 import { existsSync } from "node:fs";
+import { sql } from "kysely";
 import { auth } from "../src/auth";
 import { db } from "../src/db/client";
+import { TENANT_COLUMNS } from "../src/db/tenant-scope";
 import { tenantDir } from "../src/lib/storage-paths";
 import { runInTenant } from "../src/lib/tenant-context";
 import * as albumService from "../src/services/album.service";
 import * as blockService from "../src/services/block.service";
+import * as folderService from "../src/services/folder.service";
 import * as imageService from "../src/services/image.service";
 import * as inviteService from "../src/services/invite.service";
+import * as shareService from "../src/services/share.service";
 import * as tenantService from "../src/services/tenant.service";
 import * as userService from "../src/services/user.service";
 import { createTenant, createUser, png } from "./helpers";
@@ -64,6 +68,24 @@ describe("quota", () => {
       expect(await used()).toBe(blue);
       await imageService.uploadPhoto(png([0, 255, 0]), block.id, user.id);
     });
+  });
+});
+
+describe("storage counter", () => {
+  test("reconciling corrects a drifted counter from the stored files", async () => {
+    const tenant = await createTenant();
+    const { user, block } = await gallery(tenant.id);
+    await runInTenant(tenant.id, () => imageService.uploadPhoto(png(), block.id, user.id));
+    const used = async () =>
+      (await db.selectFrom("tenants").select("storage_used_bytes").executeTakeFirstOrThrow())
+        .storage_used_bytes;
+    const real = await used();
+    await db.updateTable("tenants").set({ storage_used_bytes: 999_999 }).execute();
+    await tenantService.reconcileStorage();
+    expect(await used()).toBe(real);
+    await db.updateTable("tenants").set({ storage_used_bytes: 5 }).execute();
+    await tenantService.reconcileStorage(tenant.id);
+    expect(await used()).toBe(png().size);
   });
 });
 
@@ -172,6 +194,44 @@ describe("superadmin", () => {
     expect(await db.selectFrom("user").select("id").where("id", "=", user.id).execute()).toEqual(
       [],
     );
+  });
+
+  test("deleting leaves no row behind in any tenant table", async () => {
+    const own = await createTenant("Own");
+    const tenant = await createTenant("Full");
+    await runInTenant(tenant.id, async () => {
+      const { user, album, block } = await gallery(tenant.id);
+      const folder = await folderService.createFolder({
+        name: "F",
+        parentId: null,
+        createdBy: user.id,
+      });
+      await imageService.uploadPhoto(png(), block.id, user.id);
+      await folderService.moveItem(null, user.id, { kind: "album", id: album.id, beforeId: null });
+      await folderService.moveItem(null, user.id, {
+        kind: "folder",
+        id: folder.id,
+        beforeId: null,
+      });
+      await shareService.createShare({ folderId: folder.id }, { password: "secret" }, user.id);
+      await inviteService.createTenantInvite("user");
+    });
+    const rowsOf = async () => {
+      const counts: Record<string, number> = {};
+      for (const [table, column] of Object.entries(TENANT_COLUMNS)) {
+        const { rows } = await sql<{ n: number }>`
+          SELECT COUNT(*) AS n FROM ${sql.table(table)} WHERE ${sql.ref(column)} = ${tenant.id}`.execute(
+          db,
+        );
+        counts[table] = Number(rows[0]?.n);
+      }
+      return counts;
+    };
+    // Every registered table has rows before, so the check below means something.
+    expect(Object.values(await rowsOf()).every((n) => n > 0)).toBe(true);
+
+    await tenantService.deleteTenant(own.id, tenant.id, "Full");
+    expect(Object.values(await rowsOf()).every((n) => n === 0)).toBe(true);
   });
 
   test("overview counts per tenant", async () => {
