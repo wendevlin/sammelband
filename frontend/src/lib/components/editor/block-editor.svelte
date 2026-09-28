@@ -35,16 +35,11 @@ const TYPES: { type: BlockType; label: string; icon: typeof Heading }[] = [
 const DEFAULT_CONTENT: Record<BlockType, Content> = {
   heading: { level: 2, text: "" },
   text: { markdown: "" },
-  gallery: { layout: "grid" },
+  gallery: {},
   group: { background: "none" },
 };
 const typeLabel = (type: BlockType) => TYPES.find((t) => t.type === type)?.label ?? type;
 const LEVELS = [1, 2, 3].map((l) => ({ value: String(l), label: `H${l}` }));
-const LAYOUTS = [
-  { value: "grid", label: m.layout_grid() },
-  { value: "masonry", label: m.layout_masonry() },
-  { value: "strip", label: m.layout_strip() },
-];
 const BACKGROUNDS = [
   { value: "none", label: m.background_none() },
   { value: "auto", label: m.background_auto() },
@@ -312,14 +307,6 @@ async function dropIntoGroup(e: DragEvent, group: AlbumBlock) {
         onblur={() => flush(b.id)}
       />
     {:else if b.type === 'gallery'}
-      <div class="mb-3">
-        <SimpleSelect
-          label={m.block_layout()}
-          value={String(c.layout ?? 'grid')}
-          options={LAYOUTS}
-          onchange={(v) => change(b, { layout: v }, 0)}
-        />
-      </div>
       <GalleryPhotos blockId={b.id} photos={photosOf(b.id)} />
     {:else if b.type === 'group'}
       <div class="mb-4">

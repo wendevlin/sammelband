@@ -5,7 +5,6 @@ import "photoswipe/style.css";
 import { imageUrls } from "$lib/images";
 import {
   type AlbumBlock,
-  type GalleryContent,
   type GroupContent,
   type HeadingContent,
   type Photo,
@@ -113,11 +112,7 @@ const HEADING_CLASS: Record<number, string> = {
   {:else if b.type === 'gallery'}
     {@const gallery = photosOf(b.id)}
     {#if gallery.length > 0}
-      <BlockGallery
-        photos={gallery}
-        layout={parseContent<GalleryContent>(b).layout}
-        onopen={(i) => open((sequence.offsets.get(b.id) ?? 0) + i)}
-      />
+      <BlockGallery photos={gallery} onopen={(i) => open((sequence.offsets.get(b.id) ?? 0) + i)} />
     {/if}
   {:else if b.type === 'group'}
     {@const kids = childrenOf(b.id)}

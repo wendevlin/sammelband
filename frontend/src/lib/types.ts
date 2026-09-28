@@ -79,8 +79,6 @@ export type AlbumBlock = {
 
 export type HeadingContent = { level?: number; text?: string };
 export type TextContent = { markdown?: string };
-export type GalleryLayout = "grid" | "masonry" | "strip";
-export type GalleryContent = { layout?: GalleryLayout };
 export type GroupBackground = "none" | "auto" | "neutral" | "blue" | "green" | "amber" | "rose";
 export type GroupContent = { background?: GroupBackground };
 
