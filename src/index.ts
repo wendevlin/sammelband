@@ -40,8 +40,6 @@ await initOnboarding();
 const app = new Hono();
 
 app.onError((err, c) => {
-  // Error pages of public links stay out of search engines too.
-  if (c.req.path.startsWith("/api/public/")) c.header("X-Robots-Tag", "noindex, nofollow");
   if (err instanceof AppError) {
     return c.json({ error: err.message }, err.statusCode as ContentfulStatusCode);
   }
@@ -73,6 +71,15 @@ app.use(
 );
 
 app.get("/health", (c) => c.json({ ok: true }));
+
+// A private app: ask every crawler not to index or train on anything. Public
+// share links keep their link previews (see robots.txt and routes/spa.ts).
+app.use("*", async (c, next) => {
+  await next();
+  if (!c.res.headers.has("X-Robots-Tag")) {
+    c.header("X-Robots-Tag", "noindex, nofollow, noarchive, noimageindex, noai, noimageai");
+  }
+});
 
 // Cross-origin form/multipart posts are rejected. JSON bodies can't be sent
 // cross-origin without a CORS preflight, which this server never answers.

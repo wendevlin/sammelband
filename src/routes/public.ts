@@ -1,6 +1,5 @@
 import { Hono } from "hono";
 import { getCookie, setCookie } from "hono/cookie";
-import { createMiddleware } from "hono/factory";
 import { z } from "zod";
 import { config } from "../config";
 import { validate } from "../lib/validate";
@@ -13,13 +12,7 @@ const viewLimit = rateLimit({ name: "public-view", windowMs: 10 * 60 * 1000, max
 const unlockLimit = rateLimit({ name: "public-unlock", windowMs: 10 * 60 * 1000, max: 10 });
 const imageLimit = rateLimit({ name: "public-image", windowMs: 10 * 60 * 1000, max: 3000 });
 
-const noindex = createMiddleware(async (c, next) => {
-  await next();
-  c.header("X-Robots-Tag", "noindex, nofollow");
-});
-
 export const publicRoutes = new Hono()
-  .use("*", noindex)
   .get(
     "/:token",
     viewLimit,

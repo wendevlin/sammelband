@@ -2,9 +2,10 @@
 import ImagePlus from "@lucide/svelte/icons/image-plus";
 import X from "@lucide/svelte/icons/x";
 import { toast } from "svelte-sonner";
-import { api, del, patch, post } from "$lib/api";
+import { ApiError, api, del, patch, post } from "$lib/api";
 import { attempt } from "$lib/attempt";
 import ConfirmDialog from "$lib/components/dialogs/confirm-dialog.svelte";
+import NoticeDialog from "$lib/components/dialogs/notice-dialog.svelte";
 import { Button } from "$lib/components/ui/button";
 import { Input } from "$lib/components/ui/input";
 import { imageSrc } from "$lib/images";
@@ -21,6 +22,9 @@ let dropTarget = $state<{ id: string; after: boolean } | null>(null);
 let deleteTarget = $state<Photo | null>(null);
 let deleteOpen = $state(false);
 let input = $state<HTMLInputElement | null>(null);
+// Upload limits (storage full, photo too large) need more than a passing toast.
+let notice = $state<{ title: string; description: string } | null>(null);
+let noticeOpen = $state(false);
 
 async function upload(files: FileList | File[]) {
   const list = Array.from(files).filter((f) => f.type.startsWith("image/"));
@@ -28,14 +32,27 @@ async function upload(files: FileList | File[]) {
   const fd = new FormData();
   for (const f of list) fd.append("files", f);
   uploading = list.length;
-  const res = await attempt(() =>
-    api<{ uploaded: { deduplicated: boolean }[] }>(`/blocks/${blockId}/photos`, {
+  let res: { uploaded: { deduplicated: boolean }[] } | undefined;
+  try {
+    res = await api<{ uploaded: { deduplicated: boolean }[] }>(`/blocks/${blockId}/photos`, {
       method: "POST",
       body: fd,
-    }),
-  );
-  uploading = 0;
-  if (!res) return;
+    });
+  } catch (e) {
+    if (e instanceof ApiError && e.status === 413) {
+      // The server stops at the first photo over the limit; earlier ones are kept.
+      notice = {
+        title: e.message.toLowerCase().includes("quota") ? "Storage full" : "Photo too large",
+        description: `${e.message} Photos before this one in the selection were saved.`,
+      };
+      noticeOpen = true;
+    } else {
+      toast.error(e instanceof Error ? e.message : "Upload failed");
+    }
+    return;
+  } finally {
+    uploading = 0;
+  }
   const dups = res.uploaded.filter((u) => u.deduplicated).length;
   toast.success(
     `Uploaded ${res.uploaded.length} photo${res.uploaded.length === 1 ? "" : "s"}` +
@@ -175,4 +192,10 @@ async function drop(target: Photo) {
   title="Delete this photo?"
   description="The file is removed from disk unless another gallery uses the same image."
   onconfirm={() => deleteTarget && attempt(() => del(`/photos/${deleteTarget?.id}`))}
+/>
+
+<NoticeDialog
+  bind:open={noticeOpen}
+  title={notice?.title ?? ''}
+  description={notice?.description}
 />

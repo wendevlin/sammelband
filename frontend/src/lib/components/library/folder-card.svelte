@@ -38,6 +38,9 @@ const layout = $derived(
     covers.length
   ],
 );
+// Sheets peeking out behind the tile hint at how much is inside: none when
+// empty, one for a single item, two for more.
+const sheets = $derived(Math.min(2, folder.album_count + folder.folder_count));
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
 const summary = $derived(
   [
@@ -51,13 +54,16 @@ const summary = $derived(
 
 <div class="group">
   <a {href} class="relative block pt-3" aria-label="Folder {folder.name}" draggable="false">
-    <!-- Two sheets peeking out behind the tile: a stack, not a single album. -->
-    <div
-      class="absolute inset-x-8 top-0 h-10 rounded-xl border border-foreground/10 bg-secondary"
-    ></div>
-    <div
-      class="absolute inset-x-4 top-1.5 h-10 rounded-xl border border-foreground/10 bg-card shadow-sm"
-    ></div>
+    {#if sheets >= 2}
+      <div
+        class="absolute inset-x-8 top-0 h-10 rounded-xl border border-foreground/10 bg-secondary"
+      ></div>
+    {/if}
+    {#if sheets >= 1}
+      <div
+        class="absolute inset-x-4 top-1.5 h-10 rounded-xl border border-foreground/10 bg-card shadow-sm"
+      ></div>
+    {/if}
     <div class="relative aspect-[4/3] overflow-hidden rounded-xl bg-muted ring-1 ring-border">
       {#if covers.length === 0}
         <div class="flex size-full items-center justify-center">

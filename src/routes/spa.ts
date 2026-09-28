@@ -35,8 +35,7 @@ export const spaRoutes = new Hono()
     let html = await index.text();
     const share = SHARE_PATH.exec(c.req.path);
     if (share?.[1]) {
-      // Public link pages stay out of search engines, but get a link preview.
-      c.header("X-Robots-Tag", "noindex, nofollow");
+      // Messenger bots read these for link previews (noindex is set globally).
       const preview = await linkPreview(share[1], {
         albumRef: share[2] === "albums" ? share[3] : undefined,
         folderId: share[2] === "folders" ? share[3] : undefined,

@@ -21,7 +21,8 @@ const current = $derived(options.find((o) => o.value === value)?.label ?? "");
 
 <Select.Root type="single" {value} onValueChange={(v) => v !== value && onchange(v)}>
   <Select.Trigger class={className} aria-label={label} size="sm">{current}</Select.Trigger>
-  <Select.Content>
+  <!-- Tighter corners than the generated default, which looks bubbly on short lists. -->
+  <Select.Content class="rounded-lg p-1">
     {#each options as o (o.value)}
       <Select.Item value={o.value} label={o.label}>{o.label}</Select.Item>
     {/each}

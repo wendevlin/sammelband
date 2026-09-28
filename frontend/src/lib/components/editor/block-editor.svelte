@@ -29,7 +29,7 @@ const TYPES: { type: BlockType; label: string; icon: typeof Heading }[] = [
   { type: "group", label: "Group", icon: SquareDashed },
 ];
 const DEFAULT_CONTENT: Record<BlockType, Content> = {
-  heading: { level: 2, text: "Heading" },
+  heading: { level: 2, text: "" },
   text: { markdown: "" },
   gallery: { layout: "grid" },
   group: { background: "none" },
@@ -211,6 +211,7 @@ async function drop(e: DragEvent, target: AlbumBlock) {
           class="w-20"
         />
         <Input
+          placeholder="Heading"
           value={String(c.text ?? '')}
           oninput={(e) => setDraft(b, { text: e.currentTarget.value })}
         />
