@@ -1,5 +1,6 @@
 <script lang="ts">
 import type { Snippet } from "svelte";
+import LanguagePicker from "$lib/components/app/language-picker.svelte";
 import Logo from "$lib/components/app/logo.svelte";
 import * as Card from "$lib/components/ui/card";
 
@@ -22,5 +23,6 @@ let { title, description, children }: { title: string; description?: string; chi
       </Card.Header>
       <Card.Content>{@render children()}</Card.Content>
     </Card.Root>
+    <div class="mt-4 flex justify-center"><LanguagePicker /></div>
   </div>
 </div>

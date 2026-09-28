@@ -23,6 +23,8 @@ export const auth = betterAuth({
       tenantId: { type: "string", required: false, input: false },
       /** The instance owner: manages tenants, sees none of their content. */
       superadmin: { type: "boolean", defaultValue: false, required: false, input: false },
+      /** UI language ("en", "de"); null follows the browser. */
+      locale: { type: "string", required: false, input: false },
     },
   },
 
@@ -38,7 +40,10 @@ export const auth = betterAuth({
             .where("user.id", "=", session.userId)
             .executeTakeFirst();
           if (row?.suspended_at) {
-            throw new APIError("FORBIDDEN", { message: "This Sammelband is suspended" });
+            throw new APIError("FORBIDDEN", {
+              message: "This Sammelband is suspended",
+              code: "TENANT_SUSPENDED",
+            });
           }
         },
       },

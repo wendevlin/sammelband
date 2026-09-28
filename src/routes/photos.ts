@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { z } from "zod";
-import { AppError } from "../lib/errors";
+import { fail } from "../lib/errors";
 import { validate } from "../lib/validate";
 import { type AuthEnv, requireAuth } from "../middleware/auth.middleware";
 import { uploadRateLimit } from "../middleware/rate-limit.middleware";
@@ -15,7 +15,7 @@ export const blockPhotoRoutes = new Hono<AuthEnv>()
     const files = (Array.isArray(raw) ? raw : raw === undefined ? [] : [raw]).filter(
       (f): f is File => f instanceof File,
     );
-    if (files.length === 0) throw new AppError(400, "files: at least one file required");
+    if (files.length === 0) throw fail("no_files");
     const uploaded = [];
     // Sequential so sort_order follows the selection order.
     for (const f of files) {

@@ -1,6 +1,6 @@
 import { randomBytes } from "node:crypto";
 import { appUrl } from "../config";
-import { AppError } from "../lib/errors";
+import { fail } from "../lib/errors";
 import { currentTenantId, tdb } from "../lib/tenant-context";
 import { endOfDayIn } from "../lib/timezone";
 import { currentTenant } from "./tenant.service";
@@ -36,7 +36,7 @@ async function requireTarget(target: ShareTarget): Promise<void> {
           .select("id")
           .where("id", "=", target.folderId)
           .executeTakeFirst();
-  if (!found) throw new AppError(404, "albumId" in target ? "Album not found" : "Folder not found");
+  if (!found) throw fail("albumId" in target ? "album_not_found" : "folder_not_found");
 }
 
 export async function listShares(target: ShareTarget): Promise<ShareLinkInfo[]> {
@@ -76,13 +76,13 @@ export async function createShare(
   await requireTarget(target);
   const password = opts.password?.trim() || null;
   if (password && password.length < MIN_PASSWORD) {
-    throw new AppError(400, `Passwords need at least ${MIN_PASSWORD} characters`);
+    throw fail("share_password_too_short", { min: MIN_PASSWORD });
   }
   let expiresAt: number | null = null;
   if (opts.expiresOn) {
     const { timezone } = await currentTenant();
     expiresAt = endOfDayIn(opts.expiresOn, timezone);
-    if (expiresAt <= Date.now()) throw new AppError(400, "The expiry date must be in the future");
+    if (expiresAt <= Date.now()) throw fail("expiry_in_past");
   }
   const id = Bun.randomUUIDv7();
   const token = randomBytes(24).toString("base64url");
@@ -101,12 +101,12 @@ export async function createShare(
     })
     .execute();
   const created = (await listShares(target)).find((s) => s.id === id);
-  if (!created) throw new AppError(500, "Share link vanished");
+  if (!created) throw fail("internal_error");
   return created;
 }
 
 /** Revoke one link; other links to the same album or folder keep working. */
 export async function deleteShare(id: string): Promise<void> {
   const result = await tdb().deleteFrom("share_links").where("id", "=", id).executeTakeFirst();
-  if (Number(result.numDeletedRows) === 0) throw new AppError(404, "Share link not found");
+  if (Number(result.numDeletedRows) === 0) throw fail("share_link_not_found");
 }

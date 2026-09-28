@@ -1,7 +1,7 @@
 import { mkdirSync, rmSync } from "node:fs";
 import { config, SRCSET_WIDTHS } from "../config";
 import type { Album, ImageFile, Photo } from "../db/schema";
-import { AppError, must } from "../lib/errors";
+import { fail, must } from "../lib/errors";
 import { emit, emitAlbumPatch, type PhotoWithImage, topics } from "../lib/events";
 import { originalPath, originalsDir, variantPath } from "../lib/storage-paths";
 import { currentTenantId, tdb } from "../lib/tenant-context";
@@ -92,10 +92,10 @@ export async function uploadPhoto(
   uploaderId: string,
 ): Promise<UploadedPhoto> {
   if (file.size > config.MAX_UPLOAD_BYTES) {
-    throw new AppError(413, `Photos can be at most ${config.MAX_UPLOAD_BYTES / 1024 / 1024} MB`);
+    throw fail("file_too_large", { maxMb: config.MAX_UPLOAD_BYTES / 1024 / 1024 });
   }
   if (!file.type.startsWith("image/")) {
-    throw new AppError(400, "Only image uploads are allowed");
+    throw fail("only_images");
   }
   // Photos belong to a gallery block; the album is derived from it.
   const block = await tdb()
@@ -103,8 +103,8 @@ export async function uploadPhoto(
     .select(["album_id", "type"])
     .where("id", "=", blockId)
     .executeTakeFirst();
-  if (!block) throw new AppError(404, "Gallery block not found");
-  if (block.type !== "gallery") throw new AppError(400, "Block is not a gallery");
+  if (!block) throw fail("gallery_not_found");
+  if (block.type !== "gallery") throw fail("not_a_gallery");
   const albumId = block.album_id;
 
   const buf = Buffer.from(await file.arrayBuffer());
@@ -163,11 +163,11 @@ async function storeImageFile(buf: Buffer, contentHash: string): Promise<ImageFi
   const { width, height } = await new Bun.Image(buf, { autoOrient: true })
     .metadata()
     .catch(() => ({ width: 0, height: 0 }));
-  if (!width || !height) throw new AppError(400, "Unable to read image dimensions");
+  if (!width || !height) throw fail("unreadable_image");
   // Checked before decoding the pixels: a small file can still decompress to
   // gigabytes (a "decompression bomb").
   if (width * height > MAX_PIXELS) {
-    throw new AppError(413, `Photos can have at most ${MAX_PIXELS / 1e6} megapixels`);
+    throw fail("image_too_large", { maxMegapixels: MAX_PIXELS / 1e6 });
   }
   const placeholder = await new Bun.Image(buf).placeholder();
 
@@ -198,7 +198,7 @@ async function storeImageFile(buf: Buffer, contentHash: string): Promise<ImageFi
 }
 
 export async function updateCaption(photoId: string, caption: string | null): Promise<Photo> {
-  if (!(await getPhoto(photoId))) throw new AppError(404, "Photo not found");
+  if (!(await getPhoto(photoId))) throw fail("photo_not_found");
   await tdb().updateTable("photos").set({ caption }).where("id", "=", photoId).execute();
   const updated = must(await getPhoto(photoId), "Photo");
   await albumChanged(updated.album_id);
@@ -264,7 +264,7 @@ async function deletePhotoRows(photos: Photo[]): Promise<void> {
 
 export async function deletePhoto(photoId: string): Promise<void> {
   const photo = await getPhoto(photoId);
-  if (!photo) throw new AppError(404, "Photo not found");
+  if (!photo) throw fail("photo_not_found");
 
   await deletePhotoRows([photo]);
   await albumChanged(photo.album_id);
@@ -314,14 +314,14 @@ export async function movePhoto(
   beforeId: string | null,
 ): Promise<Photo> {
   const photo = await getPhoto(photoId);
-  if (!photo) throw new AppError(404, "Photo not found");
+  if (!photo) throw fail("photo_not_found");
   const block = await tdb()
     .selectFrom("album_blocks")
     .select(["album_id", "type"])
     .where("id", "=", blockId)
     .executeTakeFirst();
-  if (!block || block.album_id !== photo.album_id) throw new AppError(404, "Gallery not found");
-  if (block.type !== "gallery") throw new AppError(400, "Block is not a gallery");
+  if (!block || block.album_id !== photo.album_id) throw fail("gallery_not_found");
+  if (block.type !== "gallery") throw fail("not_a_gallery");
 
   const others = tdb()
     .selectFrom("photos")
@@ -331,7 +331,7 @@ export async function movePhoto(
   let sortOrder: number;
   if (beforeId) {
     const before = await getPhoto(beforeId);
-    if (!before || before.block_id !== blockId) throw new AppError(404, "Target photo not found");
+    if (!before || before.block_id !== blockId) throw fail("target_photo_not_found");
     const prev = await others
       .where("sort_order", "<", before.sort_order)
       .orderBy("sort_order", "desc")

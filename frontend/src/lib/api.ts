@@ -1,4 +1,6 @@
 import { error, redirect } from "@sveltejs/kit";
+import { errorText } from "$lib/i18n";
+import { m } from "$lib/paraglide/messages.js";
 import { auth } from "$lib/stores/auth.svelte";
 
 /**
@@ -6,11 +8,24 @@ import { auth } from "$lib/stores/auth.svelte";
  * All HTTP API routes live under /api; callers pass the path without it.
  */
 export class ApiError extends Error {
+  /** Stable error code from the backend (or better-auth), for translation. */
+  readonly code: string | undefined;
+  readonly params: Record<string, string | number> | undefined;
+
   constructor(
     readonly status: number,
     readonly body: unknown,
   ) {
     super(messageOf(body) ?? `HTTP ${status}`);
+    const b = (typeof body === "object" && body ? body : {}) as {
+      code?: unknown;
+      params?: unknown;
+    };
+    this.code = typeof b.code === "string" ? b.code : undefined;
+    this.params =
+      typeof b.params === "object" && b.params
+        ? (b.params as Record<string, string | number>)
+        : undefined;
   }
 }
 
@@ -83,13 +98,13 @@ export function safeNext(url: URL): string {
 export async function load<T>(path: string, f: typeof fetch): Promise<T> {
   // While first-run setup is pending the root layout shows only the onboarding
   // form; skip page data instead of bouncing to /login on the 401.
-  if (auth.needsOnboarding) error(503, "Setup required");
+  if (auth.needsOnboarding) error(503, m.setup_title());
   try {
     return await api<T>(path, { fetch: f });
   } catch (e) {
     if (e instanceof ApiError) {
       if (e.status === 401) redirect(307, loginUrl(location.href.slice(location.origin.length)));
-      error(e.status, e.message);
+      error(e.status, errorText(e));
     }
     throw e;
   }

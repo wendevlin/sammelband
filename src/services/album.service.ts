@@ -1,5 +1,5 @@
 import type { Album, AlbumBlock } from "../db/schema";
-import { AppError, must } from "../lib/errors";
+import { fail, must } from "../lib/errors";
 import { emit, emitAlbumPatch, type PhotoWithImage, topics } from "../lib/events";
 import { shortId } from "../lib/short-id";
 import { currentTenantId, tdb } from "../lib/tenant-context";
@@ -75,9 +75,9 @@ export async function createAlbum(input: {
   folderId: string | null;
   createdBy: string;
 }): Promise<Album> {
-  if (!input.title.trim()) throw new AppError(400, "Title required");
+  if (!input.title.trim()) throw fail("title_required");
   if (input.folderId && !(await folderExists(input.folderId))) {
-    throw new AppError(404, "Folder not found");
+    throw fail("folder_not_found");
   }
 
   const baseSlug = slugify(input.title) || "untitled";
@@ -135,12 +135,12 @@ export async function updateAlbum(
   },
 ): Promise<Album> {
   const album = await getAlbum(id);
-  if (!album) throw new AppError(404, "Album not found");
+  if (!album) throw fail("album_not_found");
 
   let newFolderId = album.folder_id;
   if (patch.folderId !== undefined) {
     if (patch.folderId && !(await folderExists(patch.folderId))) {
-      throw new AppError(404, "Folder not found");
+      throw fail("folder_not_found");
     }
     newFolderId = patch.folderId;
   }
@@ -180,7 +180,7 @@ export async function updateAlbum(
 
 export async function setCover(albumId: string, photoId: string | null): Promise<Album> {
   const album = await getAlbum(albumId);
-  if (!album) throw new AppError(404, "Album not found");
+  if (!album) throw fail("album_not_found");
   if (photoId !== null) {
     const photo = await tdb()
       .selectFrom("photos")
@@ -188,7 +188,7 @@ export async function setCover(albumId: string, photoId: string | null): Promise
       .where("id", "=", photoId)
       .where("album_id", "=", albumId)
       .executeTakeFirst();
-    if (!photo) throw new AppError(404, "Photo not found in album");
+    if (!photo) throw fail("photo_not_in_album");
   }
   await tdb()
     .updateTable("albums")
@@ -204,7 +204,7 @@ export async function setCover(albumId: string, photoId: string | null): Promise
 
 export async function deleteAlbum(id: string): Promise<void> {
   const album = await getAlbum(id);
-  if (!album) throw new AppError(404, "Album not found");
+  if (!album) throw fail("album_not_found");
   // Remove all photos from disk + variant cache first (dedup-aware); blocks then
   // cascade via FK ON DELETE CASCADE when the album row is gone.
   await imageService.deletePhotosByAlbum(id);
@@ -225,7 +225,7 @@ export async function getAlbumDetail(ref: string): Promise<{
   photos: PhotoWithImage[];
 }> {
   const album = await resolveAlbum(ref);
-  if (!album) throw new AppError(404, "Album not found");
+  if (!album) throw fail("album_not_found");
   const blocks = await tdb()
     .selectFrom("album_blocks")
     .selectAll()

@@ -1,5 +1,5 @@
 import type { Album, Folder, SortMode } from "../db/schema";
-import { AppError, must } from "../lib/errors";
+import { fail, must } from "../lib/errors";
 import { emit, topics } from "../lib/events";
 import { currentTenantId, tdb } from "../lib/tenant-context";
 import type { SortableItem } from "./sort.service";
@@ -25,9 +25,9 @@ export async function createFolder(input: {
   parentId: string | null;
   createdBy: string;
 }): Promise<Folder> {
-  if (!input.name.trim()) throw new AppError(400, "Folder name required");
+  if (!input.name.trim()) throw fail("name_required");
   if (input.parentId && !(await getFolder(input.parentId))) {
-    throw new AppError(404, "Parent folder not found");
+    throw fail("parent_folder_not_found");
   }
   const id = Bun.randomUUIDv7();
   await tdb()
@@ -54,15 +54,15 @@ export async function updateFolder(
   patch: { name?: string; parentId?: string | null },
 ): Promise<Folder> {
   const folder = await getFolder(id);
-  if (!folder) throw new AppError(404, "Folder not found");
+  if (!folder) throw fail("folder_not_found");
 
   if (patch.parentId !== undefined) {
-    if (patch.parentId === id) throw new AppError(400, "Folder cannot be its own parent");
+    if (patch.parentId === id) throw fail("folder_own_parent");
     if (patch.parentId && !(await getFolder(patch.parentId))) {
-      throw new AppError(404, "Parent folder not found");
+      throw fail("parent_folder_not_found");
     }
     if (patch.parentId && (await isDescendant(patch.parentId, id))) {
-      throw new AppError(400, "Cannot move folder into its own descendant");
+      throw fail("folder_into_descendant");
     }
   }
 
@@ -98,7 +98,7 @@ async function isDescendant(folderId: string, candidateAncestorId: string): Prom
 
 export async function deleteFolder(id: string): Promise<void> {
   const folder = await getFolder(id);
-  if (!folder) throw new AppError(404, "Folder not found");
+  if (!folder) throw fail("folder_not_found");
 
   const albums = await tdb()
     .selectFrom("albums")
@@ -106,7 +106,7 @@ export async function deleteFolder(id: string): Promise<void> {
     .where("folder_id", "=", id)
     .executeTakeFirst();
   if (albums) {
-    throw new AppError(409, "Folder is not empty — move or delete albums first");
+    throw fail("folder_has_albums");
   }
   const subfolders = await tdb()
     .selectFrom("folders")
@@ -114,7 +114,7 @@ export async function deleteFolder(id: string): Promise<void> {
     .where("parent_id", "=", id)
     .executeTakeFirst();
   if (subfolders) {
-    throw new AppError(409, "Folder is not empty — move or delete sub-folders first");
+    throw fail("folder_has_subfolders");
   }
 
   await sortService.dropModes(id);
@@ -214,7 +214,7 @@ export async function getFolderContents(
   userId: string,
 ): Promise<Contents & { folder: Folder }> {
   const folder = await getFolder(id);
-  if (!folder) throw new AppError(404, "Folder not found");
+  if (!folder) throw fail("folder_not_found");
   return { folder, ...(await contentsOf(id, userId)) };
 }
 
@@ -268,7 +268,7 @@ export async function contentsOf(
 
 async function requireContainer(folderId: string | null): Promise<void> {
   if (folderId !== null && !(await getFolder(folderId))) {
-    throw new AppError(404, "Folder not found");
+    throw fail("folder_not_found");
   }
 }
 

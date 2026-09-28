@@ -1,5 +1,5 @@
 import { toast } from "svelte-sonner";
-import { ApiError } from "$lib/api";
+import { errorText } from "$lib/i18n";
 
 /** Run an action and toast its failure. Returns the result, or undefined on error. */
 export async function attempt<T>(fn: () => Promise<T>, success?: string): Promise<T | undefined> {
@@ -8,7 +8,7 @@ export async function attempt<T>(fn: () => Promise<T>, success?: string): Promis
     if (success) toast.success(success);
     return result;
   } catch (e) {
-    toast.error(e instanceof ApiError || e instanceof Error ? e.message : "Something went wrong");
+    toast.error(errorText(e));
     return undefined;
   }
 }

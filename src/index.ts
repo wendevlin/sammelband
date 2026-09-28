@@ -9,6 +9,7 @@ import type { ContentfulStatusCode } from "hono/utils/http-status";
 import { auth } from "./auth";
 import { config } from "./config";
 import { migrate } from "./db/migrate";
+import { errorBody } from "./lib/error-codes";
 import { AppError } from "./lib/errors";
 import { authRateLimit } from "./middleware/rate-limit.middleware";
 import { adminInviteRoutes } from "./routes/admin/invites";
@@ -42,11 +43,14 @@ const app = new Hono();
 
 app.onError((err, c) => {
   if (err instanceof AppError) {
-    return c.json({ error: err.message }, err.statusCode as ContentfulStatusCode);
+    return c.json(
+      { error: err.message, code: err.code, ...(err.params && { params: err.params }) },
+      err.statusCode as ContentfulStatusCode,
+    );
   }
   if (err instanceof HTTPException) return err.getResponse();
   console.error("[unhandled]", err);
-  return c.json({ error: "Internal server error" }, 500);
+  return c.json(errorBody("internal_error"), 500);
 });
 
 app.use(
@@ -89,9 +93,7 @@ app.use("/api/*", csrf({ origin: config.ALLOWED_ORIGINS }));
 // Auth. Closed instance: accounts are created by an admin, an invite link or
 // the first-run setup, all server-side, so the public sign-up endpoint is blocked.
 app.use("/api/auth/*", authRateLimit);
-app.post("/api/auth/sign-up/*", (c) =>
-  c.json({ error: "Public sign-up is disabled. Ask an admin to create your account." }, 403),
-);
+app.post("/api/auth/sign-up/*", (c) => c.json(errorBody("signup_disabled"), 403));
 app.on(["GET", "POST"], "/api/auth/*", (c) => auth.handler(c.req.raw));
 
 app.route("/api/onboarding", onboardingRoutes);
@@ -112,7 +114,7 @@ app.route("/api/admin/users", adminUserRoutes);
 app.route("/api/admin/storage", adminStorageRoutes);
 app.route("/api/admin/invites", adminInviteRoutes);
 app.route("/api/instance", instanceRoutes);
-app.all("/api/*", (c) => c.json({ error: "Not found" }, 404));
+app.all("/api/*", (c) => c.json(errorBody("not_found"), 404));
 
 app.route("/", wsRoutes);
 app.route("/", spaRoutes);

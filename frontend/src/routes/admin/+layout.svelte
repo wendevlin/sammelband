@@ -1,22 +1,23 @@
 <script lang="ts">
 import { page } from "$app/state";
+import { m } from "$lib/paraglide/messages.js";
 import { auth } from "$lib/stores/auth.svelte";
 import { cn } from "$lib/utils";
 
 let { children } = $props();
 
 const tabs = $derived([
-  { href: "/admin/general", label: "General" },
-  { href: "/admin/users", label: "Users" },
-  { href: "/admin/storage", label: "Storage" },
+  { href: "/admin/general", label: m.admin_tab_general() },
+  { href: "/admin/users", label: m.admin_tab_users() },
+  { href: "/admin/storage", label: m.admin_tab_storage() },
   ...(auth.isSuperadmin && auth.multiTenant
-    ? [{ href: "/admin/instance", label: "Sammelbände" }]
+    ? [{ href: "/admin/instance", label: m.admin_tab_instance() }]
     : []),
 ]);
 </script>
 
 <p class="mb-2 text-xs font-semibold tracking-widest text-muted-foreground uppercase">
-  Admin settings
+  {m.nav_admin_settings()}
 </p>
 <nav class="mb-8 flex gap-1 border-b">
   {#each tabs as tab (tab.href)}

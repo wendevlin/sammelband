@@ -7,6 +7,7 @@ import AuthShell from "$lib/components/app/auth-shell.svelte";
 import { Button } from "$lib/components/ui/button";
 import { Input } from "$lib/components/ui/input";
 import { Label } from "$lib/components/ui/label";
+import { m } from "$lib/paraglide/messages.js";
 import { auth } from "$lib/stores/auth.svelte";
 import { browserTimeZone } from "$lib/timezone";
 
@@ -30,7 +31,7 @@ async function submit(e: SubmitEvent) {
         name: name || undefined,
         timezone: browserTimeZone(),
       }),
-    "Your Sammelband is ready. Sign in to continue.",
+    m.setup_done(),
   );
   busy = false;
   if (!ok) return;
@@ -40,36 +41,34 @@ async function submit(e: SubmitEvent) {
 </script>
 
 <AuthShell
-  title="Set up Sammelband"
-  description={auth.multiTenant
-    ? 'Use the setup code printed in the server log when it started. You become the owner of this instance and can later create Sammelbände for others.'
-    : 'Use the setup code printed in the server log when it started. You become the owner and first admin.'}
+  title={m.setup_title()}
+  description={auth.multiTenant ? m.setup_description_multi() : m.setup_description()}
 >
   <form class="grid gap-4" onsubmit={submit}>
     <div class="grid gap-2">
-      <Label for="code">Setup code</Label>
+      <Label for="code">{m.setup_code()}</Label>
       <Input id="code" bind:value={code} required autocomplete="off" class="font-mono uppercase" />
     </div>
     <div class="grid gap-2">
-      <Label for="sammelband">Name of your Sammelband</Label>
+      <Label for="sammelband">{m.setup_sammelband_name()}</Label>
       <Input
         id="sammelband"
         bind:value={sammelband}
         required
         maxlength={100}
-        placeholder="e.g. Our family"
+        placeholder={m.setup_sammelband_placeholder()}
       />
     </div>
     <div class="grid gap-2">
-      <Label for="name">Your name</Label>
+      <Label for="name">{m.common_your_name()}</Label>
       <Input id="name" bind:value={name} autocomplete="name" />
     </div>
     <div class="grid gap-2">
-      <Label for="email">Email</Label>
+      <Label for="email">{m.common_email()}</Label>
       <Input id="email" type="email" bind:value={email} required autocomplete="email" />
     </div>
     <div class="grid gap-2">
-      <Label for="password">Password</Label>
+      <Label for="password">{m.common_password()}</Label>
       <Input
         id="password"
         type="password"
@@ -79,6 +78,6 @@ async function submit(e: SubmitEvent) {
         autocomplete="new-password"
       />
     </div>
-    <Button type="submit" disabled={busy}>Create</Button>
+    <Button type="submit" disabled={busy}>{m.common_create()}</Button>
   </form>
 </AuthShell>

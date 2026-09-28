@@ -6,8 +6,9 @@ Self-hosted photo book app. See README.md for setup; TASKS.md for the plan and b
 
 - `src/` backend (Bun + Hono). `index.ts` wires everything; `routes/` are thin Hono
   routers with zod validation (`lib/validate.ts`); `services/` hold all logic and
-  queries (async, Kysely query builder). Services throw `AppError(status, message)`,
-  which `index.ts` turns into `{ error }` JSON.
+  queries (async, Kysely query builder). Services throw `fail(code, params?)` (`lib/errors.ts`);
+  codes, statuses and English messages live in `lib/error-codes.ts`, and `index.ts`
+  answers `{ error, code, params }`.
 - `src/db/`: `client.ts` picks SQLite (`bun:sqlite`, own dialect in
   `bun-sqlite-dialect.ts`) or Postgres (`DATABASE_URL`, `pg`); `schema.ts` has the row
   types and Kysely `Database`; `migrations/` hold the domain migrations, registered in
@@ -71,3 +72,9 @@ Self-hosted photo book app. See README.md for setup; TASKS.md for the plan and b
   (`bun run lint` / `bun run lint:fix`). Svelte support is Biome's experimental full
   support: template usage is invisible to it, so unused-variable/import rules are off
   for `*.svelte`. Type errors in Svelte come from `bun run --cwd frontend check`.
+- i18n: Paraglide JS. UI strings live in `frontend/messages/{en,de}.json` (English is the
+  base locale) and are used as `m.key(params)` from `$lib/paraglide/messages.js`, which
+  `bun run build`/`dev` generates. No hard-coded UI text. Plurals are `_one`/`_other` keys
+  picked in code. Backend errors: show them with `errorText(e)` from `$lib/i18n`, which
+  translates `error_<code>` and falls back to the server's message. A new error code needs
+  `error_<code>` in both message files (`test/error-codes.test.ts` checks this).

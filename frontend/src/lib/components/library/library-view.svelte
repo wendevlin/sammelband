@@ -15,6 +15,7 @@ import ShareButton from "$lib/components/share/share-button.svelte";
 import * as Breadcrumb from "$lib/components/ui/breadcrumb";
 import { Button } from "$lib/components/ui/button";
 import { albumPath } from "$lib/links";
+import { m } from "$lib/paraglide/messages.js";
 import type { Album, Folder, FolderTile, SortMode } from "$lib/types";
 import { cn } from "$lib/utils";
 import SortMenu from "./sort-menu.svelte";
@@ -66,7 +67,7 @@ async function move(kind: Kind, id: string, beforeId: string | null) {
   const result = await attempt(() =>
     post<{ sort: SortMode }>(`${base}/order`, { kind, id, beforeId }),
   );
-  if (result && sort !== "manual") toast.info("Switched to manual order");
+  if (result && sort !== "manual") toast.info(m.sort_switched_manual());
   await invalidateAll();
 }
 
@@ -235,15 +236,17 @@ function askMove(d: { kind: Kind; id: string }, into: Folder | null) {
 }
 
 async function confirmMove() {
-  const m = moveRequest;
-  if (!m) return;
-  const folderId = m.into?.id ?? null;
+  const request = moveRequest;
+  if (!request) return;
+  const folderId = request.into?.id ?? null;
   const ok = await attempt(
     () =>
-      m.kind === "album"
-        ? patch(`/albums/${m.id}`, { folderId })
-        : patch(`/folders/${m.id}`, { parentId: folderId }),
-    `Moved “${m.name}” to ${m.into?.name ?? "the library"}`,
+      request.kind === "album"
+        ? patch(`/albums/${request.id}`, { folderId })
+        : patch(`/folders/${request.id}`, { parentId: folderId }),
+    request.into
+      ? m.move_done_folder({ name: request.name, folder: request.into.name })
+      : m.move_done_library({ name: request.name }),
   );
   if (ok) await invalidateAll();
 }
@@ -282,7 +285,7 @@ const renameFolder = (name: string) =>
     : false;
 
 const deleteFolder = () =>
-  deleteTarget ? attempt(() => del(`/folders/${deleteTarget?.id}`), "Folder deleted") : null;
+  deleteTarget ? attempt(() => del(`/folders/${deleteTarget?.id}`), m.folder_deleted()) : null;
 </script>
 
 <div class="mb-10 flex flex-wrap items-end justify-between gap-4">
@@ -298,10 +301,10 @@ const deleteFolder = () =>
               ondragleave={() => (crumbTarget = null)}
               ondrop={(e: DragEvent) => dropOnCrumb(e, null)}
             >
-              Library
+              {m.nav_library()}
             </Breadcrumb.Link>
           {:else}
-            <Breadcrumb.Page>Library</Breadcrumb.Page>
+            <Breadcrumb.Page>{m.nav_library()}</Breadcrumb.Page>
           {/if}
         </Breadcrumb.Item>
         {#each trail as f, i (f.id)}
@@ -324,7 +327,7 @@ const deleteFolder = () =>
         {/each}
       </Breadcrumb.List>
     </Breadcrumb.Root>
-    <h1 class="font-heading text-4xl">{folder?.name ?? 'Library'}</h1>
+    <h1 class="font-heading text-4xl">{folder?.name ?? m.nav_library()}</h1>
   </div>
   <div class="flex flex-wrap items-center gap-2">
     <SortMenu value={sort} onchange={setSort} />
@@ -333,9 +336,9 @@ const deleteFolder = () =>
     {/if}
     <Button variant="outline" onclick={() => (newFolderOpen = true)}>
       <FolderPlus />
-      Folder
+      {m.folder_badge()}
     </Button>
-    <Button onclick={() => (newAlbumOpen = true)}><Plus /> Album</Button>
+    <Button onclick={() => (newAlbumOpen = true)}><Plus /> {m.album_badge()}</Button>
   </div>
 </div>
 
@@ -350,7 +353,7 @@ const deleteFolder = () =>
       class="pointer-events-none absolute -inset-2 flex items-center justify-center rounded-2xl bg-primary/10 ring-2 ring-primary"
     >
       <span class="rounded-full bg-background px-3 py-1 text-sm font-medium shadow">
-        Move into “{name}”
+        {m.move_into({ name })}
       </span>
     </div>
   {/if}
@@ -358,14 +361,14 @@ const deleteFolder = () =>
 
 {#if sort === 'manual' && folderOrder.length + albumOrder.length > 1}
   <p class="-mt-6 mb-8 hidden text-sm text-muted-foreground sm:block">
-    Drag to arrange. Drop onto a folder (or a folder above) to move something into it.
+    {m.library_drag_hint()}
   </p>
 {/if}
 
 {#if folderOrder.length > 0}
   <section class="mb-12">
     <h2 class="mb-4 text-xs font-semibold tracking-widest text-muted-foreground uppercase">
-      Folders
+      {m.library_folders()}
     </h2>
     <div
       role="list"
@@ -416,13 +419,13 @@ const deleteFolder = () =>
 <section>
   {#if folderOrder.length > 0 && albumOrder.length > 0}
     <h2 class="mb-4 text-xs font-semibold tracking-widest text-muted-foreground uppercase">
-      Albums
+      {m.library_albums()}
     </h2>
   {/if}
   {#if albumOrder.length === 0 && folderOrder.length === 0}
     <!-- Only when there's nothing at all; otherwise an empty albums area just gets in the way. -->
     <p class="py-10 text-center text-sm text-muted-foreground">
-      {folder ? 'This folder is empty.' : 'Nothing here yet. Create a folder or an album to start.'}
+      {folder ? m.folder_is_empty() : m.library_empty()}
     </p>
   {:else if albumOrder.length > 0}
     <div
@@ -462,38 +465,40 @@ const deleteFolder = () =>
 
 <ConfirmDialog
   bind:open={moveOpen}
-  title={`Move “${moveRequest?.name ?? ''}” to ${moveRequest?.into ? `“${moveRequest.into.name}”` : 'the library'}?`}
+  title={moveRequest?.into
+    ? m.move_confirm_folder({ name: moveRequest?.name ?? '', folder: moveRequest.into.name })
+    : m.move_confirm_library({ name: moveRequest?.name ?? '' })}
   description={moveRequest?.kind === 'folder'
-    ? 'The folder moves with everything inside it. Share links keep working; everyone’s manual order for it here is reset.'
-    : 'The album leaves this folder. Share links keep working; everyone’s manual order for it here is reset.'}
-  confirmLabel="Move"
+    ? m.move_confirm_folder_description()
+    : m.move_confirm_album_description()}
+  confirmLabel={m.move()}
   onconfirm={confirmMove}
 />
 
 <PromptDialog
   bind:open={newFolderOpen}
-  title="New folder"
-  label="Name"
-  submitLabel="Create"
+  title={m.folder_new()}
+  label={m.common_name()}
+  submitLabel={m.common_create()}
   onsubmit={createFolder}
 />
 <PromptDialog
   bind:open={newAlbumOpen}
-  title="New album"
-  label="Title"
-  submitLabel="Create"
+  title={m.album_new()}
+  label={m.common_title()}
+  submitLabel={m.common_create()}
   onsubmit={createAlbum}
 />
 <PromptDialog
   bind:open={renameOpen}
-  title="Rename folder"
-  label="Name"
+  title={m.folder_rename()}
+  label={m.common_name()}
   value={renameTarget?.name ?? ''}
   onsubmit={renameFolder}
 />
 <ConfirmDialog
   bind:open={deleteOpen}
-  title={`Delete “${deleteTarget?.name ?? ''}”?`}
-  description="Only empty folders can be deleted. Move or delete its albums and sub-folders first."
+  title={m.folder_delete_confirm({ name: deleteTarget?.name ?? '' })}
+  description={m.folder_delete_description()}
   onconfirm={deleteFolder}
 />

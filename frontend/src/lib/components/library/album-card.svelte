@@ -6,6 +6,7 @@ import { Button } from "$lib/components/ui/button";
 import * as DropdownMenu from "$lib/components/ui/dropdown-menu";
 import { imageUrls } from "$lib/images";
 import { albumPath } from "$lib/links";
+import { m } from "$lib/paraglide/messages.js";
 import type { Album } from "$lib/types";
 
 type CardAlbum = Pick<Album, "title" | "description" | "short_id"> & {
@@ -54,7 +55,7 @@ const images = imageUrls();
       <DropdownMenu.Root>
         <DropdownMenu.Trigger>
           {#snippet child({ props })}
-            <Button {...props} variant="ghost" size="icon-sm" aria-label="Album actions">
+            <Button {...props} variant="ghost" size="icon-sm" aria-label={m.album_actions()}>
               <EllipsisVertical />
             </Button>
           {/snippet}

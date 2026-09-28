@@ -1,5 +1,6 @@
 <script lang="ts">
 import PhotoSwipeLightbox from "photoswipe/lightbox";
+import { m } from "$lib/paraglide/messages.js";
 import "photoswipe/style.css";
 import { imageUrls } from "$lib/images";
 import {
@@ -132,7 +133,7 @@ const HEADING_CLASS: Record<number, string> = {
 {/snippet}
 
 {#if topLevel.length === 0}
-  <p class="py-16 text-center text-muted-foreground">This album is empty.</p>
+  <p class="py-16 text-center text-muted-foreground">{m.album_empty()}</p>
 {:else}
   {#each topLevel as b (b.id)}
     {@render block(b)}

@@ -52,6 +52,20 @@ describe("profile", () => {
   );
 
   test(
+    "the UI language is saved with the account",
+    inTenant(async () => {
+      const user = await createUser();
+      const headers = await sessionHeaders(user.email);
+      await profileService.updateProfile(user.id, headers, { locale: "de" });
+      const session = await auth.api.getSession({ headers });
+      expect((session?.user as { locale?: string }).locale).toBe("de");
+      await profileService.updateProfile(user.id, headers, { locale: null });
+      const cleared = await auth.api.getSession({ headers });
+      expect((cleared?.user as { locale?: string | null }).locale ?? null).toBeNull();
+    }),
+  );
+
+  test(
     "changing the password needs the current one",
     inTenant(async () => {
       const user = await createUser();

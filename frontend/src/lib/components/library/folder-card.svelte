@@ -7,6 +7,7 @@ import type { Snippet } from "svelte";
 import { Button } from "$lib/components/ui/button";
 import * as DropdownMenu from "$lib/components/ui/dropdown-menu";
 import { imageUrls } from "$lib/images";
+import { m } from "$lib/paraglide/messages.js";
 import type { FolderTile } from "$lib/types";
 import { cn } from "$lib/utils";
 
@@ -41,19 +42,29 @@ const layout = $derived(
 // Sheets peeking out behind the tile hint at how much is inside: none when
 // empty, one for a single item, two for more.
 const sheets = $derived(Math.min(2, folder.album_count + folder.folder_count));
-const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
 const summary = $derived(
   [
-    folder.album_count > 0 && plural(folder.album_count, "album"),
-    folder.folder_count > 0 && plural(folder.folder_count, "folder"),
+    folder.album_count > 0 &&
+      (folder.album_count === 1
+        ? m.count_album_one()
+        : m.count_album_other({ count: folder.album_count })),
+    folder.folder_count > 0 &&
+      (folder.folder_count === 1
+        ? m.count_folder_one()
+        : m.count_folder_other({ count: folder.folder_count })),
   ]
     .filter(Boolean)
-    .join(" · ") || "Empty",
+    .join(" · ") || m.folder_empty(),
 );
 </script>
 
 <div class="group">
-  <a {href} class="relative block pt-3" aria-label="Folder {folder.name}" draggable="false">
+  <a
+    {href}
+    class="relative block pt-3"
+    aria-label={m.folder_aria({ name: folder.name })}
+    draggable="false"
+  >
     {#if sheets >= 2}
       <div
         class="absolute inset-x-8 top-0 h-10 rounded-xl border border-foreground/10 bg-secondary"
@@ -89,7 +100,7 @@ const summary = $derived(
         class="absolute bottom-3 left-3 inline-flex items-center gap-1.5 rounded-full bg-background/85 px-2.5 py-1 text-xs font-medium backdrop-blur"
       >
         <FolderIcon class="size-3.5" />
-        Folder
+        {m.folder_badge()}
       </span>
     </div>
   </a>
@@ -104,18 +115,18 @@ const summary = $derived(
       <DropdownMenu.Root>
         <DropdownMenu.Trigger>
           {#snippet child({ props })}
-            <Button {...props} variant="ghost" size="icon-sm" aria-label="Folder actions">
+            <Button {...props} variant="ghost" size="icon-sm" aria-label={m.folder_actions()}>
               <EllipsisVertical />
             </Button>
           {/snippet}
         </DropdownMenu.Trigger>
         <DropdownMenu.Content align="end">
-          <DropdownMenu.Item onclick={onrename}><Pencil /> Rename</DropdownMenu.Item>
+          <DropdownMenu.Item onclick={onrename}><Pencil /> {m.common_rename()}</DropdownMenu.Item>
           {@render menu?.()}
           <DropdownMenu.Separator />
           <DropdownMenu.Item variant="destructive" onclick={ondelete}>
             <Trash />
-            Delete
+            {m.common_delete()}
           </DropdownMenu.Item>
         </DropdownMenu.Content>
       </DropdownMenu.Root>

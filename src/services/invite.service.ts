@@ -1,7 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { appUrl } from "../config";
 import { db } from "../db/client";
-import { AppError } from "../lib/errors";
+import { fail } from "../lib/errors";
 import { currentTenantId, tdb } from "../lib/tenant-context";
 import { createAccount, type Role } from "./user.service";
 
@@ -80,7 +80,7 @@ async function findUsable(token: string) {
     .executeTakeFirst();
   // One message for every unusable state, so tokens can't be probed.
   if (!invite || invite.used_at || invite.expires_at < Date.now() || invite.suspended_at) {
-    throw new AppError(404, "This invite link is invalid or has expired");
+    throw fail("invite_invalid");
   }
   return invite;
 }
@@ -109,7 +109,7 @@ export async function acceptInvite(
     .where("used_at", "is", null)
     .executeTakeFirst();
   if (Number(claimed.numUpdatedRows) !== 1) {
-    throw new AppError(404, "This invite link is invalid or has expired");
+    throw fail("invite_invalid");
   }
   try {
     const { sammelband, ...account } = input;

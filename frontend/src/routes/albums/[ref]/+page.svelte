@@ -6,6 +6,7 @@ import ShareButton from "$lib/components/share/share-button.svelte";
 import * as Breadcrumb from "$lib/components/ui/breadcrumb";
 import { Button } from "$lib/components/ui/button";
 import { albumPath } from "$lib/links";
+import { m } from "$lib/paraglide/messages.js";
 import type { Folder } from "$lib/types";
 
 let { data } = $props();
@@ -33,7 +34,9 @@ const trail = $derived.by(() => {
     <div>
       <Breadcrumb.Root class="mb-3">
         <Breadcrumb.List>
-          <Breadcrumb.Item><Breadcrumb.Link href="/">Library</Breadcrumb.Link></Breadcrumb.Item>
+          <Breadcrumb.Item
+            ><Breadcrumb.Link href="/">{m.nav_library()}</Breadcrumb.Link></Breadcrumb.Item
+          >
           {#each trail as f (f.id)}
             <Breadcrumb.Separator />
             <Breadcrumb.Item>
@@ -49,7 +52,9 @@ const trail = $derived.by(() => {
     </div>
     <div class="flex gap-2">
       <ShareButton target={{ albumId: live.album.id }} name={live.album.title} />
-      <Button variant="outline" href={albumPath(live.album, "/edit")}><Pencil /> Edit</Button>
+      <Button variant="outline" href={albumPath(live.album, "/edit")}
+        ><Pencil /> {m.album_edit()}</Button
+      >
     </div>
   </div>
   <AlbumContent blocks={live.blocks} photos={live.photos} />

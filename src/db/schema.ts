@@ -132,6 +132,8 @@ type UserTable = {
   superadmin: boolean | number; // SQLite returns 0/1
   /** Avatar URL (better-auth's field), set by the profile service. */
   image: string | null;
+  /** UI language, null = follow the browser. */
+  locale: string | null;
   createdAt: string | Date;
   updatedAt: string | Date;
 };

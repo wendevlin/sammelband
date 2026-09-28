@@ -2,6 +2,7 @@ import type { Context, Next } from "hono";
 import { createMiddleware } from "hono/factory";
 import { auth } from "../auth";
 import { db } from "../db/client";
+import { errorBody } from "../lib/error-codes";
 import { runInTenant } from "../lib/tenant-context";
 
 export type AuthUser = {
@@ -54,11 +55,11 @@ async function isSuspended(tenantId: string): Promise<boolean> {
 function guard(allowed: (user: AuthUser) => boolean) {
   return createMiddleware<AuthEnv>(async (c: Context<AuthEnv>, next: Next) => {
     const user = await resolveUser(c.req.raw.headers);
-    if (!user) return c.json({ error: "Unauthorized" }, 401);
+    if (!user) return c.json(errorBody("unauthorized"), 401);
     if (await isSuspended(user.tenantId)) {
-      return c.json({ error: "This Sammelband is suspended" }, 403);
+      return c.json(errorBody("tenant_suspended"), 403);
     }
-    if (!allowed(user)) return c.json({ error: "Forbidden" }, 403);
+    if (!allowed(user)) return c.json(errorBody("forbidden"), 403);
     c.set("user", user);
     await runInTenant(user.tenantId, next);
   });

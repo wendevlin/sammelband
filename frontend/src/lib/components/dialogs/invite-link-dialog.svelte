@@ -4,13 +4,15 @@ import Copy from "@lucide/svelte/icons/copy";
 import { Button } from "$lib/components/ui/button";
 import * as Dialog from "$lib/components/ui/dialog";
 import { Input } from "$lib/components/ui/input";
+import { formatDate } from "$lib/i18n";
+import { m } from "$lib/paraglide/messages.js";
 import type { CreatedInvite } from "$lib/types";
 
 /** Shows a freshly created invite link once, with a copy button. */
 let {
   open = $bindable(false),
   invite,
-  title = "Invite link",
+  title = m.invite_link(),
   description,
 }: {
   open?: boolean;
@@ -34,9 +36,8 @@ async function copy() {
     <Dialog.Header>
       <Dialog.Title>{title}</Dialog.Title>
       <Dialog.Description>
-        {description ?? 'Send this link to the person you want to invite.'}
-        It works once and expires on
-        {invite ? new Date(invite.expiresAt).toLocaleDateString() : ''}. It is shown only now.
+        {description ?? m.invite_link_description()}
+        {m.invite_link_validity({ date: invite ? formatDate(invite.expiresAt) : '' })}
       </Dialog.Description>
     </Dialog.Header>
     <div class="flex gap-2">
@@ -46,7 +47,7 @@ async function copy() {
         class="font-mono text-xs"
         onfocus={(e) => e.currentTarget.select()}
       />
-      <Button variant="outline" size="icon" onclick={copy} aria-label="Copy link">
+      <Button variant="outline" size="icon" onclick={copy} aria-label={m.common_copy_link()}>
         {#if copied}
           <Check />
         {:else}
@@ -55,7 +56,7 @@ async function copy() {
       </Button>
     </div>
     <Dialog.Footer>
-      <Button onclick={() => (open = false)}>Done</Button>
+      <Button onclick={() => (open = false)}>{m.common_done()}</Button>
     </Dialog.Footer>
   </Dialog.Content>
 </Dialog.Root>

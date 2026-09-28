@@ -1,4 +1,6 @@
 import { ApiError, api } from "$lib/api";
+import { errorText } from "$lib/i18n";
+import { m } from "$lib/paraglide/messages.js";
 
 export const load = async ({ params, fetch, parent }) => {
   await parent();
@@ -12,7 +14,7 @@ export const load = async ({ params, fetch, parent }) => {
     return {
       token: params.token,
       invite: null,
-      problem: e instanceof ApiError ? e.message : "This invite link doesn't work.",
+      problem: e instanceof ApiError ? errorText(e) : m.error_invite_invalid(),
     };
   }
 };

@@ -2,6 +2,7 @@
 import Share from "@lucide/svelte/icons/share-2";
 import { api } from "$lib/api";
 import { Button } from "$lib/components/ui/button";
+import { m } from "$lib/paraglide/messages.js";
 import type { ShareLinkInfo } from "$lib/types";
 import { cn } from "$lib/utils";
 import ShareDialog from "./share-dialog.svelte";
@@ -32,20 +33,20 @@ $effect(() => {
   variant="outline"
   onclick={() => (open = true)}
   aria-label={status === 'active'
-    ? 'Share (link active)'
+    ? m.share_aria_active()
     : status === 'expired'
-      ? 'Share (links expired)'
-      : 'Share'}
+      ? m.share_aria_expired()
+      : m.share()}
 >
   <Share />
-  Share
+  {m.share()}
   {#if status !== 'none'}
     <span
       class={cn(
         'size-2 rounded-full',
         status === 'active' ? 'bg-emerald-500' : 'bg-amber-500'
       )}
-      title={status === 'active' ? 'A public link is active' : 'All public links have expired'}
+      title={status === 'active' ? m.share_status_active() : m.share_status_expired()}
     ></span>
   {/if}
 </Button>

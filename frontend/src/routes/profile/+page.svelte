@@ -3,12 +3,38 @@ import Trash from "@lucide/svelte/icons/trash-2";
 import Upload from "@lucide/svelte/icons/upload";
 import { api, del, patch, post } from "$lib/api";
 import { attempt } from "$lib/attempt";
+import SimpleSelect from "$lib/components/app/simple-select.svelte";
 import UserAvatar from "$lib/components/app/user-avatar.svelte";
 import { Button } from "$lib/components/ui/button";
 import * as Card from "$lib/components/ui/card";
 import { Input } from "$lib/components/ui/input";
 import { Label } from "$lib/components/ui/label";
+import {
+  followBrowserLocale,
+  getLocale,
+  LOCALE_NAMES,
+  type Locale,
+  locales,
+  m,
+  switchLocale,
+} from "$lib/i18n";
 import { auth } from "$lib/stores/auth.svelte";
+
+// Language: saved with the account, so it follows the user to other devices.
+const BROWSER = "browser";
+const languageChoice = $derived(auth.user?.locale ?? BROWSER);
+const languageOptions = [
+  { value: BROWSER, label: m.profile_language_browser({ language: LOCALE_NAMES[getLocale()] }) },
+  ...locales.map((l) => ({ value: l, label: LOCALE_NAMES[l] })),
+];
+
+async function chooseLanguage(value: string) {
+  const locale = value === BROWSER ? null : (value as Locale);
+  const ok = await attempt(() => patch("/profile", { locale }));
+  if (!ok) return;
+  if (locale) switchLocale(locale);
+  else followBrowserLocale();
+}
 
 // Account details
 let name = $state(auth.user?.name ?? "");
@@ -27,7 +53,7 @@ async function saveAccount(e: SubmitEvent) {
         email: emailChanged ? email : undefined,
         currentPassword: emailChanged ? emailPassword : undefined,
       }),
-    "Profile saved",
+    m.profile_saved(),
   );
   savingAccount = false;
   if (ok) {
@@ -45,13 +71,13 @@ let savingPassword = $state(false);
 async function savePassword(e: SubmitEvent) {
   e.preventDefault();
   if (newPassword !== repeatPassword) {
-    await attempt(() => Promise.reject(new Error("The new passwords don't match")));
+    await attempt(() => Promise.reject(new Error(m.profile_passwords_mismatch())));
     return;
   }
   savingPassword = true;
   const ok = await attempt(
     () => post("/profile/password", { currentPassword, newPassword }),
-    "Password changed. Other devices have been signed out.",
+    m.profile_password_changed(),
   );
   savingPassword = false;
   if (ok) currentPassword = newPassword = repeatPassword = "";
@@ -66,7 +92,7 @@ async function squareCrop(file: File, size = 512): Promise<Blob> {
   const side = Math.min(bitmap.width, bitmap.height);
   const canvas = new OffscreenCanvas(size, size);
   const ctx = canvas.getContext("2d");
-  if (!ctx) throw new Error("Can't process the image in this browser");
+  if (!ctx) throw new Error(m.profile_avatar_unsupported());
   ctx.drawImage(
     bitmap,
     (bitmap.width - side) / 2,
@@ -87,35 +113,51 @@ async function uploadAvatar(file: File) {
     const fd = new FormData();
     fd.append("file", new File([await squareCrop(file)], "avatar.jpg", { type: "image/jpeg" }));
     return api("/profile/avatar", { method: "POST", body: fd });
-  }, "Avatar updated");
+  }, m.profile_avatar_updated());
   uploading = false;
   if (ok) await auth.refresh();
 }
 
 async function removeAvatar() {
-  if (await attempt(() => del("/profile/avatar"), "Avatar removed")) await auth.refresh();
+  if (await attempt(() => del("/profile/avatar"), m.profile_avatar_removed())) await auth.refresh();
 }
 </script>
 
-<svelte:head><title>Profile · Sammelband</title></svelte:head>
+<svelte:head><title>{m.nav_profile()} · Sammelband</title></svelte:head>
 
-<h1 class="mb-8 font-heading text-4xl">Profile</h1>
+<h1 class="mb-8 font-heading text-4xl">{m.nav_profile()}</h1>
 
 <div class="grid max-w-2xl gap-6">
   <Card.Root>
     <Card.Header>
-      <Card.Title>Avatar</Card.Title>
-      <Card.Description>Shown in the menu and to others in your Sammelband.</Card.Description>
+      <Card.Title>{m.language()}</Card.Title>
+      <Card.Description>{m.profile_language_description()}</Card.Description>
+    </Card.Header>
+    <Card.Content>
+      <SimpleSelect
+        label={m.language()}
+        value={languageChoice}
+        options={languageOptions}
+        onchange={chooseLanguage}
+        class="w-64"
+      />
+    </Card.Content>
+  </Card.Root>
+
+  <Card.Root>
+    <Card.Header>
+      <Card.Title>{m.profile_avatar()}</Card.Title>
+      <Card.Description>{m.profile_avatar_description()}</Card.Description>
     </Card.Header>
     <Card.Content class="flex flex-wrap items-center gap-4">
       <UserAvatar name={auth.user?.name ?? ''} image={auth.user?.image} class="size-20 text-2xl" />
       <div class="flex gap-2">
         <Button variant="outline" onclick={() => fileInput?.click()} disabled={uploading}>
           <Upload />
-          {uploading ? 'Uploading…' : 'Upload picture'}
+          {uploading ? m.common_uploading() : m.profile_avatar_upload()}
         </Button>
         {#if auth.user?.image}
-          <Button variant="ghost" onclick={removeAvatar}><Trash /> Remove</Button>
+          <Button variant="ghost" onclick={removeAvatar}><Trash /> {m.common_remove()}</Button>
         {/if}
       </div>
       <input
@@ -134,23 +176,21 @@ async function removeAvatar() {
 
   <Card.Root>
     <Card.Header>
-      <Card.Title>Account</Card.Title>
+      <Card.Title>{m.nav_account()}</Card.Title>
     </Card.Header>
     <Card.Content>
       <form class="grid gap-4" onsubmit={saveAccount}>
         <div class="grid gap-2">
-          <Label for="profile-name">Name</Label>
+          <Label for="profile-name">{m.common_name()}</Label>
           <Input id="profile-name" bind:value={name} required maxlength={200} autocomplete="name" />
         </div>
         <div class="grid gap-2">
-          <Label for="profile-email">Email</Label>
+          <Label for="profile-email">{m.common_email()}</Label>
           <Input id="profile-email" type="email" bind:value={email} required autocomplete="email" />
         </div>
         {#if emailChanged}
           <div class="grid gap-2">
-            <Label for="profile-email-password"
-              >Current password (needed to change the email)</Label
-            >
+            <Label for="profile-email-password">{m.profile_email_password()}</Label>
             <Input
               id="profile-email-password"
               type="password"
@@ -161,7 +201,7 @@ async function removeAvatar() {
           </div>
         {/if}
         <div>
-          <Button type="submit" disabled={savingAccount}>Save</Button>
+          <Button type="submit" disabled={savingAccount}>{m.common_save()}</Button>
         </div>
       </form>
     </Card.Content>
@@ -169,13 +209,13 @@ async function removeAvatar() {
 
   <Card.Root>
     <Card.Header>
-      <Card.Title>Password</Card.Title>
-      <Card.Description>Changing it signs you out on all other devices.</Card.Description>
+      <Card.Title>{m.common_password()}</Card.Title>
+      <Card.Description>{m.profile_password_description()}</Card.Description>
     </Card.Header>
     <Card.Content>
       <form class="grid gap-4" onsubmit={savePassword}>
         <div class="grid gap-2">
-          <Label for="current-password">Current password</Label>
+          <Label for="current-password">{m.profile_current_password()}</Label>
           <Input
             id="current-password"
             type="password"
@@ -186,7 +226,7 @@ async function removeAvatar() {
         </div>
         <div class="grid gap-4 sm:grid-cols-2">
           <div class="grid gap-2">
-            <Label for="new-password">New password</Label>
+            <Label for="new-password">{m.profile_new_password()}</Label>
             <Input
               id="new-password"
               type="password"
@@ -197,7 +237,7 @@ async function removeAvatar() {
             />
           </div>
           <div class="grid gap-2">
-            <Label for="repeat-password">Repeat new password</Label>
+            <Label for="repeat-password">{m.profile_repeat_password()}</Label>
             <Input
               id="repeat-password"
               type="password"
@@ -209,7 +249,7 @@ async function removeAvatar() {
           </div>
         </div>
         <div>
-          <Button type="submit" disabled={savingPassword}>Change password</Button>
+          <Button type="submit" disabled={savingPassword}>{m.profile_change_password()}</Button>
         </div>
       </form>
     </Card.Content>

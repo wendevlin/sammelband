@@ -1,5 +1,5 @@
 import type { SortMode } from "../db/schema";
-import { AppError } from "../lib/errors";
+import { fail } from "../lib/errors";
 import { currentTenantId, tdb } from "../lib/tenant-context";
 
 // Per-user order of a container's contents (the library root or a folder).
@@ -200,10 +200,10 @@ export async function moveItem(
   );
   const current = sortItems(items, mode, positions);
   const item = current.find((i) => i.id === itemId);
-  if (!item) throw new AppError(404, `${kind === "album" ? "Album" : "Folder"} not found here`);
+  if (!item) throw fail(kind === "album" ? "album_not_found" : "folder_not_found");
   const rest = current.filter((i) => i.id !== itemId);
   const index = beforeId === null ? rest.length : rest.findIndex((i) => i.id === beforeId);
-  if (index < 0) throw new AppError(404, "Target not found here");
+  if (index < 0) throw fail("target_not_found");
   const order = [...rest.slice(0, index), item, ...rest.slice(index)];
 
   const renumber = () =>

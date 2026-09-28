@@ -1,3 +1,4 @@
+import { paraglideVitePlugin } from "@inlang/paraglide-js";
 import adapter from "@sveltejs/adapter-static";
 import { sveltekit } from "@sveltejs/kit/vite";
 import tailwindcss from "@tailwindcss/vite";
@@ -7,6 +8,14 @@ const BACKEND = "http://localhost:3000";
 
 export default defineConfig({
   plugins: [
+    // Translations: messages/{locale}.json compiled to typed functions in
+    // src/lib/paraglide (generated, not in git). The locale comes from the
+    // saved choice, then the browser's languages, then English.
+    paraglideVitePlugin({
+      project: "./project.inlang",
+      outdir: "./src/lib/paraglide",
+      strategy: ["localStorage", "preferredLanguage", "baseLocale"],
+    }),
     tailwindcss(),
     sveltekit({
       compilerOptions: {

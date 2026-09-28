@@ -20,14 +20,16 @@ import * as DropdownMenu from "$lib/components/ui/dropdown-menu";
 import { Input } from "$lib/components/ui/input";
 import { Label } from "$lib/components/ui/label";
 import * as Table from "$lib/components/ui/table";
+import { formatDate } from "$lib/i18n";
+import { m } from "$lib/paraglide/messages.js";
 import { auth } from "$lib/stores/auth.svelte";
 import type { CreatedInvite, Role, User } from "$lib/types";
 
 let { data } = $props();
 
 const ROLES = [
-  { value: "user", label: "User" },
-  { value: "admin", label: "Admin" },
+  { value: "user", label: m.role_user() },
+  { value: "admin", label: m.role_admin() },
 ];
 const adminCount = $derived(data.users.filter((u) => u.role === "admin").length);
 const refresh = () => invalidate("app:users");
@@ -40,7 +42,10 @@ let creating = $state(false);
 async function create(e: SubmitEvent) {
   e.preventDefault();
   creating = true;
-  const ok = await attempt(() => post("/admin/users", form), `Created ${form.email}`);
+  const ok = await attempt(
+    () => post("/admin/users", form),
+    m.users_created({ email: form.email }),
+  );
   creating = false;
   if (!ok) return;
   createOpen = false;
@@ -83,20 +88,22 @@ async function rename(name: string) {
 async function setPassword(password: string) {
   if (!target) return false;
   if (password.length < 8) {
-    await attempt(() => Promise.reject(new Error("Passwords need at least 8 characters")));
+    await attempt(() => Promise.reject(new Error(m.users_password_too_short())));
     return false;
   }
   return Boolean(
     await attempt(
       () => post(`/admin/users/${target?.id}/password`, { password }),
-      `Password changed. ${target.name} has been signed out everywhere.`,
+      m.users_password_changed({ name: target.name }),
     ),
   );
 }
 
 async function remove() {
   if (!target) return;
-  if (await attempt(() => del(`/admin/users/${target?.id}`), `Deleted ${target.email}`)) {
+  if (
+    await attempt(() => del(`/admin/users/${target?.id}`), m.users_deleted({ email: target.email }))
+  ) {
     await refresh();
   }
 }
@@ -107,29 +114,31 @@ const lastAdmin = (u: User) => u.role === "admin" && adminCount <= 1;
 const locked = (u: User) => isSelf(u) || lastAdmin(u) || u.superadmin;
 </script>
 
-<svelte:head><title>Users · Sammelband</title></svelte:head>
+<svelte:head><title>{m.admin_tab_users()} · Sammelband</title></svelte:head>
 
 <div class="mb-8 flex flex-wrap items-end justify-between gap-4">
   <div>
-    <h1 class="font-heading text-4xl">Users</h1>
+    <h1 class="font-heading text-4xl">{m.admin_tab_users()}</h1>
     <p class="mt-2 text-muted-foreground">
-      Everyone in {auth.tenant?.name ?? 'this Sammelband'} can see and edit all folders and albums.
-      Admins also manage users.
+      {m.users_description({ sammelband: auth.tenant?.name ?? 'Sammelband' })}
     </p>
   </div>
   <div class="flex gap-2">
-    <Button variant="outline" onclick={() => (inviteRoleOpen = true)}><Link /> Invite link</Button>
-    <Button onclick={() => (createOpen = true)}><UserPlus /> New user</Button>
+    <Button variant="outline" onclick={() => (inviteRoleOpen = true)}
+      ><Link />
+      {m.invite_link()}</Button
+    >
+    <Button onclick={() => (createOpen = true)}><UserPlus /> {m.users_new()}</Button>
   </div>
 </div>
 
 <Table.Root>
   <Table.Header>
     <Table.Row>
-      <Table.Head>Name</Table.Head>
-      <Table.Head>Email</Table.Head>
-      <Table.Head>Role</Table.Head>
-      <Table.Head>Created</Table.Head>
+      <Table.Head>{m.common_name()}</Table.Head>
+      <Table.Head>{m.common_email()}</Table.Head>
+      <Table.Head>{m.users_role()}</Table.Head>
+      <Table.Head>{m.common_created()}</Table.Head>
       <Table.Head class="w-10"></Table.Head>
     </Table.Row>
   </Table.Header>
@@ -144,19 +153,19 @@ const locked = (u: User) => isSelf(u) || lastAdmin(u) || u.superadmin;
           />
           {u.name}
           {#if isSelf(u)}
-            <Badge variant="secondary" class="ml-2">You</Badge>
+            <Badge variant="secondary" class="ml-2">{m.users_you()}</Badge>
           {/if}
           {#if u.superadmin}
-            <Badge variant="outline" class="ml-2">Owner</Badge>
+            <Badge variant="outline" class="ml-2">{m.users_owner()}</Badge>
           {/if}
         </Table.Cell>
         <Table.Cell>{u.email}</Table.Cell>
         <Table.Cell>
           {#if locked(u)}
-            <span class="text-sm">{u.role === 'admin' ? 'Admin' : 'User'}</span>
+            <span class="text-sm">{u.role === 'admin' ? m.role_admin() : m.role_user()}</span>
           {:else}
             <SimpleSelect
-              label="Role"
+              label={m.users_role()}
               value={u.role}
               options={ROLES}
               onchange={(v) => setRole(u, v)}
@@ -165,13 +174,13 @@ const locked = (u: User) => isSelf(u) || lastAdmin(u) || u.superadmin;
           {/if}
         </Table.Cell>
         <Table.Cell class="text-muted-foreground">
-          {new Date(u.createdAt).toLocaleDateString()}
+          {formatDate(u.createdAt)}
         </Table.Cell>
         <Table.Cell>
           <DropdownMenu.Root>
             <DropdownMenu.Trigger>
               {#snippet child({ props })}
-                <Button {...props} variant="ghost" size="icon-sm" aria-label="User actions">
+                <Button {...props} variant="ghost" size="icon-sm" aria-label={m.users_actions()}>
                   <EllipsisVertical />
                 </Button>
               {/snippet}
@@ -184,7 +193,7 @@ const locked = (u: User) => isSelf(u) || lastAdmin(u) || u.superadmin;
 								}}
               >
                 <Pencil />
-                Rename
+                {m.common_rename()}
               </DropdownMenu.Item>
               <DropdownMenu.Item
                 onclick={() => {
@@ -193,7 +202,7 @@ const locked = (u: User) => isSelf(u) || lastAdmin(u) || u.superadmin;
 								}}
               >
                 <KeyRound />
-                Set password
+                {m.users_set_password()}
               </DropdownMenu.Item>
               {#if !locked(u)}
                 <DropdownMenu.Separator />
@@ -205,7 +214,7 @@ const locked = (u: User) => isSelf(u) || lastAdmin(u) || u.superadmin;
 									}}
                 >
                   <Trash />
-                  Delete
+                  {m.common_delete()}
                 </DropdownMenu.Item>
               {/if}
             </DropdownMenu.Content>
@@ -220,19 +229,19 @@ const locked = (u: User) => isSelf(u) || lastAdmin(u) || u.superadmin;
   <Dialog.Content class="sm:max-w-md">
     <form class="grid gap-4" onsubmit={create}>
       <Dialog.Header>
-        <Dialog.Title>New user</Dialog.Title>
-        <Dialog.Description>Share the password with them yourself.</Dialog.Description>
+        <Dialog.Title>{m.users_new()}</Dialog.Title>
+        <Dialog.Description>{m.users_new_description()}</Dialog.Description>
       </Dialog.Header>
       <div class="grid gap-2">
-        <Label for="new-name">Name</Label>
+        <Label for="new-name">{m.common_name()}</Label>
         <Input id="new-name" bind:value={form.name} required maxlength={200} />
       </div>
       <div class="grid gap-2">
-        <Label for="new-email">Email</Label>
+        <Label for="new-email">{m.common_email()}</Label>
         <Input id="new-email" type="email" bind:value={form.email} required />
       </div>
       <div class="grid gap-2">
-        <Label for="new-password">Password</Label>
+        <Label for="new-password">{m.common_password()}</Label>
         <Input
           id="new-password"
           type="password"
@@ -243,17 +252,17 @@ const locked = (u: User) => isSelf(u) || lastAdmin(u) || u.superadmin;
         />
       </div>
       <div class="grid gap-2">
-        <Label>Role</Label>
+        <Label>{m.users_role()}</Label>
         <SimpleSelect
-          label="Role"
+          label={m.users_role()}
           value={form.role}
           options={ROLES}
           onchange={(v) => (form.role = v as Role)}
         />
       </div>
       <Dialog.Footer>
-        <Button variant="outline" onclick={() => (createOpen = false)}>Cancel</Button>
-        <Button type="submit" disabled={creating}>Create</Button>
+        <Button variant="outline" onclick={() => (createOpen = false)}>{m.common_cancel()}</Button>
+        <Button type="submit" disabled={creating}>{m.common_create()}</Button>
       </Dialog.Footer>
     </form>
   </Dialog.Content>
@@ -263,23 +272,23 @@ const locked = (u: User) => isSelf(u) || lastAdmin(u) || u.superadmin;
   <Dialog.Content class="sm:max-w-md">
     <form class="grid gap-4" onsubmit={createInvite}>
       <Dialog.Header>
-        <Dialog.Title>Invite someone</Dialog.Title>
-        <Dialog.Description>
-          They get a link to create their own account and choose their password.
-        </Dialog.Description>
+        <Dialog.Title>{m.users_invite_title()}</Dialog.Title>
+        <Dialog.Description>{m.users_invite_description()}</Dialog.Description>
       </Dialog.Header>
       <div class="grid gap-2">
-        <Label>Role</Label>
+        <Label>{m.users_role()}</Label>
         <SimpleSelect
-          label="Role"
+          label={m.users_role()}
           value={inviteRole}
           options={ROLES}
           onchange={(v) => (inviteRole = v as Role)}
         />
       </div>
       <Dialog.Footer>
-        <Button variant="outline" onclick={() => (inviteRoleOpen = false)}>Cancel</Button>
-        <Button type="submit">Create link</Button>
+        <Button variant="outline" onclick={() => (inviteRoleOpen = false)}
+          >{m.common_cancel()}</Button
+        >
+        <Button type="submit">{m.share_create()}</Button>
       </Dialog.Footer>
     </form>
   </Dialog.Content>
@@ -289,21 +298,21 @@ const locked = (u: User) => isSelf(u) || lastAdmin(u) || u.superadmin;
 
 <PromptDialog
   bind:open={renameOpen}
-  title="Rename {target?.email ?? ''}"
-  label="Name"
+  title={m.users_rename_title({ email: target?.email ?? '' })}
+  label={m.common_name()}
   value={target?.name ?? ''}
   onsubmit={rename}
 />
 <PromptDialog
   bind:open={passwordOpen}
-  title="Set password for {target?.name ?? ''}"
-  label="New password (at least 8 characters)"
-  submitLabel="Set password"
+  title={m.users_set_password_title({ name: target?.name ?? '' })}
+  label={m.users_set_password_label()}
+  submitLabel={m.users_set_password()}
   onsubmit={setPassword}
 />
 <ConfirmDialog
   bind:open={deleteOpen}
-  title="Delete {target?.email ?? ''}?"
-  description="Their folders, albums and photos stay in the library."
+  title={m.folder_delete_confirm({ name: target?.email ?? '' })}
+  description={m.users_delete_description()}
   onconfirm={remove}
 />

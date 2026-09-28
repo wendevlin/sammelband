@@ -36,7 +36,7 @@ describe("folders", () => {
       const a = await folderService.createFolder({ name: "A", parentId: null, createdBy: user.id });
       const b = await folderService.createFolder({ name: "B", parentId: a.id, createdBy: user.id });
       await expect(folderService.updateFolder(a.id, { parentId: b.id })).rejects.toThrow(
-        "descendant",
+        "sub-folders",
       );
       await expect(folderService.updateFolder(a.id, { parentId: a.id })).rejects.toThrow(
         "own parent",

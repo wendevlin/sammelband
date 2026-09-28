@@ -1,5 +1,6 @@
 <script lang="ts">
 import * as AlertDialog from "$lib/components/ui/alert-dialog";
+import { m } from "$lib/paraglide/messages.js";
 
 /** A message that stays until acknowledged (unlike a toast). */
 let {
@@ -18,7 +19,7 @@ let {
       {/if}
     </AlertDialog.Header>
     <AlertDialog.Footer>
-      <AlertDialog.Action>OK</AlertDialog.Action>
+      <AlertDialog.Action>{m.common_ok()}</AlertDialog.Action>
     </AlertDialog.Footer>
   </AlertDialog.Content>
 </AlertDialog.Root>

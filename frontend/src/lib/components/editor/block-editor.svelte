@@ -16,6 +16,7 @@ import { Button } from "$lib/components/ui/button";
 import * as DropdownMenu from "$lib/components/ui/dropdown-menu";
 import { Input } from "$lib/components/ui/input";
 import { Textarea } from "$lib/components/ui/textarea";
+import { m } from "$lib/paraglide/messages.js";
 import { type AlbumBlock, type BlockType, type Photo, parseContent } from "$lib/types";
 import { cn } from "$lib/utils";
 import GalleryPhotos from "./gallery-photos.svelte";
@@ -26,10 +27,10 @@ let { albumId, blocks, photos }: { albumId: string; blocks: AlbumBlock[]; photos
 type Content = Record<string, unknown>;
 
 const TYPES: { type: BlockType; label: string; icon: typeof Heading }[] = [
-  { type: "heading", label: "Heading", icon: Heading },
-  { type: "text", label: "Text", icon: Type },
-  { type: "gallery", label: "Gallery", icon: Images },
-  { type: "group", label: "Group", icon: SquareDashed },
+  { type: "heading", label: m.block_heading(), icon: Heading },
+  { type: "text", label: m.block_text(), icon: Type },
+  { type: "gallery", label: m.block_gallery(), icon: Images },
+  { type: "group", label: m.block_group(), icon: SquareDashed },
 ];
 const DEFAULT_CONTENT: Record<BlockType, Content> = {
   heading: { level: 2, text: "" },
@@ -37,20 +38,21 @@ const DEFAULT_CONTENT: Record<BlockType, Content> = {
   gallery: { layout: "grid" },
   group: { background: "none" },
 };
+const typeLabel = (type: BlockType) => TYPES.find((t) => t.type === type)?.label ?? type;
 const LEVELS = [1, 2, 3].map((l) => ({ value: String(l), label: `H${l}` }));
 const LAYOUTS = [
-  { value: "grid", label: "Grid" },
-  { value: "masonry", label: "Masonry" },
-  { value: "strip", label: "Strip" },
+  { value: "grid", label: m.layout_grid() },
+  { value: "masonry", label: m.layout_masonry() },
+  { value: "strip", label: m.layout_strip() },
 ];
 const BACKGROUNDS = [
-  { value: "none", label: "Border only" },
-  { value: "auto", label: "Auto (from photos)" },
-  { value: "neutral", label: "Neutral" },
-  { value: "blue", label: "Blue" },
-  { value: "green", label: "Green" },
-  { value: "amber", label: "Amber" },
-  { value: "rose", label: "Rose" },
+  { value: "none", label: m.background_none() },
+  { value: "auto", label: m.background_auto() },
+  { value: "neutral", label: m.background_neutral() },
+  { value: "blue", label: m.background_blue() },
+  { value: "green", label: m.background_green() },
+  { value: "amber", label: m.background_amber() },
+  { value: "rose", label: m.background_rose() },
 ];
 
 const bySort = (a: { sort_order: number }, b: { sort_order: number }) =>
@@ -209,7 +211,7 @@ async function dropIntoGroup(e: DragEvent, group: AlbumBlock) {
             variant="outline"
             size="icon-xs"
             class="relative rounded-full bg-background opacity-30 transition-opacity group-hover/ins:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100"
-            aria-label="Add a block here"
+            aria-label={m.block_add_here()}
           >
             <Plus />
           </Button>
@@ -255,7 +257,7 @@ async function dropIntoGroup(e: DragEvent, group: AlbumBlock) {
       <span
         role="button"
         tabindex="-1"
-        aria-label="Drag to move"
+        aria-label={m.block_drag()}
         class="cursor-grab text-muted-foreground"
         draggable="true"
         ondragstart={(e) => {
@@ -267,15 +269,15 @@ async function dropIntoGroup(e: DragEvent, group: AlbumBlock) {
         <GripVertical class="size-4" />
       </span>
       <span class="flex-1 text-xs font-semibold tracking-widest text-muted-foreground uppercase">
-        {b.type}
+        {typeLabel(b.type)}
       </span>
       {#if saving.has(b.id) || pending.has(b.id)}
-        <span class="text-xs text-muted-foreground">Saving…</span>
+        <span class="text-xs text-muted-foreground">{m.common_saving()}</span>
       {/if}
       <Button
         variant="ghost"
         size="icon-sm"
-        aria-label="Delete block"
+        aria-label={m.block_delete()}
         onclick={() => {
           deleteTarget = b;
           deleteOpen = true;
@@ -288,14 +290,14 @@ async function dropIntoGroup(e: DragEvent, group: AlbumBlock) {
     {#if b.type === 'heading'}
       <div class="flex gap-2">
         <SimpleSelect
-          label="Level"
+          label={m.block_level()}
           value={String(c.level ?? 2)}
           options={LEVELS}
           onchange={(v) => change(b, { level: Number(v) }, 0)}
           class="w-20"
         />
         <Input
-          placeholder="Heading"
+          placeholder={m.block_heading()}
           value={String(c.text ?? '')}
           oninput={(e) => change(b, { text: e.currentTarget.value })}
           onblur={() => flush(b.id)}
@@ -304,7 +306,7 @@ async function dropIntoGroup(e: DragEvent, group: AlbumBlock) {
     {:else if b.type === 'text'}
       <Textarea
         rows={6}
-        placeholder="Write something. Blank lines separate paragraphs."
+        placeholder={m.block_text_placeholder()}
         value={String(c.markdown ?? '')}
         oninput={(e) => change(b, { markdown: e.currentTarget.value })}
         onblur={() => flush(b.id)}
@@ -312,7 +314,7 @@ async function dropIntoGroup(e: DragEvent, group: AlbumBlock) {
     {:else if b.type === 'gallery'}
       <div class="mb-3">
         <SimpleSelect
-          label="Layout"
+          label={m.block_layout()}
           value={String(c.layout ?? 'grid')}
           options={LAYOUTS}
           onchange={(v) => change(b, { layout: v }, 0)}
@@ -322,7 +324,7 @@ async function dropIntoGroup(e: DragEvent, group: AlbumBlock) {
     {:else if b.type === 'group'}
       <div class="mb-4">
         <SimpleSelect
-          label="Background"
+          label={m.block_background()}
           value={String(c.background ?? 'none')}
           options={BACKGROUNDS}
           onchange={(v) => change(b, { background: v }, 0)}
@@ -350,7 +352,7 @@ async function dropIntoGroup(e: DragEvent, group: AlbumBlock) {
             ondragleave={() => (groupTarget = null)}
             ondrop={(e) => dropIntoGroup(e, b)}
           >
-            Empty group. Add blocks below, or drag blocks in here.
+            {m.block_group_empty()}
           </div>
         {/if}
         {@render addButtons(b.id)}
@@ -364,7 +366,7 @@ async function dropIntoGroup(e: DragEvent, group: AlbumBlock) {
     {@render list(topLevel, null)}
   {:else}
     <p class="rounded-2xl border border-dashed px-6 py-10 text-center text-muted-foreground">
-      No blocks yet. Start with a heading, some text or a gallery.
+      {m.block_none()}
     </p>
   {/if}
   <div
@@ -376,11 +378,11 @@ async function dropIntoGroup(e: DragEvent, group: AlbumBlock) {
 
 <ConfirmDialog
   bind:open={deleteOpen}
-  title="Delete this {deleteTarget?.type ?? 'block'}?"
+  title={m.block_delete_confirm({ type: deleteTarget ? typeLabel(deleteTarget.type) : '' })}
   description={deleteTarget?.type === 'group'
-		? 'Everything inside the group is deleted too, including gallery photos.'
+		? m.block_delete_group()
 		: deleteTarget?.type === 'gallery'
-			? 'All photos in this gallery are deleted too.'
+			? m.block_delete_gallery()
 			: undefined}
   onconfirm={() =>
 		deleteTarget && attempt(() => del(`/albums/${albumId}/blocks/${deleteTarget?.id}`))}

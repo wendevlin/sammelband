@@ -12,6 +12,7 @@ import * as Dialog from "$lib/components/ui/dialog";
 import { Input } from "$lib/components/ui/input";
 import { Label } from "$lib/components/ui/label";
 import { Switch } from "$lib/components/ui/switch";
+import { m } from "$lib/paraglide/messages.js";
 import { auth } from "$lib/stores/auth.svelte";
 import { endOfDayIn, formatInZone } from "$lib/timezone";
 import type { ShareLinkInfo } from "$lib/types";
@@ -87,17 +88,16 @@ async function copy(link: ShareLinkInfo) {
 }
 
 async function revoke(link: ShareLinkInfo) {
-  if (await attempt(() => del(`/shares/${link.id}`), "Link revoked")) await onchange();
+  if (await attempt(() => del(`/shares/${link.id}`), m.share_revoked())) await onchange();
 }
 </script>
 
 <Dialog.Root bind:open onOpenChange={(o) => !o && resetForm()}>
   <Dialog.Content class="sm:max-w-lg">
     <Dialog.Header>
-      <Dialog.Title>Share “{name}”</Dialog.Title>
+      <Dialog.Title>{m.share_title({ name })}</Dialog.Title>
       <Dialog.Description>
-        Anyone with a link can view this {isFolder ? 'folder, its sub-folders and albums' : 'album'}
-        without an account. Photos are shown in web size, never as originals.
+        {isFolder ? m.share_description_folder() : m.share_description_album()}
       </Dialog.Description>
     </Dialog.Header>
 
@@ -117,7 +117,7 @@ async function revoke(link: ShareLinkInfo) {
                 variant="outline"
                 size="icon-sm"
                 onclick={() => copy(link)}
-                aria-label="Copy link"
+                aria-label={m.common_copy_link()}
               >
                 {#if copied === link.id}
                   <Check />
@@ -129,26 +129,28 @@ async function revoke(link: ShareLinkInfo) {
                 variant="ghost"
                 size="icon-sm"
                 onclick={() => revoke(link)}
-                aria-label="Revoke link"
+                aria-label={m.share_revoke()}
               >
                 <Trash />
               </Button>
             </div>
             <div class="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
               {#if expired}
-                <Badge variant="destructive">Expired</Badge>
+                <Badge variant="destructive">{m.share_expired()}</Badge>
               {/if}
               {#if link.has_password}
-                <Badge variant="secondary"><KeyRound /> Password</Badge>
+                <Badge variant="secondary"><KeyRound /> {m.common_password()}</Badge>
               {/if}
               <span>
                 {#if link.expires_at}
-                  {expired ? 'Expired' : 'Stops working'} {formatInZone(link.expires_at, zone)}
+                  {expired
+                    ? m.share_expired_at({ time: formatInZone(link.expires_at, zone) })
+                    : m.share_expires_at({ time: formatInZone(link.expires_at, zone) })}
                 {:else}
-                  No expiry
+                  {m.share_no_expiry()}
                 {/if}
               </span>
-              <span>· by {link.created_by_name ?? 'a former user'}</span>
+              <span>· {m.share_by({ name: link.created_by_name ?? m.share_former_user() })}</span>
             </div>
           </li>
         {/each}
@@ -159,15 +161,15 @@ async function revoke(link: ShareLinkInfo) {
       <form class="grid gap-4 rounded-lg border p-4" onsubmit={create}>
         <div class="grid gap-3">
           <div class="flex items-center justify-between gap-4">
-            <Label for="share-with-password">Password</Label>
+            <Label for="share-with-password">{m.common_password()}</Label>
             <Switch id="share-with-password" bind:checked={withPassword} />
           </div>
           {#if withPassword}
             <Input
               type="text"
               bind:value={password}
-              placeholder="At least 4 characters"
-              aria-label="Password"
+              placeholder={m.share_password_placeholder()}
+              aria-label={m.common_password()}
               autocomplete="off"
               required
               minlength={4}
@@ -177,29 +179,35 @@ async function revoke(link: ShareLinkInfo) {
         </div>
         <div class="grid gap-3">
           <div class="flex items-center justify-between gap-4">
-            <Label for="share-with-expiry">Expiry date</Label>
+            <Label for="share-with-expiry">{m.share_expiry_date()}</Label>
             <Switch id="share-with-expiry" bind:checked={withExpiry} />
           </div>
           {#if withExpiry}
-            <Input type="date" bind:value={expires} min={today} aria-label="Expires on" required />
+            <Input
+              type="date"
+              bind:value={expires}
+              min={today}
+              aria-label={m.share_expiry_date()}
+              required
+            />
             <p class="text-xs text-muted-foreground">
               {expiryPreview
-                ? `The link stops working on ${expiryPreview} (${zone}).`
-                : `Links stop working at the end of the chosen day, 23:59 in ${zone}.`}
+                ? m.share_expiry_preview({ time: expiryPreview, zone })
+                : m.share_expiry_hint({ zone })}
             </p>
           {/if}
         </div>
         <div class="flex justify-end gap-2">
           {#if links.length > 0}
-            <Button variant="outline" onclick={resetForm}>Cancel</Button>
+            <Button variant="outline" onclick={resetForm}>{m.common_cancel()}</Button>
           {/if}
-          <Button type="submit" disabled={busy}>Create link</Button>
+          <Button type="submit" disabled={busy}>{m.share_create()}</Button>
         </div>
       </form>
     {:else}
       <Button variant="outline" class="w-full" onclick={() => (creating = true)}>
         <Plus />
-        New link
+        {m.share_new()}
       </Button>
     {/if}
   </Dialog.Content>

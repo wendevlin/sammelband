@@ -3,7 +3,7 @@ import { sql } from "kysely";
 import { config } from "../config";
 import { db, dbType } from "../db/client";
 import type { Tenant } from "../db/schema";
-import { AppError, must } from "../lib/errors";
+import { fail, must } from "../lib/errors";
 import { tenantDir } from "../lib/storage-paths";
 import { currentTenantId } from "../lib/tenant-context";
 import { isValidTimeZone, serverTimeZone } from "../lib/timezone";
@@ -25,7 +25,7 @@ async function getTenant(id: string): Promise<Tenant | null> {
 
 async function requireTenant(id: string): Promise<Tenant> {
   const tenant = await getTenant(id);
-  if (!tenant) throw new AppError(404, "Sammelband not found");
+  if (!tenant) throw fail("sammelband_not_found");
   return tenant;
 }
 
@@ -42,9 +42,9 @@ export async function updateCurrentTenant(patch: {
   name?: string;
   timezone?: string;
 }): Promise<TenantInfo> {
-  if (patch.name !== undefined && !patch.name.trim()) throw new AppError(400, "Name required");
+  if (patch.name !== undefined && !patch.name.trim()) throw fail("name_required");
   if (patch.timezone !== undefined && !isValidTimeZone(patch.timezone)) {
-    throw new AppError(400, "Unknown time zone");
+    throw fail("unknown_timezone");
   }
   await db
     .updateTable("tenants")
@@ -74,7 +74,7 @@ export async function reserveStorage(bytes: number): Promise<void> {
     )
     .executeTakeFirst();
   if (Number(result.numUpdatedRows) !== 1) {
-    throw new AppError(413, "Storage quota exceeded. Ask your admin for more space.");
+    throw fail("quota_exceeded");
   }
 }
 
@@ -109,7 +109,7 @@ async function insertTenant(
   quotaBytes: number | null,
   timezone: string | undefined,
 ): Promise<Tenant> {
-  if (!name.trim()) throw new AppError(400, "Name required");
+  if (!name.trim()) throw fail("name_required");
   // The creating browser's zone, else the server's.
   const zone = timezone && isValidTimeZone(timezone) ? timezone : serverTimeZone();
   const tenant: Tenant = {
@@ -202,9 +202,9 @@ export async function updateTenant(
 ): Promise<Tenant> {
   const tenant = await requireTenant(id);
   if (patch.suspended && id === ownTenantId) {
-    throw new AppError(400, "You cannot suspend your own Sammelband");
+    throw fail("cannot_suspend_own_sammelband");
   }
-  if (patch.name !== undefined && !patch.name.trim()) throw new AppError(400, "Name required");
+  if (patch.name !== undefined && !patch.name.trim()) throw fail("name_required");
   const suspendedAt =
     patch.suspended === undefined
       ? tenant.suspended_at
@@ -240,10 +240,10 @@ export async function deleteTenant(
   confirmName: string,
 ): Promise<void> {
   const tenant = await requireTenant(id);
-  if (id === ownTenantId) throw new AppError(400, "You cannot delete your own Sammelband");
+  if (id === ownTenantId) throw fail("cannot_delete_own_sammelband");
   // Case-insensitive: the confirmation guards against slips, not typos in capitalisation.
   if (confirmName.trim().toLowerCase() !== tenant.name.toLowerCase()) {
-    throw new AppError(400, "Type the Sammelband's name to confirm");
+    throw fail("confirm_name_mismatch");
   }
   await db.transaction().execute(async (trx) => {
     const users = (eb: typeof trx) => eb.selectFrom("user").select("id").where("tenantId", "=", id);

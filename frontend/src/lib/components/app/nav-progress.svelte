@@ -1,5 +1,6 @@
 <script lang="ts">
 import { navigating } from "$app/state";
+import { m } from "$lib/paraglide/messages.js";
 
 // Thin bar at the top while a navigation's load functions run. It waits a
 // moment before appearing so fast (preloaded) navigations don't flash it.
@@ -19,7 +20,7 @@ $effect(() => {
   <div
     class="fixed inset-x-0 top-0 z-50 h-0.5 overflow-hidden bg-primary/20"
     role="progressbar"
-    aria-label="Loading page"
+    aria-label={m.loading_page()}
   >
     <div class="nav-progress h-full w-1/3 bg-primary"></div>
   </div>

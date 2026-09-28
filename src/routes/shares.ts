@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { z } from "zod";
-import { AppError } from "../lib/errors";
+import { fail } from "../lib/errors";
 import { validate } from "../lib/validate";
 import { type AuthEnv, requireAuth } from "../middleware/auth.middleware";
 import * as shareService from "../services/share.service";
@@ -10,7 +10,7 @@ const target = z.object({ albumId: z.string().optional(), folderId: z.string().o
 function toTarget(t: z.infer<typeof target>): shareService.ShareTarget {
   if (t.albumId && !t.folderId) return { albumId: t.albumId };
   if (t.folderId && !t.albumId) return { folderId: t.folderId };
-  throw new AppError(400, "Pass either albumId or folderId");
+  throw fail("share_target_required");
 }
 
 /** Public links of an album or folder. Everyone in the Sammelband may manage them. */

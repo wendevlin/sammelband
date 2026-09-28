@@ -3,6 +3,7 @@ import { Button } from "$lib/components/ui/button";
 import * as Dialog from "$lib/components/ui/dialog";
 import { Input } from "$lib/components/ui/input";
 import { Label } from "$lib/components/ui/label";
+import { m } from "$lib/paraglide/messages.js";
 
 /** Single-field text dialog (new folder, rename, new album). */
 let {
@@ -10,7 +11,7 @@ let {
   title,
   label,
   value = "",
-  submitLabel = "Save",
+  submitLabel = m.common_save(),
   onsubmit,
 }: {
   open?: boolean;
@@ -50,7 +51,7 @@ async function submit(e: SubmitEvent) {
         <Input id="prompt-field" bind:value={draft} required maxlength={200} />
       </div>
       <Dialog.Footer>
-        <Button variant="outline" onclick={() => (open = false)}>Cancel</Button>
+        <Button variant="outline" onclick={() => (open = false)}>{m.common_cancel()}</Button>
         <Button type="submit" disabled={busy || !draft.trim()}>{submitLabel}</Button>
       </Dialog.Footer>
     </form>

@@ -1,3 +1,5 @@
+import { getLocale } from "$lib/paraglide/runtime.js";
+
 // Time zone helpers (same math as src/lib/timezone.ts on the server).
 
 /** The browser's time zone, e.g. "Europe/Vienna". */
@@ -36,7 +38,7 @@ export function endOfDayIn(date: string, tz: string): number {
 /** "Sep 30, 2026, 23:59 CEST": a moment as seen in `tz`. */
 export function formatInZone(ms: number, tz: string): string {
   // Explicit fields: browsers reject dateStyle/timeStyle combined with timeZoneName.
-  return new Intl.DateTimeFormat(undefined, {
+  return new Intl.DateTimeFormat(getLocale(), {
     year: "numeric",
     month: "short",
     day: "numeric",

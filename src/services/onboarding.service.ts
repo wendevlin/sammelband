@@ -1,7 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { appUrl, config } from "../config";
 import { db } from "../db/client";
-import { AppError } from "../lib/errors";
+import { fail } from "../lib/errors";
 import { createFirstTenant } from "./tenant.service";
 import { createAccount } from "./user.service";
 
@@ -64,17 +64,17 @@ export async function claim(input: {
   sammelband: string;
   timezone?: string;
 }): Promise<{ ok: true }> {
-  if (consumed) throw new AppError(410, "Onboarding already completed");
-  if (!bootstrapCode) throw new AppError(410, "Onboarding not active");
+  if (consumed) throw fail("setup_completed");
+  if (!bootstrapCode) throw fail("setup_not_active");
   if (input.code.trim().toUpperCase() !== bootstrapCode) {
     // Don't reveal whether code is wrong vs expired — just reject.
-    throw new AppError(401, "Invalid code");
+    throw fail("invalid_setup_code");
   }
   // Taken before the first await, so a concurrent claim sees it as consumed.
   consumed = true;
   if (await superadminExists()) {
     bootstrapCode = null;
-    throw new AppError(410, "Onboarding already completed");
+    throw fail("setup_completed");
   }
 
   const tenant = await createFirstTenant(input.sammelband, input.timezone);

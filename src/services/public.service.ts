@@ -2,7 +2,7 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import { config } from "../config";
 import { db } from "../db/client";
 import type { AlbumBlock, Folder, ShareLink } from "../db/schema";
-import { AppError } from "../lib/errors";
+import { fail } from "../lib/errors";
 import type { PhotoWithImage } from "../lib/events";
 import { runInTenant, tdb } from "../lib/tenant-context";
 import * as albumService from "./album.service";
@@ -14,7 +14,6 @@ import * as imageDelivery from "./image-delivery.service";
 // only what a viewer needs (no user ids, no tenant ids). Images are served as
 // resized versions only, never the originals.
 
-const INVALID = "This link is invalid or has expired";
 const UNLOCK_DAYS = 7;
 
 export type ShareAccess = { share: ShareLink; unlocked: boolean };
@@ -29,7 +28,7 @@ async function findShare(token: string): Promise<ShareLink> {
     .where("s.token", "=", token)
     .executeTakeFirst();
   if (!row || row.suspended_at || (row.expires_at !== null && row.expires_at < Date.now())) {
-    throw new AppError(404, INVALID);
+    throw fail("share_invalid");
   }
   const { suspended_at: _, ...share } = row;
   return share;
@@ -77,7 +76,7 @@ export async function unlock(
 ): Promise<{ name: string; value: string; maxAge: number }> {
   const share = await findShare(token);
   if (!share.password_hash || !(await Bun.password.verify(password, share.password_hash))) {
-    throw new AppError(401, "Wrong password");
+    throw fail("wrong_password");
   }
   return { name: unlockCookieName(share), ...unlockValue(share) };
 }
@@ -183,7 +182,7 @@ export function view(
     if (share.album_id) {
       const album = await albumService.getAlbum(share.album_id);
       if (!album || at.folderId || (at.albumRef && !sameAlbum(at.albumRef, album.short_id))) {
-        throw new AppError(404, "Not part of this link");
+        throw fail("not_in_share");
       }
       return albumView(album.short_id, []);
     }
@@ -191,13 +190,13 @@ export function view(
     if (at.albumRef) {
       const album = await albumService.resolveAlbum(at.albumRef);
       const trail = album && (await trailWithin(rootId, album.folder_id));
-      if (!album || !trail) throw new AppError(404, "Not part of this link");
+      if (!album || !trail) throw fail("not_in_share");
       return albumView(album.short_id, trail);
     }
     const folderId = at.folderId ?? rootId;
     const trail = await trailWithin(rootId, folderId);
     const folder = trail?.at(-1);
-    if (!trail || !folder) throw new AppError(404, "Not part of this link");
+    if (!trail || !folder) throw fail("not_in_share");
     // The folder in the order its creator sees it.
     const contents = await folderService.contentsOf(folderId, share.created_by);
     return {
@@ -240,7 +239,7 @@ export function image(
   width: number,
   format: "webp" | "jpeg",
 ): Promise<Response> {
-  if (!unlocked) throw new AppError(401, "This link is password protected");
+  if (!unlocked) throw fail("share_locked");
   return runInTenant(share.tenant_id, async () => {
     let q = tdb()
       .selectFrom("photos as p")
@@ -251,7 +250,7 @@ export function image(
     q = share.album_id
       ? q.where("a.id", "=", share.album_id)
       : q.where("a.folder_id", "in", await subtree(share.folder_id ?? ""));
-    if (!(await q.executeTakeFirst())) throw new AppError(404, "Image not found");
+    if (!(await q.executeTakeFirst())) throw fail("image_not_found");
     return imageDelivery.serveVariant(filename, width, format);
   });
 }

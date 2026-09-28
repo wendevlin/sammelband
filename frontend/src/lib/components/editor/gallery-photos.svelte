@@ -8,7 +8,9 @@ import ConfirmDialog from "$lib/components/dialogs/confirm-dialog.svelte";
 import NoticeDialog from "$lib/components/dialogs/notice-dialog.svelte";
 import { Button } from "$lib/components/ui/button";
 import { Input } from "$lib/components/ui/input";
+import { errorText } from "$lib/i18n";
 import { imageSrc } from "$lib/images";
+import { m } from "$lib/paraglide/messages.js";
 import type { Photo } from "$lib/types";
 import { cn } from "$lib/utils";
 import { photoDrag } from "./photo-drag.svelte";
@@ -42,12 +44,12 @@ async function upload(files: FileList | File[]) {
     if (e instanceof ApiError && e.status === 413) {
       // The server stops at the first photo over the limit; earlier ones are kept.
       notice = {
-        title: e.message.toLowerCase().includes("quota") ? "Storage full" : "Photo too large",
-        description: `${e.message} Photos before this one in the selection were saved.`,
+        title: e.code === "quota_exceeded" ? m.upload_storage_full() : m.upload_too_large(),
+        description: m.upload_partial({ reason: errorText(e) }),
       };
       noticeOpen = true;
     } else {
-      toast.error(e instanceof Error ? e.message : "Upload failed");
+      toast.error(errorText(e));
     }
     return;
   } finally {
@@ -55,8 +57,10 @@ async function upload(files: FileList | File[]) {
   }
   const dups = res.uploaded.filter((u) => u.deduplicated).length;
   toast.success(
-    `Uploaded ${res.uploaded.length} photo${res.uploaded.length === 1 ? "" : "s"}` +
-      (dups ? ` (${dups} already stored, reused)` : ""),
+    (res.uploaded.length === 1
+      ? m.upload_done_one()
+      : m.upload_done_other({ count: res.uploaded.length })) +
+      (dups ? ` ${m.upload_reused({ count: dups })}` : ""),
   );
 }
 
@@ -121,7 +125,7 @@ const draggingForeign = $derived(
       >
         <div
           role="img"
-          aria-label={p.caption ?? 'Photo'}
+          aria-label={p.caption ?? m.photo()}
           class="group relative aspect-square cursor-grab overflow-hidden rounded-lg bg-muted"
           draggable="true"
           ondragstart={() => (photoDrag.current = { id: p.id, blockId })}
@@ -137,7 +141,7 @@ const draggingForeign = $derived(
             variant="secondary"
             size="icon-xs"
             class="absolute top-1 right-1 opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
-            aria-label="Delete photo"
+            aria-label={m.photo_delete()}
             onclick={() => {
 							deleteTarget = p;
 							deleteOpen = true;
@@ -148,7 +152,7 @@ const draggingForeign = $derived(
         </div>
         <Input
           class="mt-1 h-8 text-xs"
-          placeholder="Caption…"
+          placeholder={m.photo_caption()}
           value={p.caption ?? ''}
           onchange={(e) => saveCaption(p, e.currentTarget.value)}
         />
@@ -183,10 +187,12 @@ const draggingForeign = $derived(
 >
   <ImagePlus class="size-5" />
   {uploading > 0
-		? `Uploading ${uploading} photo${uploading === 1 ? '' : 's'}…`
+		? uploading === 1
+			? m.upload_progress_one()
+			: m.upload_progress_other({ count: uploading })
 		: draggingForeign
-			? 'Drop to move the photo into this gallery'
-			: 'Drop photos here or click to choose'}
+			? m.upload_drop_move()
+			: m.upload_drop()}
 </button>
 <input
   bind:this={input}
@@ -203,8 +209,8 @@ const draggingForeign = $derived(
 
 <ConfirmDialog
   bind:open={deleteOpen}
-  title="Delete this photo?"
-  description="The file is removed from disk unless another gallery uses the same image."
+  title={m.photo_delete_confirm()}
+  description={m.photo_delete_description()}
   onconfirm={() => deleteTarget && attempt(() => del(`/photos/${deleteTarget?.id}`))}
 />
 

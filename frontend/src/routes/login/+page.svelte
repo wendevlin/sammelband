@@ -7,6 +7,8 @@ import * as Alert from "$lib/components/ui/alert";
 import { Button } from "$lib/components/ui/button";
 import { Input } from "$lib/components/ui/input";
 import { Label } from "$lib/components/ui/label";
+import { errorText } from "$lib/i18n";
+import { m } from "$lib/paraglide/messages.js";
 import { auth } from "$lib/stores/auth.svelte";
 
 let email = $state("");
@@ -23,18 +25,16 @@ async function submit(e: SubmitEvent) {
     await goto(safeNext(page.url), { invalidateAll: true, replaceState: true });
   } catch (err) {
     errorMessage =
-      err instanceof ApiError && err.status === 401
-        ? "Wrong email or password."
-        : err instanceof Error
-          ? err.message
-          : "Sign-in failed.";
+      err instanceof ApiError && err.status === 401 && !err.code
+        ? m.error_invalid_email_or_password()
+        : errorText(err);
   } finally {
     busy = false;
   }
 }
 </script>
 
-<AuthShell title="Sign in" description="Accounts are created by an admin or with an invite link.">
+<AuthShell title={m.login_title()} description={m.login_description()}>
   <form class="grid gap-4" onsubmit={submit}>
     {#if errorMessage}
       <Alert.Root variant="destructive">
@@ -42,11 +42,11 @@ async function submit(e: SubmitEvent) {
       </Alert.Root>
     {/if}
     <div class="grid gap-2">
-      <Label for="email">Email</Label>
+      <Label for="email">{m.common_email()}</Label>
       <Input id="email" type="email" bind:value={email} required autocomplete="email" />
     </div>
     <div class="grid gap-2">
-      <Label for="password">Password</Label>
+      <Label for="password">{m.common_password()}</Label>
       <Input
         id="password"
         type="password"
@@ -55,6 +55,6 @@ async function submit(e: SubmitEvent) {
         autocomplete="current-password"
       />
     </div>
-    <Button type="submit" disabled={busy}>Sign in</Button>
+    <Button type="submit" disabled={busy}>{m.login_submit()}</Button>
   </form>
 </AuthShell>

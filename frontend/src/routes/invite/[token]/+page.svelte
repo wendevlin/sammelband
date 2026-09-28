@@ -7,6 +7,7 @@ import * as Alert from "$lib/components/ui/alert";
 import { Button } from "$lib/components/ui/button";
 import { Input } from "$lib/components/ui/input";
 import { Label } from "$lib/components/ui/label";
+import { m } from "$lib/paraglide/messages.js";
 import { auth } from "$lib/stores/auth.svelte";
 
 let { data } = $props();
@@ -30,7 +31,7 @@ async function submit(e: SubmitEvent) {
         password,
         sammelband: data.invite?.role === "admin" ? sammelband : undefined,
       }),
-    "Account created. Sign in to continue.",
+    m.invite_account_created(),
   );
   busy = false;
   if (ok) await goto("/login");
@@ -42,47 +43,47 @@ async function signOut() {
 }
 </script>
 
-<svelte:head><title>Invite · Sammelband</title></svelte:head>
+<svelte:head><title>{m.invite_link()} · Sammelband</title></svelte:head>
 
 {#if !data.invite}
-  <AuthShell title="Invite link">
+  <AuthShell title={m.invite_link()}>
     <Alert.Root variant="destructive">
       <Alert.Description>{data.problem}</Alert.Description>
     </Alert.Root>
-    <p class="mt-4 text-sm text-muted-foreground">Ask whoever sent it for a new one.</p>
+    <p class="mt-4 text-sm text-muted-foreground">{m.invite_ask_new()}</p>
   </AuthShell>
 {:else if auth.user}
-  <AuthShell title="Join {data.invite.sammelband}">
+  <AuthShell title={m.invite_join({ name: data.invite.sammelband })}>
     <p class="text-sm text-muted-foreground">
-      You're signed in as {auth.user.email}. Sign out to create a new account with this link.
+      {m.invite_signed_in({ email: auth.user.email })}
     </p>
-    <Button class="mt-4 w-full" variant="outline" onclick={signOut}>Sign out</Button>
+    <Button class="mt-4 w-full" variant="outline" onclick={signOut}>{m.nav_sign_out()}</Button>
   </AuthShell>
 {:else}
   <AuthShell
-    title={data.invite.role === 'admin' ? 'Set up your Sammelband' : `Join ${data.invite.sammelband}`}
-    description={data.invite.role === 'admin'
-      ? 'You were invited to run a new Sammelband. Choose its name and create your admin account.'
-      : 'You were invited to this Sammelband. Create your account.'}
+    title={data.invite.role === 'admin'
+      ? m.invite_admin_title()
+      : m.invite_join({ name: data.invite.sammelband })}
+    description={data.invite.role === 'admin' ? m.invite_admin_description() : m.invite_user_description()}
   >
     <form class="grid gap-4" onsubmit={submit}>
       {#if data.invite.role === 'admin'}
         <div class="grid gap-2">
-          <Label for="sammelband">Name of the Sammelband</Label>
+          <Label for="sammelband">{m.invite_sammelband_name()}</Label>
           <Input id="sammelband" bind:value={sammelband} required maxlength={100} />
-          <p class="text-xs text-muted-foreground">You can change it later under Admin settings.</p>
+          <p class="text-xs text-muted-foreground">{m.invite_sammelband_hint()}</p>
         </div>
       {/if}
       <div class="grid gap-2">
-        <Label for="name">Your name</Label>
+        <Label for="name">{m.common_your_name()}</Label>
         <Input id="name" bind:value={name} required maxlength={200} autocomplete="name" />
       </div>
       <div class="grid gap-2">
-        <Label for="email">Email</Label>
+        <Label for="email">{m.common_email()}</Label>
         <Input id="email" type="email" bind:value={email} required autocomplete="email" />
       </div>
       <div class="grid gap-2">
-        <Label for="password">Password</Label>
+        <Label for="password">{m.common_password()}</Label>
         <Input
           id="password"
           type="password"
@@ -92,7 +93,7 @@ async function signOut() {
           autocomplete="new-password"
         />
       </div>
-      <Button type="submit" disabled={busy}>Create account</Button>
+      <Button type="submit" disabled={busy}>{m.invite_create_account()}</Button>
     </form>
   </AuthShell>
 {/if}

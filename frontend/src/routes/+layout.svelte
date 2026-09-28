@@ -8,12 +8,14 @@ import NavProgress from "$lib/components/app/nav-progress.svelte";
 import Onboarding from "$lib/components/app/onboarding.svelte";
 import { Toaster } from "$lib/components/ui/sonner";
 import { dragAutoscroll } from "$lib/drag-autoscroll";
+import { setDocumentLanguage } from "$lib/i18n";
 import { auth } from "$lib/stores/auth.svelte";
 
 let { children } = $props();
 
 // Every drag and drop in the app can reach off-screen targets.
 $effect(() => dragAutoscroll());
+$effect(() => setDocumentLanguage());
 </script>
 
 <svelte:head>

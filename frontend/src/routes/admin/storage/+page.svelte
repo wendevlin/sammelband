@@ -8,6 +8,7 @@ import { Button } from "$lib/components/ui/button";
 import * as Card from "$lib/components/ui/card";
 import { formatBytes } from "$lib/images";
 import { live } from "$lib/live.svelte";
+import { m } from "$lib/paraglide/messages.js";
 import { auth } from "$lib/stores/auth.svelte";
 
 let { data } = $props();
@@ -21,30 +22,32 @@ live(
 const quota = $derived(data.stats.quota);
 const tiles = $derived([
   {
-    label: "Used",
+    label: m.storage_used(),
     value: formatBytes(quota.used_bytes),
-    hint: quota.limit_bytes === null ? "No limit" : `of ${formatBytes(quota.limit_bytes)}`,
+    hint:
+      quota.limit_bytes === null
+        ? m.storage_no_limit()
+        : m.storage_of_limit({ limit: formatBytes(quota.limit_bytes) }),
   },
   {
-    label: "Originals",
+    label: m.storage_originals(),
     value: formatBytes(data.stats.originals.size_bytes),
-    hint: `${data.stats.originals.file_count} files`,
+    hint: m.storage_files({ count: data.stats.originals.file_count }),
   },
   {
-    label: "Resized cache",
+    label: m.storage_cache(),
     value: formatBytes(data.stats.variants.size_bytes),
-    hint: `${data.stats.variants.file_count} files`,
+    hint: m.storage_files({ count: data.stats.variants.file_count }),
   },
 ]);
 const orphans = $derived(data.stats.orphans.missing_on_disk + data.stats.orphans.unknown_on_disk);
 </script>
 
-<svelte:head><title>Storage · Sammelband</title></svelte:head>
+<svelte:head><title>{m.admin_tab_storage()} · Sammelband</title></svelte:head>
 
-<h1 class="font-heading text-4xl">Storage</h1>
+<h1 class="font-heading text-4xl">{m.admin_tab_storage()}</h1>
 <p class="mt-2 mb-8 text-muted-foreground">
-  Photos of {auth.tenant?.name ?? 'this Sammelband'}. The limit counts originals; duplicates are
-  stored once.
+  {m.storage_description({ sammelband: auth.tenant?.name ?? 'Sammelband' })}
 </p>
 
 <div class="mb-8 grid gap-4 sm:grid-cols-3">
@@ -62,33 +65,30 @@ const orphans = $derived(data.stats.orphans.missing_on_disk + data.stats.orphans
 {#if orphans > 0}
   <Alert.Root class="mb-8">
     <TriangleAlert />
-    <Alert.Title>Files and database disagree</Alert.Title>
+    <Alert.Title>{m.storage_orphans_title()}</Alert.Title>
     <Alert.Description>
-      {data.stats.orphans.missing_on_disk}
-      image(s) are missing on disk and
-      {data.stats.orphans.unknown_on_disk}
-      file(s) on disk are unknown to the database.
+      {m.storage_orphans({
+        missing: data.stats.orphans.missing_on_disk,
+        unknown: data.stats.orphans.unknown_on_disk,
+      })}
     </Alert.Description>
   </Alert.Root>
 {/if}
 
 <Card.Root>
   <Card.Header>
-    <Card.Title>Resized image cache</Card.Title>
-    <Card.Description>
-      Resized versions are generated on first view and cached. Clearing frees disk space; they are
-      regenerated when needed.
-    </Card.Description>
+    <Card.Title>{m.storage_cache_title()}</Card.Title>
+    <Card.Description>{m.storage_cache_description()}</Card.Description>
   </Card.Header>
   <Card.Footer>
-    <Button variant="outline" onclick={() => (clearOpen = true)}>Clear cache</Button>
+    <Button variant="outline" onclick={() => (clearOpen = true)}>{m.storage_clear_cache()}</Button>
   </Card.Footer>
 </Card.Root>
 
 <ConfirmDialog
   bind:open={clearOpen}
-  title="Clear the resized image cache?"
-  description="Originals are kept. The next page views will be slower while images are resized again."
-  confirmLabel="Clear cache"
-  onconfirm={() => attempt(() => post('/admin/storage/clear-cache'), 'Cache cleared')}
+  title={m.storage_clear_confirm()}
+  description={m.storage_clear_description()}
+  confirmLabel={m.storage_clear_cache()}
+  onconfirm={() => attempt(() => post('/admin/storage/clear-cache'), m.storage_cache_cleared())}
 />

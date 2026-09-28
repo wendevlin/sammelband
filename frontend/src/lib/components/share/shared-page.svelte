@@ -10,6 +10,8 @@ import { Button } from "$lib/components/ui/button";
 import * as Card from "$lib/components/ui/card";
 import { Input } from "$lib/components/ui/input";
 import { Label } from "$lib/components/ui/label";
+import { errorText } from "$lib/i18n";
+import { m } from "$lib/paraglide/messages.js";
 import { sharePath } from "$lib/public";
 import type { AlbumBlock, Photo, SharedView } from "$lib/types";
 
@@ -28,7 +30,7 @@ async function unlock(e: SubmitEvent) {
     await post(`/public/${token}/unlock`, { password });
     await invalidateAll();
   } catch (err) {
-    problem = err instanceof Error ? err.message : "Couldn't unlock";
+    problem = errorText(err);
   } finally {
     busy = false;
   }
@@ -36,7 +38,7 @@ async function unlock(e: SubmitEvent) {
 
 const title = $derived(
   view.status !== "ok"
-    ? "Shared with you"
+    ? m.public_shared_with_you()
     : view.kind === "album"
       ? view.album.title
       : view.folder.name,
@@ -55,8 +57,8 @@ const crumbHref = (i: number, id: string) =>
   <div class="mx-auto mt-12 max-w-sm">
     <Card.Root>
       <Card.Header>
-        <Card.Title>Password required</Card.Title>
-        <Card.Description>Whoever shared this link can tell you the password.</Card.Description>
+        <Card.Title>{m.public_password_required()}</Card.Title>
+        <Card.Description>{m.public_password_hint()}</Card.Description>
       </Card.Header>
       <Card.Content>
         <form class="grid gap-4" onsubmit={unlock}>
@@ -66,7 +68,7 @@ const crumbHref = (i: number, id: string) =>
             >
           {/if}
           <div class="grid gap-2">
-            <Label for="share-password">Password</Label>
+            <Label for="share-password">{m.common_password()}</Label>
             <Input
               id="share-password"
               type="password"
@@ -75,7 +77,7 @@ const crumbHref = (i: number, id: string) =>
               autocomplete="off"
             />
           </div>
-          <Button type="submit" disabled={busy}>Open</Button>
+          <Button type="submit" disabled={busy}>{m.public_open()}</Button>
         </form>
       </Card.Content>
     </Card.Root>
@@ -118,7 +120,7 @@ const crumbHref = (i: number, id: string) =>
     {/if}
     {#if view.albums.length === 0 && view.folders.length === 0}
       <div class="rounded-2xl border border-dashed px-6 py-16 text-center text-muted-foreground">
-        Nothing here yet.
+        {m.public_empty()}
       </div>
     {/if}
     <div class="grid grid-cols-1 gap-x-6 gap-y-10 sm:grid-cols-2 lg:grid-cols-3">

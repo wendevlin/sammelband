@@ -1,15 +1,16 @@
 <script lang="ts">
 import { page } from "$app/state";
 import { Button } from "$lib/components/ui/button";
+import { m } from "$lib/paraglide/messages.js";
 
 // One joke per visit. Only the 404 gets jokes; real errors stay plain.
 const JOKES = [
-  { title: "This page was never developed.", line: "Like that film roll from 1998." },
-  { title: "Someone tore this page out.", line: "We suspect the cat." },
-  { title: "Nothing to see here.", line: "Literally. Not even a blurry thumb." },
-  { title: "Lost between two pages.", line: "Happens to the best photos." },
-  { title: "This photo is still in the camera.", line: "The camera is also lost." },
-  { title: "Overexposed. Completely.", line: "Whatever was here, it's white now." },
+  { title: m.notfound_joke1_title(), line: m.notfound_joke1_line() },
+  { title: m.notfound_joke2_title(), line: m.notfound_joke2_line() },
+  { title: m.notfound_joke3_title(), line: m.notfound_joke3_line() },
+  { title: m.notfound_joke4_title(), line: m.notfound_joke4_line() },
+  { title: m.notfound_joke5_title(), line: m.notfound_joke5_line() },
+  { title: m.notfound_joke6_title(), line: m.notfound_joke6_line() },
 ];
 const joke = JOKES[Math.floor(Math.random() * JOKES.length)] ?? JOKES[0];
 </script>
@@ -20,7 +21,7 @@ const joke = JOKES[Math.floor(Math.random() * JOKES.length)] ?? JOKES[0];
       viewBox="0 0 220 200"
       class="w-56 max-w-full sm:w-64"
       role="img"
-      aria-label="An empty polaroid dangling from a strip of tape, looking confused"
+      aria-label={m.notfound_image_label()}
     >
       <!-- Shadow on the "table" -->
       <ellipse cx="110" cy="188" rx="58" ry="6" class="fill-muted-foreground/15" />
@@ -90,17 +91,19 @@ const joke = JOKES[Math.floor(Math.random() * JOKES.length)] ?? JOKES[0];
     </svg>
 
     <div class="grid gap-2">
-      <p class="text-sm tracking-widest text-muted-foreground uppercase">404 · Page not found</p>
+      <p class="text-sm tracking-widest text-muted-foreground uppercase">
+        404 · {m.notfound_heading()}
+      </p>
       <h1 class="font-heading text-3xl text-balance sm:text-4xl">{joke.title}</h1>
       <p class="text-muted-foreground">{joke.line}</p>
     </div>
-    <Button href="/" variant="outline">Back to the library</Button>
+    <Button href="/" variant="outline">{m.common_back_to_library()}</Button>
   </div>
 {:else}
   <div class="flex flex-col items-center gap-4 py-24 text-center">
     <p class="text-sm tracking-widest text-muted-foreground uppercase">{page.status}</p>
-    <h1 class="font-heading text-3xl">{page.error?.message ?? 'Something went wrong'}</h1>
-    <Button href="/" variant="outline">Back to the library</Button>
+    <h1 class="font-heading text-3xl">{page.error?.message ?? m.error_unknown()}</h1>
+    <Button href="/" variant="outline">{m.common_back_to_library()}</Button>
   </div>
 {/if}
 

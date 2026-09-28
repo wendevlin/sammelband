@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { z } from "zod";
-import { AppError } from "../lib/errors";
+import { fail } from "../lib/errors";
 import { validate } from "../lib/validate";
 import { type AuthEnv, requireAuth } from "../middleware/auth.middleware";
 import { authRateLimit, uploadRateLimit } from "../middleware/rate-limit.middleware";
@@ -21,6 +21,8 @@ export const profileRoutes = new Hono<AuthEnv>()
         name: z.string().trim().min(1).max(200).optional(),
         email: z.email().optional(),
         currentPassword: z.string().max(128).optional(),
+        /** UI language; null follows the browser. Keep in sync with frontend/project.inlang. */
+        locale: z.enum(["en", "de"]).nullable().optional(),
       }),
     ),
     async (c) => {
@@ -39,7 +41,7 @@ export const profileRoutes = new Hono<AuthEnv>()
   )
   .post("/avatar", uploadRateLimit, async (c) => {
     const body = await c.req.parseBody();
-    if (!(body.file instanceof File)) throw new AppError(400, "file: an image is required");
+    if (!(body.file instanceof File)) throw fail("no_files");
     return c.json({ image: await profileService.setAvatar(c.get("user").id, body.file) });
   })
   .delete("/avatar", async (c) => {

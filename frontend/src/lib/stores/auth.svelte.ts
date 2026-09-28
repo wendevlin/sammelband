@@ -1,4 +1,5 @@
 import { api, post } from "$lib/api";
+import { applyAccountLocale } from "$lib/i18n";
 import type { Role, TenantInfo } from "$lib/types";
 
 export type SessionUser = {
@@ -11,6 +12,8 @@ export type SessionUser = {
   superadmin: boolean;
   /** Avatar URL, or null. */
   image: string | null;
+  /** UI language saved with the account; null follows the browser. */
+  locale: string | null;
 };
 
 class AuthStore {
@@ -56,6 +59,8 @@ class AuthStore {
           }
         : null;
       this.tenant = this.user ? await api<TenantInfo>("/tenant").catch(() => null) : null;
+      // The account's language wins over this browser's (reloads if it differs).
+      applyAccountLocale(this.user?.locale);
     } catch {
       this.user = null;
       this.tenant = null;

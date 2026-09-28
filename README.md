@@ -59,6 +59,13 @@ docker run -d --rm --name sammelband-pg -e POSTGRES_PASSWORD=test \
 bun run test:postgres          # uses TEST_DATABASE_URL or the container above
 ```
 
+## Translations
+
+The UI is available in English and German ([Paraglide JS](https://inlang.com/m/gerre34r/library-inlang-paraglideJs)).
+Messages live in `frontend/messages/<locale>.json`; the locale list is in
+`frontend/project.inlang/settings.json`. Users pick their language on the sign-in page
+or in their profile; otherwise the browser language is used.
+
 ## Production
 
 ```sh

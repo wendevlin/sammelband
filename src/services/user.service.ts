@@ -1,6 +1,6 @@
 import { auth } from "../auth";
 import { db } from "../db/client";
-import { AppError } from "../lib/errors";
+import { fail } from "../lib/errors";
 import { currentTenantId, tdb } from "../lib/tenant-context";
 
 export type Role = "admin" | "user";
@@ -45,7 +45,7 @@ export async function createAccount(input: {
   const email = input.email.trim().toLowerCase();
   // Emails are unique across the instance: a person belongs to one tenant.
   if (await db.selectFrom("user").select("id").where("email", "=", email).executeTakeFirst()) {
-    throw new AppError(409, "A user with that email already exists");
+    throw fail("email_taken");
   }
   // Through better-auth so the password is hashed and account rows are created
   // exactly like a normal sign-up (the public sign-up endpoint is blocked).
@@ -95,7 +95,7 @@ async function adminCount(): Promise<number> {
 
 async function requireUser(id: string): Promise<PublicUser> {
   const u = await getUser(id);
-  if (!u) throw new AppError(404, "User not found");
+  if (!u) throw fail("user_not_found");
   return u;
 }
 
@@ -120,9 +120,9 @@ export async function updateUser(
 ): Promise<PublicUser> {
   const user = await requireUser(id);
   if (patch.role && patch.role !== user.role && user.role === "admin") {
-    if (id === actorId) throw new AppError(400, "You cannot remove your own admin role");
-    if (user.superadmin) throw new AppError(400, "The instance owner stays an admin");
-    if ((await adminCount()) <= 1) throw new AppError(400, "Cannot demote the last admin");
+    if (id === actorId) throw fail("cannot_demote_self");
+    if (user.superadmin) throw fail("owner_stays_admin");
+    if ((await adminCount()) <= 1) throw fail("last_admin_demote");
   }
   await tdb()
     .updateTable("user")
@@ -146,10 +146,10 @@ export async function setPassword(id: string, password: string): Promise<void> {
 
 export async function deleteUser(actorId: string, id: string): Promise<void> {
   const user = await requireUser(id);
-  if (id === actorId) throw new AppError(400, "You cannot delete your own account");
-  if (user.superadmin) throw new AppError(400, "The instance owner can't be deleted");
+  if (id === actorId) throw fail("cannot_delete_self");
+  if (user.superadmin) throw fail("owner_not_deletable");
   if (user.role === "admin" && (await adminCount()) <= 1) {
-    throw new AppError(400, "Cannot delete the last admin");
+    throw fail("last_admin_delete");
   }
   // session/account cascade; folders/albums/photos keep their content with
   // created_by / uploaded_by set to NULL.

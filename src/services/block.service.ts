@@ -1,5 +1,5 @@
 import type { AlbumBlock } from "../db/schema";
-import { AppError, must } from "../lib/errors";
+import { fail, must } from "../lib/errors";
 import { emitAlbumPatch } from "../lib/events";
 import { currentTenantId, tdb } from "../lib/tenant-context";
 import * as imageService from "./image.service";
@@ -17,10 +17,10 @@ async function resolveParent(
   parentId: string | null | undefined,
 ): Promise<string | null> {
   if (!parentId) return null;
-  if (type === "group") throw new AppError(400, "A group cannot be nested in another group");
+  if (type === "group") throw fail("group_in_group");
   const parent = await getBlock(parentId);
-  if (!parent || parent.album_id !== albumId) throw new AppError(404, "Parent group not found");
-  if (parent.type !== "group") throw new AppError(400, "Parent block is not a group");
+  if (!parent || parent.album_id !== albumId) throw fail("parent_group_not_found");
+  if (parent.type !== "group") throw fail("parent_not_group");
   return parentId;
 }
 
@@ -42,14 +42,14 @@ export async function createBlock(input: {
   position?: { afterId?: string; beforeId?: string };
 }): Promise<AlbumBlock> {
   if (!ALLOWED_TYPES.has(input.type)) {
-    throw new AppError(400, "Invalid block type");
+    throw fail("invalid_block_type");
   }
   const album = await tdb()
     .selectFrom("albums")
     .select("id")
     .where("id", "=", input.albumId)
     .executeTakeFirst();
-  if (!album) throw new AppError(404, "Album not found");
+  if (!album) throw fail("album_not_found");
 
   const parentId = await resolveParent(input.albumId, input.type, input.parentId);
   const sortOrder = await nextSortOrder(input.albumId, parentId, input.position);
@@ -95,7 +95,7 @@ async function nextSortOrder(
   if (beforeId) {
     const before = await getBlock(beforeId);
     if (!before || before.album_id !== albumId || before.parent_id !== parentId) {
-      throw new AppError(404, "Anchor block not found");
+      throw fail("anchor_block_not_found");
     }
     const prev = await siblings(albumId, parentId)
       .where("sort_order", "<", before.sort_order)
@@ -112,7 +112,7 @@ async function nextSortOrder(
     return (last?.sort_order ?? 0) + 1;
   }
   const after = await getBlock(afterId);
-  if (!after) throw new AppError(404, "Anchor block not found");
+  if (!after) throw fail("anchor_block_not_found");
   const next = await siblings(albumId, parentId)
     .where("sort_order", ">", after.sort_order)
     .orderBy("sort_order")
@@ -134,17 +134,17 @@ export async function updateBlock(
   patch: { content?: unknown; type?: string; parentId?: string | null },
 ): Promise<AlbumBlock> {
   const block = await getBlock(id);
-  if (!block) throw new AppError(404, "Block not found");
+  if (!block) throw fail("block_not_found");
   const type = patch.type ?? block.type;
   if (patch.type && !ALLOWED_TYPES.has(patch.type)) {
-    throw new AppError(400, "Invalid block type");
+    throw fail("invalid_block_type");
   }
 
   // Moving in/out of a group: validate the target and append to its sibling list.
   let parentId = block.parent_id;
   let sortOrder = block.sort_order;
   if (patch.parentId !== undefined && patch.parentId !== block.parent_id) {
-    if (patch.parentId === id) throw new AppError(400, "A block cannot be its own parent");
+    if (patch.parentId === id) throw fail("block_own_parent");
     parentId = await resolveParent(block.album_id, type, patch.parentId);
     sortOrder = await nextSortOrder(block.album_id, parentId);
   }
@@ -168,7 +168,7 @@ export async function updateBlock(
 
 export async function deleteBlock(id: string): Promise<void> {
   const block = await getBlock(id);
-  if (!block) throw new AppError(404, "Block not found");
+  if (!block) throw fail("block_not_found");
   // A group also owns its children (parent_id has no DB-level cascade).
   const childIds = (
     await tdb().selectFrom("album_blocks").select("id").where("parent_id", "=", id).execute()

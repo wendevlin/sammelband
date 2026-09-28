@@ -11,6 +11,7 @@ import { goto } from "$app/navigation";
 import { page } from "$app/state";
 import { Button } from "$lib/components/ui/button";
 import * as DropdownMenu from "$lib/components/ui/dropdown-menu";
+import { m } from "$lib/paraglide/messages.js";
 import { auth } from "$lib/stores/auth.svelte";
 import { cn } from "$lib/utils";
 import Logo from "./logo.svelte";
@@ -22,9 +23,9 @@ const inLibrary = $derived(
 );
 
 const themes = [
-  { value: "light", label: "Light", icon: Sun },
-  { value: "dark", label: "Dark", icon: Moon },
-  { value: "system", label: "System", icon: SunMoon },
+  { value: "light", label: m.theme_light(), icon: Sun },
+  { value: "dark", label: m.theme_dark(), icon: Moon },
+  { value: "system", label: m.theme_system(), icon: SunMoon },
 ] as const;
 
 async function signOut() {
@@ -53,13 +54,13 @@ async function signOut() {
   <DropdownMenu.Separator />
   <DropdownMenu.Item class={itemClass}>
     {#snippet child({ props })}
-      <a href="/profile" {...props}><UserIcon /> Profile</a>
+      <a href="/profile" {...props}><UserIcon /> {m.nav_profile()}</a>
     {/snippet}
   </DropdownMenu.Item>
   {#if auth.isAdmin}
     <DropdownMenu.Item class={itemClass}>
       {#snippet child({ props })}
-        <a href="/admin" {...props}><Settings /> Admin settings</a>
+        <a href="/admin" {...props}><Settings /> {m.nav_admin_settings()}</a>
       {/snippet}
     </DropdownMenu.Item>
   {/if}
@@ -67,7 +68,7 @@ async function signOut() {
 
 <header class="sticky top-0 z-40 border-b bg-background/90 backdrop-blur">
   <div class="mx-auto flex h-16 max-w-6xl items-center gap-6 px-4 sm:px-6">
-    <a href="/" aria-label="Library" class="shrink-0"><Logo /></a>
+    <a href="/" aria-label={m.nav_library()} class="shrink-0"><Logo /></a>
 
     <!-- Desktop: library link, theme and account menus. -->
     <nav class="hidden items-center gap-1 sm:flex">
@@ -78,14 +79,14 @@ async function signOut() {
           inLibrary ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'
         )}
       >
-        Library
+        {m.nav_library()}
       </a>
     </nav>
     <div class="ml-auto hidden items-center gap-1 sm:flex">
       <DropdownMenu.Root>
         <DropdownMenu.Trigger>
           {#snippet child({ props })}
-            <Button {...props} variant="ghost" size="icon-sm" aria-label="Theme">
+            <Button {...props} variant="ghost" size="icon-sm" aria-label={m.theme()}>
               {#if mode.current === 'dark'}
                 <Moon />
               {:else}
@@ -99,7 +100,7 @@ async function signOut() {
       <DropdownMenu.Root>
         <DropdownMenu.Trigger>
           {#snippet child({ props })}
-            <button {...props} type="button" class="ml-1 rounded-full" aria-label="Account">
+            <button {...props} type="button" class="ml-1 rounded-full" aria-label={m.nav_account()}>
               <UserAvatar name={auth.user?.name ?? ''} image={auth.user?.image} />
             </button>
           {/snippet}
@@ -107,7 +108,7 @@ async function signOut() {
         <DropdownMenu.Content align="end" class="min-w-60">
           {@render accountItems()}
           <DropdownMenu.Separator />
-          <DropdownMenu.Item onclick={signOut}><LogOut /> Sign out</DropdownMenu.Item>
+          <DropdownMenu.Item onclick={signOut}><LogOut /> {m.nav_sign_out()}</DropdownMenu.Item>
         </DropdownMenu.Content>
       </DropdownMenu.Root>
     </div>
@@ -117,7 +118,7 @@ async function signOut() {
       <DropdownMenu.Root>
         <DropdownMenu.Trigger>
           {#snippet child({ props })}
-            <Button {...props} variant="ghost" size="icon" aria-label="Menu">
+            <Button {...props} variant="ghost" size="icon" aria-label={m.nav_menu()}>
               <Menu class="size-5" />
             </Button>
           {/snippet}
@@ -127,20 +128,20 @@ async function signOut() {
             class={cn('py-2.5 text-base', inLibrary && 'font-semibold text-primary')}
           >
             {#snippet child({ props })}
-              <a href="/" {...props}>Library</a>
+              <a href="/" {...props}>{m.nav_library()}</a>
             {/snippet}
           </DropdownMenu.Item>
           <DropdownMenu.Separator />
           {@render accountItems('py-2.5 text-base')}
           <DropdownMenu.Separator />
           <DropdownMenu.Label class="text-xs font-normal text-muted-foreground"
-            >Theme</DropdownMenu.Label
+            >{m.theme()}</DropdownMenu.Label
           >
           {@render themeItems()}
           <DropdownMenu.Separator />
           <DropdownMenu.Item onclick={signOut} class="py-2.5"
             ><LogOut />
-            Sign out</DropdownMenu.Item
+            {m.nav_sign_out()}</DropdownMenu.Item
           >
         </DropdownMenu.Content>
       </DropdownMenu.Root>

@@ -2,6 +2,7 @@ import type { Context } from "hono";
 import { getConnInfo } from "hono/bun";
 import { createMiddleware } from "hono/factory";
 import { config } from "../config";
+import { errorBody } from "../lib/error-codes";
 
 type Bucket = { count: number; resetAt: number };
 
@@ -47,7 +48,7 @@ export function rateLimit(opts: { name: string; windowMs: number; max: number })
       if (bucket.count > opts.max) {
         const retryAfter = Math.ceil((bucket.resetAt - now) / 1000);
         c.header("Retry-After", String(retryAfter));
-        return c.json({ error: "Too many requests", retryAfter }, 429);
+        return c.json({ ...errorBody("rate_limited", { retryAfter }), retryAfter }, 429);
       }
     }
     await next();

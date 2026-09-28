@@ -5,6 +5,7 @@ import SimpleSelect from "$lib/components/app/simple-select.svelte";
 import { Button } from "$lib/components/ui/button";
 import * as Card from "$lib/components/ui/card";
 import { Input } from "$lib/components/ui/input";
+import { m } from "$lib/paraglide/messages.js";
 import { auth } from "$lib/stores/auth.svelte";
 import { browserTimeZone, formatInZone } from "$lib/timezone";
 import type { TenantInfo } from "$lib/types";
@@ -25,7 +26,7 @@ let savingName = $state(false);
 async function saveName(e: SubmitEvent) {
   e.preventDefault();
   savingName = true;
-  await save({ name }, "Name saved");
+  await save({ name }, m.general_name_saved());
   savingName = false;
 }
 
@@ -40,29 +41,35 @@ let savingZone = $state(false);
 const example = $derived(formatInZone(Date.now(), timezone));
 async function saveZone() {
   savingZone = true;
-  await save({ timezone }, "Time zone saved");
+  await save({ timezone }, m.general_timezone_saved());
   savingZone = false;
 }
 </script>
 
-<svelte:head><title>General · Admin · Sammelband</title></svelte:head>
+<svelte:head
+  ><title>{m.admin_tab_general()} · {m.nav_admin_settings()} · Sammelband</title></svelte:head
+>
 
 <div class="grid max-w-2xl gap-6">
   <Card.Root>
     <Card.Header>
-      <Card.Title>Name</Card.Title>
-      <Card.Description>
-        Shown in the menu, on invite links and to everyone in this Sammelband.
-      </Card.Description>
+      <Card.Title>{m.common_name()}</Card.Title>
+      <Card.Description>{m.general_name_description()}</Card.Description>
     </Card.Header>
     <Card.Content>
       <form class="flex flex-wrap gap-2" onsubmit={saveName}>
-        <Input bind:value={name} required maxlength={100} aria-label="Name" class="max-w-sm" />
+        <Input
+          bind:value={name}
+          required
+          maxlength={100}
+          aria-label={m.common_name()}
+          class="max-w-sm"
+        />
         <Button
           type="submit"
           disabled={savingName || !name.trim() || name.trim() === auth.tenant?.name}
         >
-          Save
+          {m.common_save()}
         </Button>
       </form>
     </Card.Content>
@@ -70,33 +77,32 @@ async function saveZone() {
 
   <Card.Root>
     <Card.Header>
-      <Card.Title>Time zone</Card.Title>
+      <Card.Title>{m.general_timezone()}</Card.Title>
       <Card.Description>
-        Share links with an expiry date stop working at 23:59 of that day in this time zone, for
-        everyone in {auth.tenant?.name ?? 'this Sammelband'}.
+        {m.general_timezone_description({ sammelband: auth.tenant?.name ?? 'Sammelband' })}
       </Card.Description>
     </Card.Header>
     <Card.Content class="grid gap-3">
       <SimpleSelect
-        label="Time zone"
+        label={m.general_timezone()}
         value={timezone}
         options={zones}
         onchange={(v) => (timezone = v)}
         class="w-72"
       />
-      <p class="text-sm text-muted-foreground">Now there: {example}</p>
+      <p class="text-sm text-muted-foreground">{m.general_timezone_now({ time: example })}</p>
       {#if browserZone !== timezone}
         <p class="text-sm text-muted-foreground">
-          Your browser is set to {browserZone}.
+          {m.general_timezone_browser({ zone: browserZone })}
           <Button variant="link" class="h-auto p-0" onclick={() => (timezone = browserZone)}
-            >Use it</Button
+            >{m.general_timezone_use()}</Button
           >
         </p>
       {/if}
     </Card.Content>
     <Card.Footer>
       <Button onclick={saveZone} disabled={savingZone || timezone === auth.tenant?.timezone}
-        >Save</Button
+        >{m.common_save()}</Button
       >
     </Card.Footer>
   </Card.Root>

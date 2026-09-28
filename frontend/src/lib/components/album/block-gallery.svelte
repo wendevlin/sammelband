@@ -2,6 +2,7 @@
 import ChevronLeft from "@lucide/svelte/icons/chevron-left";
 import ChevronRight from "@lucide/svelte/icons/chevron-right";
 import { GALLERY_SIZES, imageUrls } from "$lib/images";
+import { m } from "$lib/paraglide/messages.js";
 import type { GalleryLayout, Photo } from "$lib/types";
 import { cn } from "$lib/utils";
 
@@ -100,7 +101,7 @@ const containerClass = $derived(
     {#each [{ dir: -1 as const, show: canLeft }, { dir: 1 as const, show: canRight }] as edge (edge.dir)}
       <button
         type="button"
-        aria-label={edge.dir < 0 ? 'Scroll left' : 'Scroll right'}
+        aria-label={edge.dir < 0 ? m.scroll_left() : m.scroll_right()}
         class={cn(
 					'absolute top-1/2 flex size-10 -translate-y-1/2 items-center justify-center rounded-full bg-background/90 shadow-md transition-opacity',
 					edge.dir < 0 ? 'left-2' : 'right-2',

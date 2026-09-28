@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { upgradeWebSocket } from "hono/bun";
 import type { WSContext } from "hono/ws";
 import { config } from "../config";
+import { errorBody } from "../lib/error-codes";
 import { type ChangeEvent, subscribe } from "../lib/events";
 import { type AuthEnv, requireAuth } from "../middleware/auth.middleware";
 
@@ -62,7 +63,7 @@ export const wsRoutes = new Hono<AuthEnv>().get(
   async (c, next) => {
     const origin = c.req.header("origin");
     if (origin && !config.ALLOWED_ORIGINS.includes(origin)) {
-      return c.json({ error: "Forbidden" }, 403);
+      return c.json(errorBody("forbidden"), 403);
     }
     await next();
   },

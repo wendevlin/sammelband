@@ -304,3 +304,9 @@ Moved to "Later" (2026-09-28): easier to build once there is a real release on G
 - [x] Batch 2 from the review: stored `albums.cover_filename` (migration `0006`, kept current by `albumChanged()`; library pages no longer query per album), `storage_used_bytes` reconciled from the files at startup and on the storage page, the SQLite driver throws instead of hanging on a root query inside a transaction, advisory lock around `migrate()` on Postgres (tested with three instances starting at once). Instead of rebuilding FKs with `ON DELETE CASCADE`, a test deletes a fully populated tenant and checks every table in `TENANT_COLUMNS` for leftovers.
 - [ ] Set up test coverage reporting.
 - [ ] Investigate how deeply the code depends on Bun and whether Bun could be replaced: list all Bun-specific APIs in use (`bun:sqlite`, `Bun.sql`, `Bun.serve`, `Bun.file`, `Bun.semver`, `hono/bun`). Hono is runtime-agnostic and runs on Bun and Node, which keeps the Bun dependency small.
+
+### 13. Translations
+- [x] Paraglide JS with English (base) and German in `frontend/messages/*.json`; language picker on the sign-in pages and in the profile (saved with the account, otherwise browser language) (2026-09-28).
+- [x] Backend errors carry a stable `code` plus English fallback `error` and `params`; the frontend translates `error_<code>` and falls back to the message. better-auth codes are translated the same way.
+- [ ] After the first release: connect a community translation platform (Weblate preferred, Tolgee possible) to the message files; document how to contribute a language.
+- [ ] Locale-aware formatting beyond dates (numbers, file sizes) where it shows up.

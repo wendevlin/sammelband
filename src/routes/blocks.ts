@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { z } from "zod";
-import { AppError } from "../lib/errors";
+import { fail } from "../lib/errors";
 import { validate } from "../lib/validate";
 import { type AuthEnv, requireAuth } from "../middleware/auth.middleware";
 import * as blockService from "../services/block.service";
@@ -71,5 +71,5 @@ export const blockRoutes = new Hono<AuthEnv>()
 
 async function ensureInAlbum(albumId: string, blockId: string): Promise<void> {
   const block = await blockService.getBlock(blockId);
-  if (!block || block.album_id !== albumId) throw new AppError(404, "Block not found");
+  if (!block || block.album_id !== albumId) throw fail("block_not_found");
 }
