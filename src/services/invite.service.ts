@@ -91,10 +91,14 @@ export async function describeInvite(token: string): Promise<{ sammelband: strin
   return { sammelband: invite.tenant_name, role: invite.role };
 }
 
-/** Public: create an account through an invite link. The link is used up. */
+/**
+ * Public: create an account through an invite link. The link is used up.
+ * Admin invites may also rename the Sammelband (`sammelband`); user invites
+ * ignore it.
+ */
 export async function acceptInvite(
   token: string,
-  input: { email: string; name: string; password: string },
+  input: { email: string; name: string; password: string; sammelband?: string },
 ): Promise<{ ok: true }> {
   const invite = await findUsable(token);
   // Claim the invite first so two requests can't both use it.
@@ -108,7 +112,16 @@ export async function acceptInvite(
     throw new AppError(404, "This invite link is invalid or has expired");
   }
   try {
-    await createAccount({ ...input, tenantId: invite.tenant_id, role: invite.role });
+    const { sammelband, ...account } = input;
+    await createAccount({ ...account, tenantId: invite.tenant_id, role: invite.role });
+    const rename = sammelband?.trim();
+    if (invite.role === "admin" && rename && rename !== invite.tenant_name) {
+      await db
+        .updateTable("tenants")
+        .set({ name: rename })
+        .where("id", "=", invite.tenant_id)
+        .execute();
+    }
   } catch (err) {
     await db
       .updateTable("tenant_invites")

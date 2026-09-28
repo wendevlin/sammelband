@@ -12,6 +12,9 @@ import { auth } from "$lib/stores/auth.svelte";
 let { data } = $props();
 
 let name = $state("");
+// Admin invites: the new admin may rename the Sammelband right away.
+// svelte-ignore state_referenced_locally
+let sammelband = $state(data.invite?.sammelband ?? "");
 let email = $state("");
 let password = $state("");
 let busy = $state(false);
@@ -20,7 +23,13 @@ async function submit(e: SubmitEvent) {
   e.preventDefault();
   busy = true;
   const ok = await attempt(
-    () => post(`/invites/${data.token}/accept`, { name, email, password }),
+    () =>
+      post(`/invites/${data.token}/accept`, {
+        name,
+        email,
+        password,
+        sammelband: data.invite?.role === "admin" ? sammelband : undefined,
+      }),
     "Account created. Sign in to continue.",
   );
   busy = false;
@@ -51,14 +60,21 @@ async function signOut() {
   </AuthShell>
 {:else}
   <AuthShell
-    title="Join {data.invite.sammelband}"
+    title={data.invite.role === 'admin' ? 'Set up your Sammelband' : `Join ${data.invite.sammelband}`}
     description={data.invite.role === 'admin'
-      ? 'You were invited as the admin of this Sammelband. Create your account.'
+      ? 'You were invited to run a new Sammelband. Choose its name and create your admin account.'
       : 'You were invited to this Sammelband. Create your account.'}
   >
     <form class="grid gap-4" onsubmit={submit}>
+      {#if data.invite.role === 'admin'}
+        <div class="grid gap-2">
+          <Label for="sammelband">Name of the Sammelband</Label>
+          <Input id="sammelband" bind:value={sammelband} required maxlength={100} />
+          <p class="text-xs text-muted-foreground">You can change it later under Admin settings.</p>
+        </div>
+      {/if}
       <div class="grid gap-2">
-        <Label for="name">Name</Label>
+        <Label for="name">Your name</Label>
         <Input id="name" bind:value={name} required maxlength={200} autocomplete="name" />
       </div>
       <div class="grid gap-2">

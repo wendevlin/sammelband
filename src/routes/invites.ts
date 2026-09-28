@@ -16,6 +16,8 @@ export const inviteRoutes = new Hono()
         email: z.email(),
         name: z.string().trim().min(1).max(200),
         password: z.string().min(8).max(128),
+        /** Admin invites only: rename the Sammelband. */
+        sammelband: z.string().trim().min(1).max(100).optional(),
       }),
     ),
     async (c) =>

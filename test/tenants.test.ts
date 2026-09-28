@@ -132,6 +132,32 @@ describe("invites", () => {
     ).rejects.toThrow("invalid");
   });
 
+  test("the new admin can rename the Sammelband when accepting; users can't", async () => {
+    const { tenant, invite } = await tenantService.createTenant({
+      name: "Draft",
+      quotaBytes: null,
+    });
+    await inviteService.acceptInvite(tokenOf(invite.url), {
+      email: "admin@example.com",
+      name: "Admin",
+      password: "password123",
+      sammelband: " Family Peleska ",
+    });
+    const name = async () =>
+      (await db.selectFrom("tenants").select("name").where("id", "=", tenant.id).executeTakeFirst())
+        ?.name;
+    expect(await name()).toBe("Family Peleska");
+
+    const userInvite = await runInTenant(tenant.id, () => inviteService.createTenantInvite("user"));
+    await inviteService.acceptInvite(tokenOf(userInvite.url), {
+      email: "user@example.com",
+      name: "User",
+      password: "password123",
+      sammelband: "Hijacked",
+    });
+    expect(await name()).toBe("Family Peleska");
+  });
+
   test("a failed sign-up leaves the invite usable; renewing replaces old links", async () => {
     const other = await createTenant();
     const taken = await runInTenant(other.id, () => createUser());
