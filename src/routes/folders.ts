@@ -3,8 +3,18 @@ import { z } from "zod";
 import { validate } from "../lib/validate";
 import { type AuthEnv, requireAuth } from "../middleware/auth.middleware";
 import * as folderService from "../services/folder.service";
+import { SORT_MODES } from "../services/sort.service";
 
 const nullableId = z.string().nullable().optional();
+
+// Sorting is per user: each user's order of the same folder is their own.
+const sortBody = z.object({ mode: z.enum(SORT_MODES) });
+const moveBody = z.object({
+  kind: z.enum(["album", "folder"]),
+  id: z.string(),
+  /** Put the item before this one; null moves it to the end. */
+  beforeId: z.string().nullable(),
+});
 
 export const folderRoutes = new Hono<AuthEnv>()
   .use("*", requireAuth)
@@ -22,7 +32,16 @@ export const folderRoutes = new Hono<AuthEnv>()
       return c.json(folder, 201);
     },
   )
-  .get("/:id", async (c) => c.json(await folderService.getFolderContents(c.req.param("id"))))
+  .get("/:id", async (c) =>
+    c.json(await folderService.getFolderContents(c.req.param("id"), c.get("user").id)),
+  )
+  .put("/:id/sort", validate("json", sortBody), async (c) => {
+    await folderService.setSortMode(c.req.param("id"), c.get("user").id, c.req.valid("json").mode);
+    return c.json({ ok: true });
+  })
+  .post("/:id/order", validate("json", moveBody), async (c) =>
+    c.json(await folderService.moveItem(c.req.param("id"), c.get("user").id, c.req.valid("json"))),
+  )
   .patch(
     "/:id",
     validate(
@@ -39,4 +58,11 @@ export const folderRoutes = new Hono<AuthEnv>()
 /** The top level of the library: root folders as tiles and albums outside any folder. */
 export const libraryRoutes = new Hono<AuthEnv>()
   .use("*", requireAuth)
-  .get("/", async (c) => c.json(await folderService.getLibrary()));
+  .get("/", async (c) => c.json(await folderService.getLibrary(c.get("user").id)))
+  .put("/sort", validate("json", sortBody), async (c) => {
+    await folderService.setSortMode(null, c.get("user").id, c.req.valid("json").mode);
+    return c.json({ ok: true });
+  })
+  .post("/order", validate("json", moveBody), async (c) =>
+    c.json(await folderService.moveItem(null, c.get("user").id, c.req.valid("json"))),
+  );

@@ -81,6 +81,30 @@ export type TenantInvite = {
   created_at: number;
 };
 
+export type SortMode = "name" | "created" | "modified" | "manual";
+
+/** A user's sort mode for one container: "root" or a folder id. */
+export type FolderSort = {
+  tenant_id: string;
+  user_id: string;
+  folder_key: string;
+  mode: SortMode;
+};
+
+export type AlbumPosition = {
+  tenant_id: string;
+  user_id: string;
+  album_id: string;
+  position: number;
+};
+
+export type FolderPosition = {
+  tenant_id: string;
+  user_id: string;
+  folder_id: string;
+  position: number;
+};
+
 /** The columns of better-auth's tables that app code touches directly. */
 type UserTable = {
   id: string;
@@ -114,4 +138,7 @@ export type Database = {
   album_blocks: AlbumBlock;
   image_files: ImageFile;
   photos: Photo;
+  folder_sort: FolderSort;
+  album_positions: AlbumPosition;
+  folder_positions: FolderPosition;
 };

@@ -10,4 +10,10 @@ live(
 );
 </script>
 
-<LibraryView folder={null} folders={data.folders} albums={data.albums} allFolders={[]} />
+<LibraryView
+  folder={null}
+  folders={data.folders}
+  albums={data.albums}
+  sort={data.sort}
+  allFolders={[]}
+/>

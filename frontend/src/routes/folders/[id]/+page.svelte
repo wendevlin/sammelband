@@ -15,5 +15,6 @@ live(
   folder={data.folder}
   folders={data.folders}
   albums={data.albums}
+  sort={data.sort}
   allFolders={data.allFolders}
 />

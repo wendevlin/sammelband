@@ -35,7 +35,7 @@ describe("folder tiles", () => {
       }
       await album(user.id, f.id, null); // newest, but no image
 
-      const [tile] = await folderService.withPreviews([f]);
+      const [tile] = await folderService.withPreviews([f], user.id);
       expect(tile?.covers).toEqual(covers.slice(1).reverse());
       expect(tile?.album_count).toBe(6);
       expect(tile?.folder_count).toBe(0);
@@ -53,7 +53,7 @@ describe("folder tiles", () => {
       const deep = await folder(user.id, "Deep", anna.id);
       await album(user.id, deep.id, [0, 255, 0]); // two levels down: ignored
 
-      const [tile] = await folderService.withPreviews([parent]);
+      const [tile] = await folderService.withPreviews([parent], user.id);
       expect(tile?.covers).toEqual([b.cover, a.cover]);
       expect(tile?.album_count).toBe(0);
       expect(tile?.folder_count).toBe(2);
@@ -69,7 +69,7 @@ describe("folder tiles", () => {
       const own = await album(user.id, f.id, [255, 0, 0]);
       const empty = await folder(user.id, "Empty");
 
-      const tiles = await folderService.withPreviews([f, empty]);
+      const tiles = await folderService.withPreviews([f, empty], user.id);
       expect(tiles.map((t) => t.covers)).toEqual([[own.cover], []]);
     })();
   });
@@ -82,13 +82,13 @@ describe("folder tiles", () => {
       const inSub = await album(user.id, sub.id, [255, 0, 0]);
       const root = await album(user.id, null, [0, 0, 255]);
 
-      const library = await folderService.getLibrary();
+      const library = await folderService.getLibrary(user.id);
       expect(library.folders.map((t) => [t.name, t.covers])).toEqual([["F", [inSub.cover]]]);
       expect(library.albums.map((a) => [a.id, a.cover_filename])).toEqual([
         [root.album.id, root.cover],
       ]);
 
-      const contents = await folderService.getFolderContents(f.id);
+      const contents = await folderService.getFolderContents(f.id, user.id);
       expect(contents.folders.map((t) => [t.name, t.covers])).toEqual([["Sub", [inSub.cover]]]);
       expect(contents.albums).toEqual([]);
     })();

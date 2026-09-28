@@ -216,18 +216,19 @@ Naming: `tenant` in code, **"Sammelband"** in the UI (a Sammelband is a book bin
 
 ### 3. Folder tiles in the library view
 - [x] Folder tiles the same size as album tiles (consistent grid, no more small list-style entries).
-- [x] A folder tile previews the covers of the albums inside (2×2 grid of the four newest albums with an image; follows the folder's sort order once item 4 exists).
+- [x] A folder tile previews the covers of the albums inside (2×2 grid of the first four albums with an image, in the viewer's order for that folder).
 - [x] Fallbacks for fewer albums: 1 cover full size, 2 side by side, 3 as 1 large + 2 small. No covers or no albums: neutral folder placeholder in the Sammelband style.
 - [x] Keep folders distinguishable from albums: "Folder" label on the tile, two sheets peeking out behind it (a stack), album/folder counts under the name.
 - [x] Nested folders: if a folder contains only subfolders, use the covers of those subfolders' albums (one level deep).
 - [x] `GET /api/library` returns the top level like `GET /api/folders/:id` (folder tiles + albums with covers), so the library no longer loads every album.
 
 ### 4. Folder sort order
-- [ ] Sort options per folder: name, created date, modified date and manual (drag & drop).
-- [ ] Manual order to arrange albums chronologically, by importance or however fits (e.g. a folder for one person).
-- [ ] Sort mode and manual order are stored **per user**, not globally: each user can sort the same folder differently.
-- [ ] Manual order needs a persisted position per (user, folder, item) rather than just a sort key, so reordering doesn't rewrite every item (fractional or gapped positions).
-- [ ] Items without a manual position (newly added albums) go to the end, sorted by a secondary key (e.g. created date).
+- [x] Sort options per folder (and the library root): name (locale-aware, numbers sort naturally), newest first (default), recently changed, manual. They order both the folders and the albums of a container; folder previews follow the folder's order.
+- [x] "Recently changed" counts content edits: block and photo changes bump the album's `updated_at`; a folder counts as changed when an album directly inside it is.
+- [x] Manual order via drag & drop (desktop) or "Move earlier/later" in the "⋯" menu (touch, keyboard). Dragging in another mode switches to manual, starting from the order shown; choosing "Manual" keeps the order shown, or restores a manual order saved earlier.
+- [x] Sort mode and manual order are stored **per user** (`folder_sort`, `album_positions`, `folder_positions`, migration `0003_sort_order`).
+- [x] Fractional positions: a move writes one row (midpoint of its neighbours). More rows only when switching to manual, when numbering the unpositioned tail once, or when a gap drops below 1e-6 (renumbering). Moving an album or folder to another folder drops its positions.
+- [x] Items without a manual position (newly added albums) go to the end, oldest first.
 
 ### 5. Public links
 - [ ] Share an album or folder via a public link, without the recipient needing an account.

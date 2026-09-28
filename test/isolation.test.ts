@@ -44,7 +44,9 @@ describe("tenant isolation", () => {
     await asB(async () => {
       expect(await folderService.listFolders()).toEqual([]);
       expect(await folderService.getFolder(folder.id)).toBeNull();
-      await expect(folderService.getFolderContents(folder.id)).rejects.toThrow("not found");
+      await expect(folderService.getFolderContents(folder.id, bUser.id)).rejects.toThrow(
+        "not found",
+      );
       await expect(folderService.updateFolder(folder.id, { name: "x" })).rejects.toThrow(
         "not found",
       );

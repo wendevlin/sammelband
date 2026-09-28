@@ -24,7 +24,7 @@ describe("folders", () => {
       const all = await folderService.listFolders();
       expect(all.map((f) => f.id)).toEqual([root.id, child.id]);
 
-      const contents = await folderService.getFolderContents(root.id);
+      const contents = await folderService.getFolderContents(root.id, user.id);
       expect(contents.folders.map((f) => f.id)).toEqual([child.id]);
     }),
   );

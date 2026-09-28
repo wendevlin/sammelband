@@ -37,6 +37,9 @@ export const TENANT_COLUMNS: Record<string, string> = {
   image_files: "tenant_id",
   photos: "tenant_id",
   tenant_invites: "tenant_id",
+  folder_sort: "tenant_id",
+  album_positions: "tenant_id",
+  folder_positions: "tenant_id",
   user: "tenantId", // better-auth naming
 };
 

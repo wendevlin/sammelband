@@ -3,6 +3,7 @@ import EllipsisVertical from "@lucide/svelte/icons/ellipsis-vertical";
 import FolderIcon from "@lucide/svelte/icons/folder";
 import Pencil from "@lucide/svelte/icons/pencil";
 import Trash from "@lucide/svelte/icons/trash-2";
+import type { Snippet } from "svelte";
 import { Button } from "$lib/components/ui/button";
 import * as DropdownMenu from "$lib/components/ui/dropdown-menu";
 import { imageSrc } from "$lib/images";
@@ -18,7 +19,8 @@ let {
   folder,
   onrename,
   ondelete,
-}: { folder: FolderTile; onrename: () => void; ondelete: () => void } = $props();
+  menu,
+}: { folder: FolderTile; onrename: () => void; ondelete: () => void; menu?: Snippet } = $props();
 
 const covers = $derived(folder.covers.slice(0, 4));
 // 1: full tile; 2: side by side; 3: one large + two small; 4: 2×2.
@@ -39,7 +41,12 @@ const summary = $derived(
 </script>
 
 <div class="group">
-  <a href="/folders/{folder.id}" class="relative block pt-3" aria-label="Folder {folder.name}">
+  <a
+    href="/folders/{folder.id}"
+    class="relative block pt-3"
+    aria-label="Folder {folder.name}"
+    draggable="false"
+  >
     <!-- Two sheets peeking out behind the tile: a stack, not a single album. -->
     <div
       class="absolute inset-x-8 top-0 h-10 rounded-xl border border-foreground/10 bg-secondary"
@@ -59,6 +66,7 @@ const summary = $derived(
               src={imageSrc(cover, covers.length === 1 || (covers.length === 3 && i === 0) ? 800 : 400)}
               alt=""
               loading="lazy"
+              draggable="false"
               class={cn(
                 'size-full min-h-0 object-cover transition-transform duration-500 group-hover:scale-[1.03]',
                 covers.length === 3 && i === 0 && 'col-span-2 row-span-2'
@@ -76,7 +84,7 @@ const summary = $derived(
     </div>
   </a>
   <div class="flex items-start gap-2 pt-3">
-    <a href="/folders/{folder.id}" class="min-w-0 flex-1">
+    <a href="/folders/{folder.id}" class="min-w-0 flex-1" draggable="false">
       <h3 class="truncate font-heading text-lg leading-snug group-hover:underline">
         {folder.name}
       </h3>
@@ -92,6 +100,8 @@ const summary = $derived(
       </DropdownMenu.Trigger>
       <DropdownMenu.Content align="end">
         <DropdownMenu.Item onclick={onrename}><Pencil /> Rename</DropdownMenu.Item>
+        {@render menu?.()}
+        <DropdownMenu.Separator />
         <DropdownMenu.Item variant="destructive" onclick={ondelete}>
           <Trash />
           Delete

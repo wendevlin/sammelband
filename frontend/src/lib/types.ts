@@ -116,11 +116,16 @@ export type FolderTile = Folder & {
   covers: string[];
   album_count: number;
   folder_count: number;
+  modified_at: number;
 };
+
+/** How a user orders a folder's contents; stored per user and folder. */
+export type SortMode = "name" | "created" | "modified" | "manual";
 
 export type LibraryContents = {
   folders: FolderTile[];
   albums: Album[];
+  sort: SortMode;
 };
 
 export type FolderContents = LibraryContents & { folder: Folder };

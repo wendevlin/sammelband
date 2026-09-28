@@ -12,6 +12,9 @@ import * as userService from "../src/services/user.service";
 
 // Children before parents, so foreign keys never block a delete.
 const TABLES = [
+  "album_positions",
+  "folder_positions",
+  "folder_sort",
   "tenant_invites",
   "photos",
   "image_files",

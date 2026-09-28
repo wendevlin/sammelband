@@ -18,6 +18,18 @@ export type UploadedPhoto = {
   deduplicated: boolean;
 };
 
+/**
+ * Mark an album as changed (its "modified" sort order counts content edits,
+ * not only title and description).
+ */
+export async function touchAlbum(albumId: string): Promise<void> {
+  await tdb()
+    .updateTable("albums")
+    .set({ updated_at: Date.now() })
+    .where("id", "=", albumId)
+    .execute();
+}
+
 /** Photos joined with their image metadata, ordered by sort_order. */
 export function photosWithImage(filter: {
   albumId?: string;
@@ -105,6 +117,7 @@ export async function uploadPhoto(
   };
   await tdb().insertInto("photos").values(photo).execute();
   // One small event per photo, so other viewers see a batch arrive one by one.
+  await touchAlbum(albumId);
   emitAlbumPatch(albumId, { photos: await photoWithImage(photo.id) });
   emit({
     topic: topics.photoPool(albumId),
@@ -154,6 +167,7 @@ export async function updateCaption(photoId: string, caption: string | null): Pr
   if (!(await getPhoto(photoId))) throw new AppError(404, "Photo not found");
   await tdb().updateTable("photos").set({ caption }).where("id", "=", photoId).execute();
   const updated = must(await getPhoto(photoId), "Photo");
+  await touchAlbum(updated.album_id);
   emitAlbumPatch(updated.album_id, { photos: await photoWithImage(photoId) });
   emit({ topic: topics.photoPool(updated.album_id), kind: "updated", id: photoId });
   return updated;
@@ -219,6 +233,7 @@ export async function deletePhoto(photoId: string): Promise<void> {
   if (!photo) throw new AppError(404, "Photo not found");
 
   await deletePhotoRows([photo]);
+  await touchAlbum(photo.album_id);
   // A trigger clears the cover if this photo was it, so resend the album row.
   const album = await getAlbumRow(photo.album_id);
   emitAlbumPatch(photo.album_id, { album, removedPhotos: [photoId] });
@@ -278,6 +293,7 @@ export async function reorderPhotos(
     .executeTakeFirst();
   const ids = order.map((e) => e.id);
   if (block && ids.length > 0) {
+    await touchAlbum(block.album_id);
     emitAlbumPatch(block.album_id, { photos: await photosWithImage({ blockId, ids }) });
   }
 }

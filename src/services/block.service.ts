@@ -70,6 +70,7 @@ export async function createBlock(input: {
     })
     .execute();
   const block = must(await getBlock(id), "Block");
+  await imageService.touchAlbum(input.albumId);
   emitAlbumPatch(input.albumId, { blocks: [block] });
   return block;
 }
@@ -146,6 +147,7 @@ export async function updateBlock(
     .where("id", "=", id)
     .execute();
   const updated = must(await getBlock(id), "Block");
+  await imageService.touchAlbum(updated.album_id);
   emitAlbumPatch(updated.album_id, { blocks: [updated] });
   return updated;
 }
@@ -161,6 +163,7 @@ export async function deleteBlock(id: string): Promise<void> {
   // Galleries own their photos: remove those from disk + variant cache first.
   const removedPhotos = await imageService.deletePhotosByBlocks(blockIds);
   await tdb().deleteFrom("album_blocks").where("id", "in", blockIds).execute();
+  await imageService.touchAlbum(block.album_id);
   emitAlbumPatch(block.album_id, {
     removedBlocks: blockIds,
     removedPhotos,
@@ -200,5 +203,6 @@ export async function reorderBlocks(
     .where("album_id", "=", albumId)
     .where("id", "in", ids)
     .execute();
+  await imageService.touchAlbum(albumId);
   emitAlbumPatch(albumId, { blocks });
 }

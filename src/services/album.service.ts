@@ -4,6 +4,7 @@ import { emit, emitAlbumPatch, type PhotoWithImage, topics } from "../lib/events
 import { shortId } from "../lib/short-id";
 import { currentTenantId, tdb } from "../lib/tenant-context";
 import * as imageService from "./image.service";
+import * as sortService from "./sort.service";
 
 function slugify(s: string): string {
   return s
@@ -163,6 +164,7 @@ export async function updateAlbum(
     })
     .where("id", "=", id)
     .execute();
+  if (newFolderId !== album.folder_id) await sortService.dropPositions("album", id);
   const updated = must(await getAlbum(id), "Album");
   emitAlbumPatch(id, { album: updated });
   emit({ topic: topics.albumList(), kind: "updated", id });
