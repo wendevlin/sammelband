@@ -3,30 +3,42 @@ import type { Album, Folder } from "../db/schema";
 import { AppError, must } from "../lib/errors";
 import { emit, topics } from "../lib/events";
 
-export function listFolders(): Folder[] {
-  return db.query("SELECT * FROM folders ORDER BY parent_id, name").all() as Folder[];
+export function listFolders(): Promise<Folder[]> {
+  return db
+    .selectFrom("folders")
+    .selectAll()
+    .orderBy("parent_id", (ob) => ob.asc().nullsFirst())
+    .orderBy("name")
+    .execute();
 }
 
-export function getFolder(id: string): Folder | null {
-  return db.query("SELECT * FROM folders WHERE id = ?").get(id) as Folder | null;
+export async function getFolder(id: string): Promise<Folder | null> {
+  return (
+    (await db.selectFrom("folders").selectAll().where("id", "=", id).executeTakeFirst()) ?? null
+  );
 }
 
-export function createFolder(input: {
+export async function createFolder(input: {
   name: string;
   parentId: string | null;
   createdBy: string;
-}): Folder {
+}): Promise<Folder> {
   if (!input.name.trim()) throw new AppError(400, "Folder name required");
-  if (input.parentId && !getFolder(input.parentId)) {
+  if (input.parentId && !(await getFolder(input.parentId))) {
     throw new AppError(404, "Parent folder not found");
   }
   const id = Bun.randomUUIDv7();
-  const now = Date.now();
-  db.run(
-    "INSERT INTO folders (id, name, parent_id, created_by, created_at) VALUES (?, ?, ?, ?, ?)",
-    [id, input.name.trim(), input.parentId, input.createdBy, now],
-  );
-  const folder = must(getFolder(id), "Folder");
+  await db
+    .insertInto("folders")
+    .values({
+      id,
+      name: input.name.trim(),
+      parent_id: input.parentId,
+      created_by: input.createdBy,
+      created_at: Date.now(),
+    })
+    .execute();
+  const folder = must(await getFolder(id), "Folder");
   emit({ topic: topics.folderTree(), kind: "created", id, data: folder });
   if (folder.parent_id) {
     emit({ topic: topics.folder(folder.parent_id), kind: "updated" });
@@ -34,27 +46,27 @@ export function createFolder(input: {
   return folder;
 }
 
-export function updateFolder(
+export async function updateFolder(
   id: string,
   patch: { name?: string; parentId?: string | null },
-): Folder {
-  const folder = getFolder(id);
+): Promise<Folder> {
+  const folder = await getFolder(id);
   if (!folder) throw new AppError(404, "Folder not found");
 
   if (patch.parentId !== undefined) {
     if (patch.parentId === id) throw new AppError(400, "Folder cannot be its own parent");
-    if (patch.parentId && !getFolder(patch.parentId)) {
+    if (patch.parentId && !(await getFolder(patch.parentId))) {
       throw new AppError(404, "Parent folder not found");
     }
-    if (patch.parentId && isDescendant(patch.parentId, id)) {
+    if (patch.parentId && (await isDescendant(patch.parentId, id))) {
       throw new AppError(400, "Cannot move folder into its own descendant");
     }
   }
 
   const name = patch.name?.trim() ?? folder.name;
   const parentId = patch.parentId === undefined ? folder.parent_id : patch.parentId;
-  db.run("UPDATE folders SET name = ?, parent_id = ? WHERE id = ?", [name, parentId, id]);
-  const updated = must(getFolder(id), "Folder");
+  await db.updateTable("folders").set({ name, parent_id: parentId }).where("id", "=", id).execute();
+  const updated = must(await getFolder(id), "Folder");
   emit({ topic: topics.folder(id), kind: "updated", id, data: updated });
   emit({ topic: topics.folderTree(), kind: "updated", id });
   if (folder.parent_id && folder.parent_id !== parentId) {
@@ -67,36 +79,37 @@ export function updateFolder(
 }
 
 // Returns true if `candidateAncestorId` appears anywhere in the parent chain of `folderId`.
-function isDescendant(folderId: string, candidateAncestorId: string): boolean {
-  let current = getFolder(folderId);
+async function isDescendant(folderId: string, candidateAncestorId: string): Promise<boolean> {
+  let current = await getFolder(folderId);
   while (current?.parent_id) {
     if (current.parent_id === candidateAncestorId) return true;
-    current = getFolder(current.parent_id);
+    current = await getFolder(current.parent_id);
   }
   return false;
 }
 
-export function deleteFolder(id: string): void {
-  const folder = getFolder(id);
+export async function deleteFolder(id: string): Promise<void> {
+  const folder = await getFolder(id);
   if (!folder) throw new AppError(404, "Folder not found");
 
-  const albumCount = (
-    db.query("SELECT COUNT(*) AS n FROM albums WHERE folder_id = ?").get(id) as {
-      n: number;
-    }
-  ).n;
-  if (albumCount > 0) {
+  const albums = await db
+    .selectFrom("albums")
+    .select("id")
+    .where("folder_id", "=", id)
+    .executeTakeFirst();
+  if (albums) {
     throw new AppError(409, "Folder is not empty — move or delete albums first");
   }
-
-  const subfolders = (
-    db.query("SELECT COUNT(*) AS n FROM folders WHERE parent_id = ?").get(id) as { n: number }
-  ).n;
-  if (subfolders > 0) {
+  const subfolders = await db
+    .selectFrom("folders")
+    .select("id")
+    .where("parent_id", "=", id)
+    .executeTakeFirst();
+  if (subfolders) {
     throw new AppError(409, "Folder is not empty — move or delete sub-folders first");
   }
 
-  db.run("DELETE FROM folders WHERE id = ?", [id]);
+  await db.deleteFrom("folders").where("id", "=", id).execute();
   emit({ topic: topics.folder(id), kind: "deleted", id });
   emit({ topic: topics.folderTree(), kind: "deleted", id });
   if (folder.parent_id) {
@@ -105,18 +118,24 @@ export function deleteFolder(id: string): void {
 }
 
 /** Folder + direct sub-folders + albums inside it. */
-export function getFolderContents(id: string): {
+export async function getFolderContents(id: string): Promise<{
   folder: Folder;
   folders: Folder[];
   albums: Album[];
-} {
-  const folder = getFolder(id);
+}> {
+  const folder = await getFolder(id);
   if (!folder) throw new AppError(404, "Folder not found");
-  const folders = db
-    .query("SELECT * FROM folders WHERE parent_id = ? ORDER BY name")
-    .all(id) as Folder[];
-  const albums = db
-    .query("SELECT * FROM albums WHERE folder_id = ? ORDER BY created_at DESC")
-    .all(id) as Album[];
+  const folders = await db
+    .selectFrom("folders")
+    .selectAll()
+    .where("parent_id", "=", id)
+    .orderBy("name")
+    .execute();
+  const albums = await db
+    .selectFrom("albums")
+    .selectAll()
+    .where("folder_id", "=", id)
+    .orderBy("created_at", "desc")
+    .execute();
   return { folder, folders, albums };
 }

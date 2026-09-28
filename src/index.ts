@@ -7,7 +7,7 @@ import { HTTPException } from "hono/http-exception";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 import { auth } from "./auth";
 import { config } from "./config";
-import { initSchema } from "./db/client";
+import { migrate } from "./db/migrate";
 import { AppError } from "./lib/errors";
 import { authRateLimit } from "./middleware/rate-limit.middleware";
 import { adminStorageRoutes } from "./routes/admin/storage";
@@ -25,8 +25,8 @@ import { initOnboarding } from "./services/onboarding.service";
 mkdirSync(join(config.UPLOADS_PATH, "originals"), { recursive: true });
 mkdirSync(join(config.UPLOADS_PATH, "variants"), { recursive: true });
 
-initSchema();
-initOnboarding();
+await migrate();
+await initOnboarding();
 
 const allowedOrigins = [
   new URL(config.BASE_URL).origin,

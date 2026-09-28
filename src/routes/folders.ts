@@ -9,13 +9,13 @@ const nullableId = z.string().nullable().optional();
 
 export const folderRoutes = new Hono<AuthEnv>()
   .use("*", requireAuth)
-  .get("/", (c) => c.json(folderService.listFolders()))
+  .get("/", async (c) => c.json(await folderService.listFolders()))
   .post(
     "/",
     validate("json", z.object({ name: z.string().min(1).max(200), parentId: nullableId })),
-    (c) => {
+    async (c) => {
       const body = c.req.valid("json");
-      const folder = folderService.createFolder({
+      const folder = await folderService.createFolder({
         name: body.name,
         parentId: body.parentId ?? null,
         createdBy: c.get("user").id,
@@ -23,9 +23,9 @@ export const folderRoutes = new Hono<AuthEnv>()
       return c.json(folder, 201);
     },
   )
-  .get("/:id", (c) => {
-    const contents = folderService.getFolderContents(c.req.param("id"));
-    return c.json({ ...contents, albums: albumService.attachCovers(contents.albums) });
+  .get("/:id", async (c) => {
+    const contents = await folderService.getFolderContents(c.req.param("id"));
+    return c.json({ ...contents, albums: await albumService.attachCovers(contents.albums) });
   })
   .patch(
     "/:id",
@@ -33,9 +33,9 @@ export const folderRoutes = new Hono<AuthEnv>()
       "json",
       z.object({ name: z.string().min(1).max(200).optional(), parentId: nullableId }),
     ),
-    (c) => c.json(folderService.updateFolder(c.req.param("id"), c.req.valid("json"))),
+    async (c) => c.json(await folderService.updateFolder(c.req.param("id"), c.req.valid("json"))),
   )
-  .delete("/:id", (c) => {
-    folderService.deleteFolder(c.req.param("id"));
+  .delete("/:id", async (c) => {
+    await folderService.deleteFolder(c.req.param("id"));
     return c.json({ ok: true });
   });

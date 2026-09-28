@@ -4,5 +4,5 @@ import * as storageService from "../../services/storage.service";
 
 export const adminStorageRoutes = new Hono<AuthEnv>()
   .use("*", requireAdmin)
-  .get("/", (c) => c.json(storageService.getStorageStats()))
+  .get("/", async (c) => c.json(await storageService.getStorageStats()))
   .post("/clear-cache", (c) => c.json(storageService.clearVariantsCache()));

@@ -1,7 +1,8 @@
 import { mkdirSync, readdirSync, rmSync, statSync } from "node:fs";
 import { join } from "node:path";
+import { sql } from "kysely";
 import { config } from "../config";
-import { db } from "../db/client";
+import { db, dbType } from "../db/client";
 import { emit, topics } from "../lib/events";
 
 function dirStats(dir: string): { file_count: number; size_bytes: number } {
@@ -14,15 +15,21 @@ function dirStats(dir: string): { file_count: number; size_bytes: number } {
   }
 }
 
-export function getStorageStats() {
-  const dbStat = (() => {
-    try {
-      return { size_bytes: statSync(config.DATABASE_PATH).size };
-    } catch {
-      return { size_bytes: 0 };
-    }
-  })();
+async function databaseSize(): Promise<number> {
+  if (dbType === "postgres") {
+    const { rows } = await sql<{
+      size: number;
+    }>`SELECT pg_database_size(current_database()) AS size`.execute(db);
+    return Number(rows[0]?.size ?? 0);
+  }
+  try {
+    return statSync(config.DATABASE_PATH).size;
+  } catch {
+    return 0;
+  }
+}
 
+export async function getStorageStats() {
   const originalsDir = join(config.UPLOADS_PATH, "originals");
   const variantsDir = join(config.UPLOADS_PATH, "variants");
   const originals = dirStats(originalsDir);
@@ -31,9 +38,7 @@ export function getStorageStats() {
   // Orphans: rows in image_files whose `filename` is missing on disk, and
   // files on disk with no matching row. Either is a defensive red flag.
   const dbFiles = new Set(
-    (db.query("SELECT filename FROM image_files").all() as { filename: string }[]).map(
-      (r) => r.filename,
-    ),
+    (await db.selectFrom("image_files").select("filename").execute()).map((r) => r.filename),
   );
   const diskFiles = new Set(
     (() => {
@@ -51,7 +56,10 @@ export function getStorageStats() {
   for (const f of diskFiles) if (!dbFiles.has(f)) unknownOnDisk++;
 
   return {
-    db: { size_bytes: dbStat.size_bytes, path: config.DATABASE_PATH },
+    db: {
+      size_bytes: await databaseSize(),
+      path: dbType === "postgres" ? "PostgreSQL" : config.DATABASE_PATH,
+    },
     originals,
     variants,
     orphans: {

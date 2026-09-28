@@ -14,7 +14,7 @@ const order = z.object({
 export const blockRoutes = new Hono<AuthEnv>()
   .use("/:id/blocks/*", requireAuth)
   .use("/:id/blocks", requireAuth)
-  .get("/:id/blocks", (c) => c.json(blockService.listBlocks(c.req.param("id"))))
+  .get("/:id/blocks", async (c) => c.json(await blockService.listBlocks(c.req.param("id"))))
   .post(
     "/:id/blocks",
     validate(
@@ -26,9 +26,9 @@ export const blockRoutes = new Hono<AuthEnv>()
         afterId: z.string().optional(),
       }),
     ),
-    (c) => {
+    async (c) => {
       const body = c.req.valid("json");
-      const block = blockService.createBlock({
+      const block = await blockService.createBlock({
         albumId: c.req.param("id"),
         type: body.type,
         content: body.content ?? {},
@@ -38,8 +38,8 @@ export const blockRoutes = new Hono<AuthEnv>()
       return c.json(block, 201);
     },
   )
-  .post("/:id/blocks/reorder", validate("json", order), (c) => {
-    blockService.reorderBlocks(c.req.param("id"), c.req.valid("json").order);
+  .post("/:id/blocks/reorder", validate("json", order), async (c) => {
+    await blockService.reorderBlocks(c.req.param("id"), c.req.valid("json").order);
     return c.json({ ok: true });
   })
   .patch(
@@ -52,18 +52,18 @@ export const blockRoutes = new Hono<AuthEnv>()
         parentId: z.string().nullable().optional(),
       }),
     ),
-    (c) => {
-      ensureInAlbum(c.req.param("id"), c.req.param("blockId"));
-      return c.json(blockService.updateBlock(c.req.param("blockId"), c.req.valid("json")));
+    async (c) => {
+      await ensureInAlbum(c.req.param("id"), c.req.param("blockId"));
+      return c.json(await blockService.updateBlock(c.req.param("blockId"), c.req.valid("json")));
     },
   )
-  .delete("/:id/blocks/:blockId", (c) => {
-    ensureInAlbum(c.req.param("id"), c.req.param("blockId"));
-    blockService.deleteBlock(c.req.param("blockId"));
+  .delete("/:id/blocks/:blockId", async (c) => {
+    await ensureInAlbum(c.req.param("id"), c.req.param("blockId"));
+    await blockService.deleteBlock(c.req.param("blockId"));
     return c.json({ ok: true });
   });
 
-function ensureInAlbum(albumId: string, blockId: string): void {
-  const block = blockService.getBlock(blockId);
+async function ensureInAlbum(albumId: string, blockId: string): Promise<void> {
+  const block = await blockService.getBlock(blockId);
   if (!block || block.album_id !== albumId) throw new AppError(404, "Block not found");
 }

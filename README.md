@@ -9,7 +9,7 @@ additionally manage users. There are no public share links (yet).
 
 ## Stack
 
-- **Backend:** Bun, Hono, better-auth (email + password), SQLite via `bun:sqlite`
+- **Backend:** Bun, Hono, better-auth (email + password), Kysely on SQLite (`bun:sqlite`) or PostgreSQL
 - **Frontend:** SvelteKit (Svelte 5) as a static SPA, shadcn-svelte, Tailwind v4, PhotoSwipe
 - The backend serves the built SPA, so production is a single process and container.
 
@@ -31,6 +31,16 @@ Checks:
 bun run lint                   # Biome: format + lint, backend and frontend
 bun run typecheck              # backend types
 bun run --cwd frontend check   # svelte-check
+bun test                       # service tests, SQLite in memory
+```
+
+To run the tests against Postgres, point `DATABASE_URL` at a throwaway database
+(every table is emptied before each test):
+
+```sh
+docker run -d --rm --name sammelband-pg -e POSTGRES_PASSWORD=test \
+  -e POSTGRES_DB=sammelband_test -p 55432:5432 postgres:17-alpine
+bun run test:postgres          # uses TEST_DATABASE_URL or the container above
 ```
 
 ## Production
@@ -41,7 +51,7 @@ docker compose up -d --build
 docker compose logs app  # shows the setup link on first start
 ```
 
-Data lives in two volumes: the SQLite database (`/data`) and the photos
+Data lives in two volumes: the SQLite database (`/data`, unused with Postgres) and the photos
 (`/uploads`, originals plus a regenerable cache of resized versions).
 
 ## Configuration
@@ -51,14 +61,26 @@ Data lives in two volumes: the SQLite database (`/data`) and the photos
 | `PORT` | `3000` | HTTP port |
 | `BASE_URL` | `http://localhost:3000` | Public URL, used for the CSRF origin check |
 | `SECRET_KEY` | dev placeholder | Signs sessions. Required in production |
-| `DATABASE_PATH` | `./sammelband.db` | SQLite file |
+| `DATABASE_URL` | unset | `postgres://user:pass@host:5432/db` to use PostgreSQL instead of SQLite |
+| `DATABASE_PATH` | `./sammelband.db` | SQLite file (when `DATABASE_URL` is unset) |
 | `UPLOADS_PATH` | `./uploads` | Photo storage |
 | `FRONTEND_DIST` | `./dist/frontend` | Built SPA served by the backend |
 | `TRUSTED_ORIGINS` | `http://localhost:5173` in dev | Extra origins allowed to make requests |
 
 ## Database
 
-The schema lives in `db/schema.sql` and is applied on every start (all
-statements are `IF NOT EXISTS`). There are no migrations while the app is not in
-production use: change the schema file and delete the dev database. Once real
-data exists, migrations have to come back.
+SQLite is the default; set `DATABASE_URL` to use PostgreSQL. Queries go through
+[Kysely](https://kysely.dev), so the same code runs on both.
+
+Migrations run automatically on every start:
+
+1. better-auth's migrator creates or extends its own tables (`user`, `session`,
+   `account`, `verification`, plus tables of enabled plugins) from the auth config.
+2. Kysely's migrator applies the domain migrations in `src/db/migrations/`
+   and records them in `kysely_migration`.
+
+To change the schema, add a new file to `src/db/migrations/` and register it in
+`src/db/migrations/index.ts`. Never edit a migration that has been released.
+Use Kysely's schema builder and avoid dialect-specific SQL; if something can't
+be expressed portably, branch on the adapter as `0001_initial.ts` does for
+its trigger.

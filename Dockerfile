@@ -18,7 +18,6 @@ ENV FRONTEND_DIST=/app/dist/frontend
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=frontend /app/dist/frontend ./dist/frontend
 COPY src/ ./src/
-COPY db/schema.sql ./db/schema.sql
 COPY package.json tsconfig.json bunfig.toml ./
 
 RUN mkdir -p /data /uploads/originals /uploads/variants

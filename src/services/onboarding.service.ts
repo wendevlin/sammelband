@@ -18,13 +18,17 @@ import { AppError } from "../lib/errors";
 let bootstrapCode: string | null = null;
 let consumed = false;
 
-function adminExists(): boolean {
-  const row = db.query("SELECT 1 AS ok FROM user WHERE role = 'admin' LIMIT 1").get();
-  return row !== null;
+async function adminExists(): Promise<boolean> {
+  const row = await db
+    .selectFrom("user")
+    .select("id")
+    .where("role", "=", "admin")
+    .executeTakeFirst();
+  return row !== undefined;
 }
 
-export function initOnboarding(): void {
-  if (adminExists()) return;
+export async function initOnboarding(): Promise<void> {
+  if (await adminExists()) return;
   // 8 uppercase hex chars — easy to read off a terminal.
   bootstrapCode = randomBytes(4).toString("hex").toUpperCase();
   // In dev the Vite dev server hosts the UI at :5173 with proxies back to us;
@@ -65,7 +69,7 @@ export async function claim(input: {
     // Don't reveal whether code is wrong vs expired — just reject.
     throw new AppError(401, "Invalid code");
   }
-  if (adminExists()) {
+  if (await adminExists()) {
     // Race / double-claim guard.
     consumed = true;
     bootstrapCode = null;
@@ -78,9 +82,9 @@ export async function claim(input: {
   const res = await auth.api.signUpEmail({
     body: { email, password: input.password, name: input.name?.trim() || email },
   });
-  db.run("UPDATE user SET role = 'admin' WHERE id = ?", [res.user.id]);
+  await db.updateTable("user").set({ role: "admin" }).where("id", "=", res.user.id).execute();
   // The server-side sign-up opens a session nobody holds; the admin signs in next.
-  db.run("DELETE FROM session WHERE userId = ?", [res.user.id]);
+  await db.deleteFrom("session").where("userId", "=", res.user.id).execute();
 
   consumed = true;
   bootstrapCode = null;

@@ -8,7 +8,7 @@ const nullableString = z.string().nullable().optional();
 
 export const albumRoutes = new Hono<AuthEnv>()
   .use("*", requireAuth)
-  .get("/", (c) => c.json(albumService.attachCovers(albumService.listAlbums())))
+  .get("/", async (c) => c.json(await albumService.attachCovers(await albumService.listAlbums())))
   .post(
     "/",
     validate(
@@ -19,9 +19,9 @@ export const albumRoutes = new Hono<AuthEnv>()
         folderId: nullableString,
       }),
     ),
-    (c) => {
+    async (c) => {
       const body = c.req.valid("json");
-      const album = albumService.createAlbum({
+      const album = await albumService.createAlbum({
         title: body.title,
         description: body.description ?? null,
         folderId: body.folderId ?? null,
@@ -30,7 +30,8 @@ export const albumRoutes = new Hono<AuthEnv>()
       return c.json(album, 201);
     },
   )
-  .get("/:id", (c) => c.json(albumService.getAlbumDetail(c.req.param("id"))))
+  // Takes the URL ref ("<slug>-<shortId>"); every other album route takes the UUID.
+  .get("/:ref", async (c) => c.json(await albumService.getAlbumDetail(c.req.param("ref"))))
   .patch(
     "/:id",
     validate(
@@ -41,12 +42,12 @@ export const albumRoutes = new Hono<AuthEnv>()
         folderId: nullableString,
       }),
     ),
-    (c) => c.json(albumService.updateAlbum(c.req.param("id"), c.req.valid("json"))),
+    async (c) => c.json(await albumService.updateAlbum(c.req.param("id"), c.req.valid("json"))),
   )
-  .post("/:id/cover", validate("json", z.object({ photoId: z.string().nullable() })), (c) =>
-    c.json(albumService.setCover(c.req.param("id"), c.req.valid("json").photoId)),
+  .post("/:id/cover", validate("json", z.object({ photoId: z.string().nullable() })), async (c) =>
+    c.json(await albumService.setCover(c.req.param("id"), c.req.valid("json").photoId)),
   )
-  .delete("/:id", (c) => {
-    albumService.deleteAlbum(c.req.param("id"));
+  .delete("/:id", async (c) => {
+    await albumService.deleteAlbum(c.req.param("id"));
     return c.json({ ok: true });
   });

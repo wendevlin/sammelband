@@ -9,7 +9,7 @@ const password = z.string().min(8).max(128);
 
 export const adminUserRoutes = new Hono<AuthEnv>()
   .use("*", requireAdmin)
-  .get("/", (c) => c.json(userService.listUsers()))
+  .get("/", async (c) => c.json(await userService.listUsers()))
   .post(
     "/",
     validate(
@@ -33,13 +33,16 @@ export const adminUserRoutes = new Hono<AuthEnv>()
       "json",
       z.object({ name: z.string().min(1).max(200).optional(), role: role.optional() }),
     ),
-    (c) => c.json(userService.updateUser(c.get("user").id, c.req.param("id"), c.req.valid("json"))),
+    async (c) =>
+      c.json(
+        await userService.updateUser(c.get("user").id, c.req.param("id"), c.req.valid("json")),
+      ),
   )
   .post("/:id/password", validate("json", z.object({ password })), async (c) => {
     await userService.setPassword(c.req.param("id"), c.req.valid("json").password);
     return c.json({ ok: true });
   })
-  .delete("/:id", (c) => {
-    userService.deleteUser(c.get("user").id, c.req.param("id"));
+  .delete("/:id", async (c) => {
+    await userService.deleteUser(c.get("user").id, c.req.param("id"));
     return c.json({ ok: true });
   });

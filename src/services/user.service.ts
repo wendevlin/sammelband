@@ -10,24 +10,40 @@ export type PublicUser = {
   createdAt: string;
 };
 
-const COLUMNS = "id, email, name, role, createdAt";
+const COLUMNS = ["id", "email", "name", "role", "createdAt"] as const;
 
-export function listUsers(): PublicUser[] {
-  return db.query(`SELECT ${COLUMNS} FROM user ORDER BY createdAt DESC`).all() as PublicUser[];
+// SQLite stores better-auth dates as ISO strings, Postgres returns Date objects.
+function toPublic(u: Omit<PublicUser, "createdAt"> & { createdAt: string | Date }): PublicUser {
+  return { ...u, createdAt: new Date(u.createdAt).toISOString() };
 }
 
-export function getUser(id: string): PublicUser | null {
-  return db.query(`SELECT ${COLUMNS} FROM user WHERE id = ?`).get(id) as PublicUser | null;
+export async function listUsers(): Promise<PublicUser[]> {
+  const rows = await db.selectFrom("user").select(COLUMNS).orderBy("createdAt", "desc").execute();
+  return rows.map(toPublic);
 }
 
-function adminCount(): number {
-  return (db.query("SELECT COUNT(*) AS n FROM user WHERE role = 'admin'").get() as { n: number }).n;
+export async function getUser(id: string): Promise<PublicUser | null> {
+  const row = await db.selectFrom("user").select(COLUMNS).where("id", "=", id).executeTakeFirst();
+  return row ? toPublic(row) : null;
 }
 
-function requireUser(id: string): PublicUser {
-  const u = getUser(id);
+async function adminCount(): Promise<number> {
+  const { n } = await db
+    .selectFrom("user")
+    .select((eb) => eb.fn.countAll<number>().as("n"))
+    .where("role", "=", "admin")
+    .executeTakeFirstOrThrow();
+  return Number(n);
+}
+
+async function requireUser(id: string): Promise<PublicUser> {
+  const u = await getUser(id);
   if (!u) throw new AppError(404, "User not found");
   return u;
+}
+
+function signOutEverywhere(userId: string) {
+  return db.deleteFrom("session").where("userId", "=", userId).execute();
 }
 
 export async function createUser(input: {
@@ -37,7 +53,7 @@ export async function createUser(input: {
   role: "admin" | "user";
 }): Promise<PublicUser> {
   const email = input.email.trim().toLowerCase();
-  if (db.query("SELECT 1 FROM user WHERE email = ?").get(email)) {
+  if (await db.selectFrom("user").select("id").where("email", "=", email).executeTakeFirst()) {
     throw new AppError(409, "A user with that email already exists");
   }
   // Through better-auth so the password is hashed and account rows are created
@@ -46,47 +62,49 @@ export async function createUser(input: {
     body: { email, password: input.password, name: input.name.trim() },
   });
   // role is input:false on sign-up, so set it afterwards.
-  db.run("UPDATE user SET role = ? WHERE id = ?", [input.role, res.user.id]);
+  await db.updateTable("user").set({ role: input.role }).where("id", "=", res.user.id).execute();
   // signUpEmail opens a session for the new user; the admin doesn't need it.
-  db.run("DELETE FROM session WHERE userId = ?", [res.user.id]);
+  await signOutEverywhere(res.user.id);
   return requireUser(res.user.id);
 }
 
-export function updateUser(
+export async function updateUser(
   actorId: string,
   id: string,
   patch: { name?: string; role?: "admin" | "user" },
-): PublicUser {
-  const user = requireUser(id);
+): Promise<PublicUser> {
+  const user = await requireUser(id);
   if (patch.role && patch.role !== user.role && user.role === "admin") {
     if (id === actorId) throw new AppError(400, "You cannot remove your own admin role");
-    if (adminCount() <= 1) throw new AppError(400, "Cannot demote the last admin");
+    if ((await adminCount()) <= 1) throw new AppError(400, "Cannot demote the last admin");
   }
-  db.run("UPDATE user SET name = ?, role = ?, updatedAt = ? WHERE id = ?", [
-    patch.name?.trim() || user.name,
-    patch.role ?? user.role,
-    Date.now(),
-    id,
-  ]);
+  await db
+    .updateTable("user")
+    .set({
+      name: patch.name?.trim() || user.name,
+      role: patch.role ?? user.role,
+      updatedAt: new Date().toISOString(),
+    })
+    .where("id", "=", id)
+    .execute();
   return requireUser(id);
 }
 
 export async function setPassword(id: string, password: string): Promise<void> {
-  requireUser(id);
+  await requireUser(id);
   const ctx = await auth.$context;
   const hash = await ctx.password.hash(password);
   await ctx.internalAdapter.updatePassword(id, hash);
-  // Sign the user out everywhere.
-  db.run("DELETE FROM session WHERE userId = ?", [id]);
+  await signOutEverywhere(id);
 }
 
-export function deleteUser(actorId: string, id: string): void {
-  const user = requireUser(id);
+export async function deleteUser(actorId: string, id: string): Promise<void> {
+  const user = await requireUser(id);
   if (id === actorId) throw new AppError(400, "You cannot delete your own account");
-  if (user.role === "admin" && adminCount() <= 1) {
+  if (user.role === "admin" && (await adminCount()) <= 1) {
     throw new AppError(400, "Cannot delete the last admin");
   }
   // session/account cascade; folders/albums/photos keep their content with
   // created_by / uploaded_by set to NULL.
-  db.run("DELETE FROM user WHERE id = ?", [id]);
+  await db.deleteFrom("user").where("id", "=", id).execute();
 }

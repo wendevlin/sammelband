@@ -36,7 +36,9 @@ export const config = {
   BASE_URL: required("BASE_URL", isDev ? "http://localhost:3000" : undefined),
   TRUSTED_ORIGINS: trustedOrigins,
   SECRET_KEY: required("SECRET_KEY", isDev ? "dev-secret-not-for-production-change-me" : undefined),
-  DATABASE_PATH: required("DATABASE_PATH", isDev ? "./sammelband.db" : undefined),
+  // postgres://… selects PostgreSQL; otherwise SQLite at DATABASE_PATH.
+  DATABASE_URL: optional("DATABASE_URL"),
+  DATABASE_PATH: process.env.DATABASE_PATH ?? "./sammelband.db",
   UPLOADS_PATH: required("UPLOADS_PATH", isDev ? "./uploads" : undefined),
   FRONTEND_DIST: process.env.FRONTEND_DIST ?? "./dist/frontend",
 } as const;

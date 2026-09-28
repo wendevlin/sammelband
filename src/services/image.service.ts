@@ -2,9 +2,9 @@ import { existsSync, rmSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { config, isSrcsetWidth, SRCSET_WIDTHS, type SrcsetWidth } from "../config";
 import { db } from "../db/client";
-import type { ImageFile, Photo } from "../db/schema";
-import { AppError } from "../lib/errors";
-import { emit, topics } from "../lib/events";
+import type { Album, ImageFile, Photo } from "../db/schema";
+import { AppError, must } from "../lib/errors";
+import { emit, emitAlbumPatch, type PhotoWithImage, topics } from "../lib/events";
 
 const ORIGINALS_DIR = join(config.UPLOADS_PATH, "originals");
 const VARIANTS_DIR = join(config.UPLOADS_PATH, "variants");
@@ -15,6 +15,36 @@ export type UploadedPhoto = {
   deduplicated: boolean;
 };
 
+/** Photos joined with their image metadata, ordered by sort_order. */
+export function photosWithImage(filter: {
+  albumId?: string;
+  blockId?: string;
+  ids?: string[];
+}): Promise<PhotoWithImage[]> {
+  let q = db
+    .selectFrom("photos as p")
+    .innerJoin("image_files as i", "i.id", "p.image_file_id")
+    .selectAll("p")
+    .select(["i.filename", "i.width", "i.height", "i.placeholder"])
+    .orderBy("p.sort_order");
+  if (filter.albumId) q = q.where("p.album_id", "=", filter.albumId);
+  if (filter.blockId) q = q.where("p.block_id", "=", filter.blockId);
+  if (filter.ids) q = q.where("p.id", "in", filter.ids);
+  return q.execute();
+}
+
+const photoWithImage = (id: string) => photosWithImage({ ids: [id] });
+
+async function getPhoto(id: string): Promise<Photo | null> {
+  return (
+    (await db.selectFrom("photos").selectAll().where("id", "=", id).executeTakeFirst()) ?? null
+  );
+}
+
+async function getAlbumRow(id: string): Promise<Album> {
+  return db.selectFrom("albums").selectAll().where("id", "=", id).executeTakeFirstOrThrow();
+}
+
 export async function uploadPhoto(
   file: File,
   blockId: string,
@@ -24,10 +54,11 @@ export async function uploadPhoto(
     throw new AppError(400, "Only image uploads are allowed");
   }
   // Photos belong to a gallery block; the album is derived from it.
-  const block = db.query("SELECT album_id, type FROM album_blocks WHERE id = ?").get(blockId) as {
-    album_id: string;
-    type: string;
-  } | null;
+  const block = await db
+    .selectFrom("album_blocks")
+    .select(["album_id", "type"])
+    .where("id", "=", blockId)
+    .executeTakeFirst();
   if (!block) throw new AppError(404, "Gallery block not found");
   if (block.type !== "gallery") throw new AppError(400, "Block is not a gallery");
   const albumId = block.album_id;
@@ -38,9 +69,11 @@ export async function uploadPhoto(
   hasher.update(buf);
   const contentHash = hasher.digest("hex");
 
-  let imageFile = db
-    .query("SELECT * FROM image_files WHERE content_hash = ?")
-    .get(contentHash) as ImageFile | null;
+  let imageFile = await db
+    .selectFrom("image_files")
+    .selectAll()
+    .where("content_hash", "=", contentHash)
+    .executeTakeFirst();
 
   let deduplicated = false;
 
@@ -56,40 +89,41 @@ export async function uploadPhoto(
 
     const placeholder = await new Bun.Image(buf).placeholder();
 
-    const imageFileId = Bun.randomUUIDv7();
-    db.run(
-      `INSERT INTO image_files
-         (id, content_hash, filename, original_path, width, height, file_size, placeholder, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        imageFileId,
-        contentHash,
-        filename,
-        originalPath,
-        width,
-        height,
-        buf.byteLength,
-        placeholder,
-        Date.now(),
-      ],
-    );
-    imageFile = db.query("SELECT * FROM image_files WHERE id = ?").get(imageFileId) as ImageFile;
+    imageFile = {
+      id: Bun.randomUUIDv7(),
+      content_hash: contentHash,
+      filename,
+      original_path: originalPath,
+      width,
+      height,
+      file_size: buf.byteLength,
+      placeholder,
+      created_at: Date.now(),
+    };
+    await db.insertInto("image_files").values(imageFile).execute();
   } else {
     deduplicated = true;
   }
 
-  const { next } = db
-    .query("SELECT COALESCE(MAX(sort_order), 0) + 1 AS next FROM photos WHERE block_id = ?")
-    .get(blockId) as { next: number };
+  const { max } = await db
+    .selectFrom("photos")
+    .select((eb) => eb.fn.max("sort_order").as("max"))
+    .where("block_id", "=", blockId)
+    .executeTakeFirstOrThrow();
 
-  const photoId = Bun.randomUUIDv7();
-  db.run(
-    `INSERT INTO photos (id, album_id, block_id, sort_order, image_file_id, uploaded_by, uploaded_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
-    [photoId, albumId, blockId, next, imageFile.id, uploaderId, Date.now()],
-  );
-  const photo = db.query("SELECT * FROM photos WHERE id = ?").get(photoId) as Photo;
-  emit({ topic: topics.album(albumId), kind: "updated", id: albumId });
+  const photo: Photo = {
+    id: Bun.randomUUIDv7(),
+    album_id: albumId,
+    block_id: blockId,
+    sort_order: (max ?? 0) + 1,
+    image_file_id: imageFile.id,
+    caption: null,
+    uploaded_by: uploaderId,
+    uploaded_at: Date.now(),
+  };
+  await db.insertInto("photos").values(photo).execute();
+  // One small event per photo, so other viewers see a batch arrive one by one.
+  emitAlbumPatch(albumId, { photos: await photoWithImage(photo.id) });
   emit({
     topic: topics.photoPool(albumId),
     kind: "created",
@@ -100,12 +134,11 @@ export async function uploadPhoto(
   return { photo, imageFile, deduplicated };
 }
 
-export function updateCaption(photoId: string, caption: string | null): Photo {
-  const photo = db.query("SELECT * FROM photos WHERE id = ?").get(photoId) as Photo | null;
-  if (!photo) throw new AppError(404, "Photo not found");
-  db.run("UPDATE photos SET caption = ? WHERE id = ?", [caption, photoId]);
-  const updated = db.query("SELECT * FROM photos WHERE id = ?").get(photoId) as Photo;
-  emit({ topic: topics.album(updated.album_id), kind: "updated", id: updated.album_id });
+export async function updateCaption(photoId: string, caption: string | null): Promise<Photo> {
+  if (!(await getPhoto(photoId))) throw new AppError(404, "Photo not found");
+  await db.updateTable("photos").set({ caption }).where("id", "=", photoId).execute();
+  const updated = must(await getPhoto(photoId), "Photo");
+  emitAlbumPatch(updated.album_id, { photos: await photoWithImage(photoId) });
   emit({ topic: topics.photoPool(updated.album_id), kind: "updated", id: photoId });
   return updated;
 }
@@ -128,84 +161,104 @@ function removeImageFileFromDisk(file: ImageFile): void {
   }
 }
 
-// Drop the image_file (and its on-disk files) iff no photo references it anymore.
-// Must run inside a transaction after the owning photo row(s) are deleted.
-function dropImageFileIfUnused(imageFileId: string): void {
-  const { n } = db
-    .query("SELECT COUNT(*) AS n FROM photos WHERE image_file_id = ?")
-    .get(imageFileId) as { n: number };
-  if (n > 0) return;
-  const file = db
-    .query("SELECT * FROM image_files WHERE id = ?")
-    .get(imageFileId) as ImageFile | null;
-  db.run("DELETE FROM image_files WHERE id = ?", [imageFileId]);
-  if (file) removeImageFileFromDisk(file);
+/**
+ * Delete photo rows and every image_file (plus its files on disk) that no photo
+ * references anymore. Runs in one transaction; `trx` must be used for every
+ * query inside it (SQLite has a single connection).
+ */
+async function deletePhotoRows(photos: Photo[]): Promise<void> {
+  if (photos.length === 0) return;
+  const unused = await db.transaction().execute(async (trx) => {
+    await trx
+      .deleteFrom("photos")
+      .where(
+        "id",
+        "in",
+        photos.map((p) => p.id),
+      )
+      .execute();
+    const imageFileIds = [...new Set(photos.map((p) => p.image_file_id))];
+    const stillUsed = new Set(
+      (
+        await trx
+          .selectFrom("photos")
+          .select("image_file_id")
+          .where("image_file_id", "in", imageFileIds)
+          .execute()
+      ).map((r) => r.image_file_id),
+    );
+    const unusedIds = imageFileIds.filter((id) => !stillUsed.has(id));
+    if (unusedIds.length === 0) return [];
+    return trx.deleteFrom("image_files").where("id", "in", unusedIds).returningAll().execute();
+  });
+  // Only touch the disk once the rows are gone for good.
+  for (const file of unused) removeImageFileFromDisk(file);
 }
 
-export function deletePhoto(photoId: string): void {
-  const photo = db.query("SELECT * FROM photos WHERE id = ?").get(photoId) as Photo | null;
+export async function deletePhoto(photoId: string): Promise<void> {
+  const photo = await getPhoto(photoId);
   if (!photo) throw new AppError(404, "Photo not found");
 
-  db.transaction(() => {
-    db.run("DELETE FROM photos WHERE id = ?", [photoId]);
-    dropImageFileIfUnused(photo.image_file_id);
-  })();
-  emit({ topic: topics.album(photo.album_id), kind: "updated", id: photo.album_id });
+  await deletePhotoRows([photo]);
+  // A trigger clears the cover if this photo was it, so resend the album row.
+  const album = await getAlbumRow(photo.album_id);
+  emitAlbumPatch(photo.album_id, { album, removedPhotos: [photoId] });
   emit({ topic: topics.photoPool(photo.album_id), kind: "deleted", id: photoId });
   emit({ topic: topics.storageStats(), kind: "updated" });
 }
 
 // Delete every photo belonging to the given blocks, cleaning disk/cache (dedup-aware).
 // Used when a gallery block (or a group containing galleries) is deleted.
-export function deletePhotosByBlocks(blockIds: string[]): void {
-  if (blockIds.length === 0) return;
-  const placeholders = blockIds.map(() => "?").join(", ");
-  const photos = db
-    .query(`SELECT * FROM photos WHERE block_id IN (${placeholders})`)
-    .all(...blockIds) as Photo[];
+// Returns the deleted photo ids; the caller emits the album change.
+export async function deletePhotosByBlocks(blockIds: string[]): Promise<string[]> {
+  if (blockIds.length === 0) return [];
+  const photos = await db
+    .selectFrom("photos")
+    .selectAll()
+    .where("block_id", "in", blockIds)
+    .execute();
+  if (photos.length === 0) return [];
+  await deletePhotoRows(photos);
+  emit({ topic: topics.storageStats(), kind: "updated" });
+  return photos.map((p) => p.id);
+}
+
+// Delete every photo of an album, cleaning disk/cache (dedup-aware). Used when
+// an album is deleted.
+export async function deletePhotosByAlbum(albumId: string): Promise<void> {
+  const photos = await db
+    .selectFrom("photos")
+    .selectAll()
+    .where("album_id", "=", albumId)
+    .execute();
   if (photos.length === 0) return;
-
-  db.transaction(() => {
-    for (const p of photos) {
-      db.run("DELETE FROM photos WHERE id = ?", [p.id]);
-      dropImageFileIfUnused(p.image_file_id);
-    }
-  })();
-
-  for (const albumId of new Set(photos.map((p) => p.album_id))) {
-    emit({ topic: topics.album(albumId), kind: "updated", id: albumId });
-  }
+  await deletePhotoRows(photos);
   emit({ topic: topics.storageStats(), kind: "updated" });
 }
 
-// Delete every photo of an album, cleaning disk/cache (dedup-aware). Catches
-// orphans too (block_id NULL). Used when an album is deleted.
-export function deletePhotosByAlbum(albumId: string): void {
-  const photos = db.query("SELECT * FROM photos WHERE album_id = ?").all(albumId) as Photo[];
-  if (photos.length === 0) return;
-  db.transaction(() => {
-    for (const p of photos) {
-      db.run("DELETE FROM photos WHERE id = ?", [p.id]);
-      dropImageFileIfUnused(p.image_file_id);
-    }
-  })();
-  emit({ topic: topics.storageStats(), kind: "updated" });
-}
-
-export function reorderPhotos(blockId: string, order: { id: string; sortOrder: number }[]): void {
-  db.transaction(() => {
+export async function reorderPhotos(
+  blockId: string,
+  order: { id: string; sortOrder: number }[],
+): Promise<void> {
+  await db.transaction().execute(async (trx) => {
     for (const e of order) {
-      db.run("UPDATE photos SET sort_order = ? WHERE id = ? AND block_id = ?", [
-        e.sortOrder,
-        e.id,
-        blockId,
-      ]);
+      await trx
+        .updateTable("photos")
+        .set({ sort_order: e.sortOrder })
+        .where("id", "=", e.id)
+        .where("block_id", "=", blockId)
+        .execute();
     }
-  })();
-  const block = db.query("SELECT album_id FROM album_blocks WHERE id = ?").get(blockId) as {
-    album_id: string;
-  } | null;
-  if (block) emit({ topic: topics.album(block.album_id), kind: "updated", id: block.album_id });
+  });
+  const block = await db
+    .selectFrom("album_blocks")
+    .select("album_id")
+    .where("id", "=", blockId)
+    .executeTakeFirst();
+  const ids = order.map((e) => e.id);
+  if (block && ids.length > 0) {
+    emitAlbumPatch(block.album_id, { photos: await photosWithImage({ blockId, ids }) });
+  }
 }
 
 // Stored filenames are "<uuid>.bin". Anything else (e.g. "../") is rejected
@@ -261,7 +314,11 @@ export async function serveOriginal(filename: string): Promise<Response> {
   assertFilename(filename);
   const file = Bun.file(join(ORIGINALS_DIR, filename));
   if (!(await file.exists())) throw new AppError(404, "Image not found");
-  const row = db.query("SELECT 1 FROM image_files WHERE filename = ?").get(filename);
+  const row = await db
+    .selectFrom("image_files")
+    .select("id")
+    .where("filename", "=", filename)
+    .executeTakeFirst();
   if (!row) throw new AppError(404, "Image not found");
   return new Response(file, {
     headers: { "Cache-Control": "private, max-age=31536000, immutable" },

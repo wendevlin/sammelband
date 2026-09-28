@@ -11,6 +11,8 @@
     "build": "bun run build:frontend",
     "start": "bun run src/index.ts",
     "typecheck": "tsc --noEmit",
+    "test": "bun test",
+    "test:postgres": "DATABASE_URL=${TEST_DATABASE_URL:-postgres://postgres:test@localhost:55432/sammelband_test} bun test",
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
     "format": "biome format --write ."
@@ -19,11 +21,14 @@
     "@hono/zod-validator": "0.9.1",
     "better-auth": "^1.2.0",
     "hono": "4.13.9",
+    "kysely": "0.28.17",
+    "pg": "8.23.0",
     "zod": "4.6.5"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.16",
     "@types/bun": "latest",
+    "@types/pg": "8.23.1",
     "typescript": "^5.7.2"
   }
 }

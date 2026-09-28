@@ -1,7 +1,7 @@
 import { db } from "../db/client";
 import type { AlbumBlock } from "../db/schema";
 import { AppError, must } from "../lib/errors";
-import { emit, topics } from "../lib/events";
+import { emitAlbumPatch } from "../lib/events";
 import * as imageService from "./image.service";
 
 const ALLOWED_TYPES = new Set(["heading", "text", "gallery", "group"]);
@@ -11,88 +11,113 @@ const ALLOWED_TYPES = new Set(["heading", "text", "gallery", "group"]);
  * can't be nested; a nested block must point at an existing `group` in the same
  * album. Returns null for top-level blocks.
  */
-function resolveParent(
+async function resolveParent(
   albumId: string,
   type: string,
   parentId: string | null | undefined,
-): string | null {
+): Promise<string | null> {
   if (!parentId) return null;
   if (type === "group") throw new AppError(400, "A group cannot be nested in another group");
-  const parent = getBlock(parentId);
+  const parent = await getBlock(parentId);
   if (!parent || parent.album_id !== albumId) throw new AppError(404, "Parent group not found");
   if (parent.type !== "group") throw new AppError(400, "Parent block is not a group");
   return parentId;
 }
 
-export function listBlocks(albumId: string): AlbumBlock[] {
+export function listBlocks(albumId: string): Promise<AlbumBlock[]> {
   return db
-    .query("SELECT * FROM album_blocks WHERE album_id = ? ORDER BY sort_order ASC")
-    .all(albumId) as AlbumBlock[];
+    .selectFrom("album_blocks")
+    .selectAll()
+    .where("album_id", "=", albumId)
+    .orderBy("sort_order")
+    .execute();
 }
 
-export function createBlock(input: {
+export async function createBlock(input: {
   albumId: string;
   type: string;
   content: unknown;
   parentId?: string | null;
   position?: { afterId?: string };
-}): AlbumBlock {
+}): Promise<AlbumBlock> {
   if (!ALLOWED_TYPES.has(input.type)) {
     throw new AppError(400, "Invalid block type");
   }
-  if (!db.query("SELECT 1 FROM albums WHERE id = ?").get(input.albumId)) {
-    throw new AppError(404, "Album not found");
-  }
+  const album = await db
+    .selectFrom("albums")
+    .select("id")
+    .where("id", "=", input.albumId)
+    .executeTakeFirst();
+  if (!album) throw new AppError(404, "Album not found");
 
-  const parentId = resolveParent(input.albumId, input.type, input.parentId);
-  const sortOrder = nextSortOrder(input.albumId, parentId, input.position?.afterId);
+  const parentId = await resolveParent(input.albumId, input.type, input.parentId);
+  const sortOrder = await nextSortOrder(input.albumId, parentId, input.position?.afterId);
 
   const id = Bun.randomUUIDv7();
   const now = Date.now();
-  db.run(
-    `INSERT INTO album_blocks
-       (id, album_id, parent_id, sort_order, type, content, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-    [id, input.albumId, parentId, sortOrder, input.type, JSON.stringify(input.content), now, now],
-  );
-  const block = must(getBlock(id), "Block");
-  emit({ topic: topics.album(input.albumId), kind: "updated", id: input.albumId });
+  await db
+    .insertInto("album_blocks")
+    .values({
+      id,
+      album_id: input.albumId,
+      parent_id: parentId,
+      sort_order: sortOrder,
+      type: input.type as AlbumBlock["type"],
+      content: JSON.stringify(input.content),
+      created_at: now,
+      updated_at: now,
+    })
+    .execute();
+  const block = must(await getBlock(id), "Block");
+  emitAlbumPatch(input.albumId, { blocks: [block] });
   return block;
 }
 
-// Sibling order is scoped to (album_id, parent_id) so each group has its own
-// sequence. `parent_id IS ?` matches NULL when the bound value is null.
-function nextSortOrder(albumId: string, parentId: string | null, afterId?: string): number {
+/** Blocks sharing a parent (or all top-level blocks) of an album. */
+function siblings(albumId: string, parentId: string | null) {
+  return db
+    .selectFrom("album_blocks")
+    .select("sort_order")
+    .where("album_id", "=", albumId)
+    .where("parent_id", parentId === null ? "is" : "=", parentId);
+}
+
+// Sibling order is scoped to (album_id, parent_id) so each group has its own sequence.
+async function nextSortOrder(
+  albumId: string,
+  parentId: string | null,
+  afterId?: string,
+): Promise<number> {
   if (!afterId) {
-    const last = db
-      .query(
-        "SELECT sort_order FROM album_blocks WHERE album_id = ? AND parent_id IS ? ORDER BY sort_order DESC LIMIT 1",
-      )
-      .get(albumId, parentId) as { sort_order: number } | null;
+    const last = await siblings(albumId, parentId)
+      .orderBy("sort_order", "desc")
+      .limit(1)
+      .executeTakeFirst();
     return (last?.sort_order ?? 0) + 1;
   }
-  const after = db.query("SELECT sort_order FROM album_blocks WHERE id = ?").get(afterId) as {
-    sort_order: number;
-  } | null;
+  const after = await getBlock(afterId);
   if (!after) throw new AppError(404, "Anchor block not found");
-  const next = db
-    .query(
-      "SELECT sort_order FROM album_blocks WHERE album_id = ? AND parent_id IS ? AND sort_order > ? ORDER BY sort_order ASC LIMIT 1",
-    )
-    .get(albumId, parentId, after.sort_order) as { sort_order: number } | null;
+  const next = await siblings(albumId, parentId)
+    .where("sort_order", ">", after.sort_order)
+    .orderBy("sort_order")
+    .limit(1)
+    .executeTakeFirst();
   if (!next) return after.sort_order + 1;
   return (after.sort_order + next.sort_order) / 2;
 }
 
-export function getBlock(id: string): AlbumBlock | null {
-  return db.query("SELECT * FROM album_blocks WHERE id = ?").get(id) as AlbumBlock | null;
+export async function getBlock(id: string): Promise<AlbumBlock | null> {
+  return (
+    (await db.selectFrom("album_blocks").selectAll().where("id", "=", id).executeTakeFirst()) ??
+    null
+  );
 }
 
-export function updateBlock(
+export async function updateBlock(
   id: string,
   patch: { content?: unknown; type?: string; parentId?: string | null },
-): AlbumBlock {
-  const block = getBlock(id);
+): Promise<AlbumBlock> {
+  const block = await getBlock(id);
   if (!block) throw new AppError(404, "Block not found");
   const type = patch.type ?? block.type;
   if (patch.type && !ALLOWED_TYPES.has(patch.type)) {
@@ -104,47 +129,73 @@ export function updateBlock(
   let sortOrder = block.sort_order;
   if (patch.parentId !== undefined && patch.parentId !== block.parent_id) {
     if (patch.parentId === id) throw new AppError(400, "A block cannot be its own parent");
-    parentId = resolveParent(block.album_id, type, patch.parentId);
-    sortOrder = nextSortOrder(block.album_id, parentId);
+    parentId = await resolveParent(block.album_id, type, patch.parentId);
+    sortOrder = await nextSortOrder(block.album_id, parentId);
   }
 
-  db.run(
-    "UPDATE album_blocks SET type = ?, content = ?, parent_id = ?, sort_order = ?, updated_at = ? WHERE id = ?",
-    [
-      type,
-      patch.content !== undefined ? JSON.stringify(patch.content) : block.content,
-      parentId,
-      sortOrder,
-      Date.now(),
-      id,
-    ],
-  );
-  const updated = must(getBlock(id), "Block");
-  emit({ topic: topics.album(updated.album_id), kind: "updated", id: updated.album_id });
+  await db
+    .updateTable("album_blocks")
+    .set({
+      type: type as AlbumBlock["type"],
+      content: patch.content !== undefined ? JSON.stringify(patch.content) : block.content,
+      parent_id: parentId,
+      sort_order: sortOrder,
+      updated_at: Date.now(),
+    })
+    .where("id", "=", id)
+    .execute();
+  const updated = must(await getBlock(id), "Block");
+  emitAlbumPatch(updated.album_id, { blocks: [updated] });
   return updated;
 }
 
-export function deleteBlock(id: string): void {
-  const block = getBlock(id);
+export async function deleteBlock(id: string): Promise<void> {
+  const block = await getBlock(id);
   if (!block) throw new AppError(404, "Block not found");
   // A group also owns its children (parent_id has no DB-level cascade).
   const childIds = (
-    db.query("SELECT id FROM album_blocks WHERE parent_id = ?").all(id) as { id: string }[]
+    await db.selectFrom("album_blocks").select("id").where("parent_id", "=", id).execute()
   ).map((r) => r.id);
+  const blockIds = [id, ...childIds];
   // Galleries own their photos: remove those from disk + variant cache first.
-  imageService.deletePhotosByBlocks([id, ...childIds]);
-  db.run("DELETE FROM album_blocks WHERE id = ? OR parent_id = ?", [id, id]);
-  emit({ topic: topics.album(block.album_id), kind: "updated", id: block.album_id });
+  const removedPhotos = await imageService.deletePhotosByBlocks(blockIds);
+  await db.deleteFrom("album_blocks").where("id", "in", blockIds).execute();
+  emitAlbumPatch(block.album_id, {
+    removedBlocks: blockIds,
+    removedPhotos,
+    // The cover may have been one of the removed photos (cleared by a trigger).
+    ...(removedPhotos.length > 0 && {
+      album: await db
+        .selectFrom("albums")
+        .selectAll()
+        .where("id", "=", block.album_id)
+        .executeTakeFirstOrThrow(),
+    }),
+  });
 }
 
-export function reorderBlocks(albumId: string, order: { id: string; sortOrder: number }[]): void {
-  db.transaction(() => {
+export async function reorderBlocks(
+  albumId: string,
+  order: { id: string; sortOrder: number }[],
+): Promise<void> {
+  const now = Date.now();
+  await db.transaction().execute(async (trx) => {
     for (const entry of order) {
-      db.run(
-        "UPDATE album_blocks SET sort_order = ?, updated_at = ? WHERE id = ? AND album_id = ?",
-        [entry.sortOrder, Date.now(), entry.id, albumId],
-      );
+      await trx
+        .updateTable("album_blocks")
+        .set({ sort_order: entry.sortOrder, updated_at: now })
+        .where("id", "=", entry.id)
+        .where("album_id", "=", albumId)
+        .execute();
     }
-  })();
-  emit({ topic: topics.album(albumId), kind: "updated", id: albumId });
+  });
+  const ids = order.map((e) => e.id);
+  if (ids.length === 0) return;
+  const blocks = await db
+    .selectFrom("album_blocks")
+    .selectAll()
+    .where("album_id", "=", albumId)
+    .where("id", "in", ids)
+    .execute();
+  emitAlbumPatch(albumId, { blocks });
 }

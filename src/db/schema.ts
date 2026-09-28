@@ -1,3 +1,7 @@
+// Row types for the domain tables, plus the Kysely `Database` interface. The
+// tables themselves are created by src/db/migrations (domain) and better-auth's
+// migrator (user, session, account, verification).
+
 export type Folder = {
   id: string;
   name: string;
@@ -10,6 +14,7 @@ export type Album = {
   id: string;
   title: string;
   slug: string;
+  short_id: string;
   description: string | null;
   folder_id: string | null;
   cover_photo_id: string | null;
@@ -50,4 +55,29 @@ export type Photo = {
   caption: string | null;
   uploaded_by: string | null;
   uploaded_at: number;
+};
+
+/** The columns of better-auth's tables that app code touches directly. */
+type UserTable = {
+  id: string;
+  email: string;
+  name: string;
+  role: "admin" | "user";
+  createdAt: string | Date;
+  updatedAt: string | Date;
+};
+
+type SessionTable = {
+  id: string;
+  userId: string;
+};
+
+export type Database = {
+  user: UserTable;
+  session: SessionTable;
+  folders: Folder;
+  albums: Album;
+  album_blocks: AlbumBlock;
+  image_files: ImageFile;
+  photos: Photo;
 };

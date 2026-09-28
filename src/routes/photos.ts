@@ -30,15 +30,18 @@ export const photoRoutes = new Hono<AuthEnv>()
       "json",
       z.object({ order: z.array(z.object({ id: z.string(), sortOrder: z.number() })) }),
     ),
-    (c) => {
-      imageService.reorderPhotos(c.req.param("blockId"), c.req.valid("json").order);
+    async (c) => {
+      await imageService.reorderPhotos(c.req.param("blockId"), c.req.valid("json").order);
       return c.json({ ok: true });
     },
   )
-  .patch("/photos/:photoId", validate("json", z.object({ caption: z.string().nullable() })), (c) =>
-    c.json(imageService.updateCaption(c.req.param("photoId"), c.req.valid("json").caption)),
+  .patch(
+    "/photos/:photoId",
+    validate("json", z.object({ caption: z.string().nullable() })),
+    async (c) =>
+      c.json(await imageService.updateCaption(c.req.param("photoId"), c.req.valid("json").caption)),
   )
-  .delete("/photos/:photoId", (c) => {
-    imageService.deletePhoto(c.req.param("photoId"));
+  .delete("/photos/:photoId", async (c) => {
+    await imageService.deletePhoto(c.req.param("photoId"));
     return c.json({ ok: true });
   });

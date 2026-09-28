@@ -1,9 +1,10 @@
 import { betterAuth } from "better-auth";
 import { config } from "./config";
-import { db } from "./db/client";
+import { db, dbType } from "./db/client";
 
 export const auth = betterAuth({
-  database: db,
+  // Shares the app's Kysely instance (and so its connection/pool).
+  database: { db, type: dbType },
   baseURL: config.BASE_URL,
   secret: config.SECRET_KEY,
   trustedOrigins: config.TRUSTED_ORIGINS,
