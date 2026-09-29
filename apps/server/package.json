@@ -13,7 +13,7 @@
     "@sammelband/shared": "workspace:*",
     "better-auth": "1.6.33",
     "hono": "4.13.9",
-    "kysely": "0.28.17",
+    "kysely": "0.29.6",
     "pg": "8.23.0",
     "zod": "4.6.5"
   },
