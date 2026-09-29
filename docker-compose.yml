@@ -1,7 +1,7 @@
 services:
   app:
-    image: sammelband:latest
-    build: .
+    # latest = the newest stable release; also `beta`, `nightly` or a version.
+    image: ghcr.io/wendevlin/sammelband:${SAMMELBAND_TAG:-latest}
     restart: unless-stopped
     ports:
       # Host port; the app inside the container always listens on 3000.
