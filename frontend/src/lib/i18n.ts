@@ -15,6 +15,16 @@ export const LOCALE_NAMES: Record<Locale, string> = { en: "English", de: "Deutsc
 
 type Message = (params?: Record<string, unknown>) => string;
 
+// The `error_*` messages, looked up by code at runtime. Only these are imported
+// here: indexing `m` by a computed key would keep every message in the shared
+// chunk, where the bundler otherwise splits them per page.
+const errorMessages: Record<string, Message> = Object.assign(
+  {},
+  ...Object.values(
+    import.meta.glob<Record<string, Message>>("./paraglide/messages/error_*.js", { eager: true }),
+  ),
+);
+
 /**
  * A user-facing text for an error. Backend and better-auth errors carry a
  * code: `error_<code>` from the messages when it exists (with the error's
@@ -23,7 +33,7 @@ type Message = (params?: Record<string, unknown>) => string;
 export function errorText(e: unknown): string {
   if (e instanceof ApiError) {
     const key = e.code ? `error_${e.code.toLowerCase()}` : null;
-    const message = key ? (m as unknown as Record<string, Message | undefined>)[key] : undefined;
+    const message = key ? errorMessages[key] : undefined;
     if (message) return message(e.params ?? {});
     return e.message;
   }
