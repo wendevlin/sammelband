@@ -1,7 +1,8 @@
 # Sammelband
 
-Self-hosted photo book app. See README.md for setup. Open work is in ROADMAP.md, a local
-file that's gitignored (it may be missing); finished work is in the git history.
+Self-hosted photo book app. See README.md for setup. Open work is in `.claude/roadmap.md`,
+local only (`.claude/` is gitignored, the file may be missing); finished work is in the git
+history.
 
 ## Layout
 
@@ -34,7 +35,7 @@ where `.env`, the dev SQLite file, `uploads/` and `dist/` live.
 ## Conventions
 
 - Language: everything in the repo is English (code, comments, UI strings, commit
-  messages, docs and ROADMAP.md), even when the conversation is in German.
+  messages, docs and the roadmap), even when the conversation is in German.
 - Tenants ("Sammelband" in the UI, `tenant` in code): every content row has a
   `tenant_id`. The guards in `middleware/auth.middleware.ts` run each request inside
   the user's tenant (`lib/tenant-context.ts`). Content services query through `tdb()`,
