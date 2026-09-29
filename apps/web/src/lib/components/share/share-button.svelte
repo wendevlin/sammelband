@@ -8,11 +8,23 @@ import { cn } from "$lib/utils";
 import ShareDialog from "./share-dialog.svelte";
 import { shareStatus } from "./share-status";
 
-/** "Share" button with a dot for existing links (green: active, amber: all expired). */
-let { target, name }: { target: { albumId: string } | { folderId: string }; name: string } =
-  $props();
+/**
+ * "Share" button with a dot for existing links (green: active, amber: all
+ * expired). `open` also opens the dialog from elsewhere, e.g. a mobile menu
+ * while `class` hides the button there.
+ */
+let {
+  target,
+  name,
+  open = $bindable(false),
+  class: className,
+}: {
+  target: { albumId: string } | { folderId: string };
+  name: string;
+  open?: boolean;
+  class?: string;
+} = $props();
 
-let open = $state(false);
 let links = $state<ShareLinkInfo[]>([]);
 const query = $derived(
   "albumId" in target ? `albumId=${target.albumId}` : `folderId=${target.folderId}`,
@@ -31,6 +43,7 @@ $effect(() => {
 
 <Button
   variant="outline"
+  class={className}
   onclick={() => (open = true)}
   aria-label={status === 'active'
     ? m.share_aria_active()

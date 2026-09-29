@@ -1,6 +1,5 @@
 <script lang="ts">
 import BookPlus from "@lucide/svelte/icons/book-plus";
-import EllipsisVertical from "@lucide/svelte/icons/ellipsis-vertical";
 import HardDrive from "@lucide/svelte/icons/hard-drive";
 import Link from "@lucide/svelte/icons/link";
 import Pause from "@lucide/svelte/icons/pause";
@@ -11,6 +10,9 @@ import type { CreatedInvite, TenantOverview } from "@sammelband/shared";
 import { invalidate } from "$app/navigation";
 import { del, patch, post } from "$lib/api";
 import { attempt } from "$lib/attempt";
+import ActionMenu from "$lib/components/app/action-menu.svelte";
+import ExpandableCard from "$lib/components/app/expandable-card.svelte";
+import type { RowAction } from "$lib/components/app/row-actions";
 import ConfirmDialog from "$lib/components/dialogs/confirm-dialog.svelte";
 import InviteLinkDialog from "$lib/components/dialogs/invite-link-dialog.svelte";
 import PromptDialog from "$lib/components/dialogs/prompt-dialog.svelte";
@@ -18,7 +20,6 @@ import { Badge } from "$lib/components/ui/badge";
 import { Button } from "$lib/components/ui/button";
 import * as Card from "$lib/components/ui/card";
 import * as Dialog from "$lib/components/ui/dialog";
-import * as DropdownMenu from "$lib/components/ui/dropdown-menu";
 import { Input } from "$lib/components/ui/input";
 import { Label } from "$lib/components/ui/label";
 import { Switch } from "$lib/components/ui/switch";
@@ -27,6 +28,7 @@ import { formatDate } from "$lib/i18n";
 import { formatBytes } from "$lib/images";
 import { m } from "$lib/paraglide/messages.js";
 import { browserTimeZone } from "$lib/timezone";
+import { cn } from "$lib/utils";
 
 let { data } = $props();
 
@@ -154,6 +156,23 @@ async function remove(e: SubmitEvent) {
   await refresh();
 }
 
+function actionsFor(t: TenantOverview): RowAction[] {
+  const actions: RowAction[] = [
+    { label: m.common_rename(), icon: Pencil, run: () => open(t, "rename") },
+    { label: m.instance_storage_limit(), icon: HardDrive, run: () => open(t, "quota") },
+  ];
+  // Your own Sammelband can't be suspended or deleted and has its admin already.
+  if (t.own) return actions;
+  return [
+    ...actions,
+    { label: m.instance_new_invite(), icon: Link, run: () => renewInvite(t) },
+    t.suspended_at
+      ? { label: m.instance_resume(), icon: Play, run: () => setSuspended(t, false), group: true }
+      : { label: m.instance_suspend(), icon: Pause, run: () => open(t, "suspend"), group: true },
+    { label: m.common_delete(), icon: Trash, run: () => open(t, "delete"), destructive: true },
+  ];
+}
+
 function open(t: TenantOverview, what: "rename" | "quota" | "suspend" | "delete") {
   target = t;
   if (what === "rename") renameOpen = true;
@@ -223,95 +242,87 @@ function open(t: TenantOverview, what: "rename" | "quota" | "suspend" | "delete"
   </Card.Content>
 </Card.Root>
 
-<Table.Root>
-  <Table.Header>
-    <Table.Row>
-      <Table.Head>{m.common_name()}</Table.Head>
-      <Table.Head class="text-right">{m.admin_tab_users()}</Table.Head>
-      <Table.Head class="text-right">{m.library_albums()}</Table.Head>
-      <Table.Head>{m.admin_tab_storage()}</Table.Head>
-      <Table.Head>{m.common_created()}</Table.Head>
-      <Table.Head class="w-10"></Table.Head>
-    </Table.Row>
-  </Table.Header>
-  <Table.Body>
-    {#each tenants as t (t.id)}
-      <Table.Row class={t.suspended_at ? 'opacity-60' : ''}>
-        <Table.Cell class="font-medium">
-          {t.name}
-          {#if t.own}
-            <Badge variant="secondary" class="ml-2">{m.instance_yours()}</Badge>
-          {/if}
-          {#if t.suspended_at}
-            <Badge variant="destructive" class="ml-2">{m.instance_suspended()}</Badge>
-          {/if}
-          {#if t.two_factor_required}
-            <Badge variant="outline" class="ml-2">{m.users_two_factor_badge()}</Badge>
-          {/if}
-          {#if t.user_count === 0}
-            <Badge variant="outline" class="ml-2">
-              {t.invite_pending ? m.instance_invite_pending() : m.instance_no_users()}
-            </Badge>
-          {/if}
-        </Table.Cell>
-        <Table.Cell class="text-right tabular-nums">{t.user_count}</Table.Cell>
-        <Table.Cell class="text-right tabular-nums">{t.album_count}</Table.Cell>
-        <Table.Cell class="tabular-nums">
-          {formatBytes(t.storage_used_bytes)}
-          <span class="text-muted-foreground">
-            / {t.quota_bytes === null ? m.instance_no_limit() : formatBytes(t.quota_bytes)}
-          </span>
-        </Table.Cell>
-        <Table.Cell class="text-muted-foreground">
-          {formatDate(t.created_at)}
-        </Table.Cell>
-        <Table.Cell>
-          <DropdownMenu.Root>
-            <DropdownMenu.Trigger>
-              {#snippet child({ props })}
-                <Button {...props} variant="ghost" size="icon-sm" aria-label={m.instance_actions()}>
-                  <EllipsisVertical />
-                </Button>
-              {/snippet}
-            </DropdownMenu.Trigger>
-            <DropdownMenu.Content align="end">
-              <DropdownMenu.Item onclick={() => open(t, 'rename')}
-                ><Pencil />
-                {m.common_rename()}</DropdownMenu.Item
-              >
-              <DropdownMenu.Item onclick={() => open(t, 'quota')}>
-                <HardDrive />
-                {m.instance_storage_limit()}
-              </DropdownMenu.Item>
-              {#if !t.own}
-                <DropdownMenu.Item onclick={() => renewInvite(t)}>
-                  <Link />
-                  {m.instance_new_invite()}
-                </DropdownMenu.Item>
-                <DropdownMenu.Separator />
-                {#if t.suspended_at}
-                  <DropdownMenu.Item onclick={() => setSuspended(t, false)}>
-                    <Play />
-                    {m.instance_resume()}
-                  </DropdownMenu.Item>
-                {:else}
-                  <DropdownMenu.Item onclick={() => open(t, 'suspend')}>
-                    <Pause />
-                    {m.instance_suspend()}
-                  </DropdownMenu.Item>
-                {/if}
-                <DropdownMenu.Item variant="destructive" onclick={() => open(t, 'delete')}>
-                  <Trash />
-                  {m.common_delete()}
-                </DropdownMenu.Item>
-              {/if}
-            </DropdownMenu.Content>
-          </DropdownMenu.Root>
-        </Table.Cell>
+{#snippet badges(t: TenantOverview)}
+  {#if t.own}
+    <Badge variant="secondary">{m.instance_yours()}</Badge>
+  {/if}
+  {#if t.suspended_at}
+    <Badge variant="destructive">{m.instance_suspended()}</Badge>
+  {/if}
+  {#if t.two_factor_required}
+    <Badge variant="outline">{m.users_two_factor_badge()}</Badge>
+  {/if}
+  {#if t.user_count === 0}
+    <Badge variant="outline">
+      {t.invite_pending ? m.instance_invite_pending() : m.instance_no_users()}
+    </Badge>
+  {/if}
+{/snippet}
+
+{#snippet storage(t: TenantOverview)}
+  <span class="tabular-nums">
+    {formatBytes(t.storage_used_bytes)}
+    <span class="text-muted-foreground">
+      / {t.quota_bytes === null ? m.instance_no_limit() : formatBytes(t.quota_bytes)}
+    </span>
+  </span>
+{/snippet}
+
+<!-- Phones: one expandable card per Sammelband instead of the table. -->
+<div class="grid gap-2 sm:hidden">
+  {#each tenants as t (t.id)}
+    <ExpandableCard actions={actionsFor(t)}>
+      {#snippet summary()}
+        <p class={cn('font-medium', t.suspended_at && 'opacity-60')}>{t.name}</p>
+        <div class="mt-1 flex flex-wrap gap-1">{@render badges(t)}</div>
+      {/snippet}
+      <dl class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2">
+        <dt class="text-muted-foreground">{m.admin_tab_users()}</dt>
+        <dd class="tabular-nums">{t.user_count}</dd>
+        <dt class="text-muted-foreground">{m.library_albums()}</dt>
+        <dd class="tabular-nums">{t.album_count}</dd>
+        <dt class="text-muted-foreground">{m.admin_tab_storage()}</dt>
+        <dd>{@render storage(t)}</dd>
+        <dt class="text-muted-foreground">{m.common_created()}</dt>
+        <dd>{formatDate(t.created_at)}</dd>
+      </dl>
+    </ExpandableCard>
+  {/each}
+</div>
+
+<div class="hidden sm:block">
+  <Table.Root>
+    <Table.Header>
+      <Table.Row>
+        <Table.Head>{m.common_name()}</Table.Head>
+        <Table.Head class="text-right">{m.admin_tab_users()}</Table.Head>
+        <Table.Head class="text-right">{m.library_albums()}</Table.Head>
+        <Table.Head>{m.admin_tab_storage()}</Table.Head>
+        <Table.Head>{m.common_created()}</Table.Head>
+        <Table.Head class="w-10"></Table.Head>
       </Table.Row>
-    {/each}
-  </Table.Body>
-</Table.Root>
+    </Table.Header>
+    <Table.Body>
+      {#each tenants as t (t.id)}
+        <Table.Row class={t.suspended_at ? 'opacity-60' : ''}>
+          <Table.Cell class="font-medium">
+            {t.name}
+            <span class="ml-2 inline-flex gap-2 align-middle">{@render badges(t)}</span>
+          </Table.Cell>
+          <Table.Cell class="text-right tabular-nums">{t.user_count}</Table.Cell>
+          <Table.Cell class="text-right tabular-nums">{t.album_count}</Table.Cell>
+          <Table.Cell>{@render storage(t)}</Table.Cell>
+          <Table.Cell class="text-muted-foreground">
+            {formatDate(t.created_at)}
+          </Table.Cell>
+          <Table.Cell>
+            <ActionMenu actions={actionsFor(t)} label={m.instance_actions()} />
+          </Table.Cell>
+        </Table.Row>
+      {/each}
+    </Table.Body>
+  </Table.Root>
+</div>
 
 <Dialog.Root bind:open={createOpen}>
   <Dialog.Content class="sm:max-w-md">

@@ -1,5 +1,4 @@
 <script lang="ts">
-import EllipsisVertical from "@lucide/svelte/icons/ellipsis-vertical";
 import KeyRound from "@lucide/svelte/icons/key-round";
 import Link from "@lucide/svelte/icons/link";
 import Pencil from "@lucide/svelte/icons/pencil";
@@ -10,6 +9,9 @@ import type { CreatedInvite, Role, User } from "@sammelband/shared";
 import { invalidate } from "$app/navigation";
 import { del, patch, post } from "$lib/api";
 import { attempt } from "$lib/attempt";
+import ActionMenu from "$lib/components/app/action-menu.svelte";
+import ExpandableCard from "$lib/components/app/expandable-card.svelte";
+import type { RowAction } from "$lib/components/app/row-actions";
 import SimpleSelect from "$lib/components/app/simple-select.svelte";
 import UserAvatar from "$lib/components/app/user-avatar.svelte";
 import ConfirmDialog from "$lib/components/dialogs/confirm-dialog.svelte";
@@ -18,7 +20,6 @@ import PromptDialog from "$lib/components/dialogs/prompt-dialog.svelte";
 import { Badge } from "$lib/components/ui/badge";
 import { Button } from "$lib/components/ui/button";
 import * as Dialog from "$lib/components/ui/dialog";
-import * as DropdownMenu from "$lib/components/ui/dropdown-menu";
 import { Input } from "$lib/components/ui/input";
 import { Label } from "$lib/components/ui/label";
 import * as Table from "$lib/components/ui/table";
@@ -130,6 +131,37 @@ const isSelf = (u: User) => u.id === auth.user?.id;
 const lastAdmin = (u: User) => u.role === "admin" && adminCount <= 1;
 /** Role and deletion are locked for yourself, the last admin and the instance owner. */
 const locked = (u: User) => isSelf(u) || lastAdmin(u) || u.superadmin;
+
+function actionsFor(u: User): RowAction[] {
+  const open = (dialog: () => void) => () => {
+    target = u;
+    dialog();
+  };
+  return [
+    { label: m.common_rename(), icon: Pencil, run: open(() => (renameOpen = true)) },
+    { label: m.users_set_password(), icon: KeyRound, run: open(() => (passwordOpen = true)) },
+    ...(u.twoFactorEnabled && !isSelf(u)
+      ? [
+          {
+            label: m.users_two_factor_reset(),
+            icon: ShieldOff,
+            run: open(() => (resetTwoFactorOpen = true)),
+          },
+        ]
+      : []),
+    ...(locked(u)
+      ? []
+      : [
+          {
+            label: m.common_delete(),
+            icon: Trash,
+            run: open(() => (deleteOpen = true)),
+            destructive: true,
+            group: true,
+          },
+        ]),
+  ];
+}
 </script>
 
 <svelte:head><title>{m.admin_tab_users()} · Sammelband</title></svelte:head>
@@ -150,116 +182,95 @@ const locked = (u: User) => isSelf(u) || lastAdmin(u) || u.superadmin;
   </div>
 </div>
 
-<Table.Root>
-  <Table.Header>
-    <Table.Row>
-      <Table.Head>{m.common_name()}</Table.Head>
-      <Table.Head>{m.common_email()}</Table.Head>
-      <Table.Head>{m.users_role()}</Table.Head>
-      <Table.Head>{m.common_created()}</Table.Head>
-      <Table.Head class="w-10"></Table.Head>
-    </Table.Row>
-  </Table.Header>
-  <Table.Body>
-    {#each data.users as u (u.id)}
+{#snippet badges(u: User)}
+  {#if isSelf(u)}
+    <Badge variant="secondary">{m.users_you()}</Badge>
+  {/if}
+  {#if u.superadmin}
+    <Badge variant="outline">{m.users_owner()}</Badge>
+  {/if}
+  {#if u.twoFactorEnabled}
+    <Badge variant="secondary">{m.users_two_factor_badge()}</Badge>
+  {:else if twoFactorRequired}
+    <Badge variant="outline" class="text-muted-foreground">{m.users_two_factor_pending()}</Badge>
+  {/if}
+{/snippet}
+
+{#snippet role(u: User)}
+  {#if locked(u)}
+    <span class="text-sm">{u.role === 'admin' ? m.role_admin() : m.role_user()}</span>
+  {:else}
+    <SimpleSelect
+      label={m.users_role()}
+      value={u.role}
+      options={ROLES}
+      onchange={(v) => setRole(u, v)}
+      class="w-28"
+    />
+  {/if}
+{/snippet}
+
+<!-- Phones: one expandable card per user instead of the table. -->
+<div class="grid gap-2 sm:hidden">
+  {#each data.users as u (u.id)}
+    <ExpandableCard actions={actionsFor(u)}>
+      {#snippet summary()}
+        <div class="flex items-center gap-3">
+          <UserAvatar name={u.name} image={u.image} class="size-8 shrink-0 text-[11px]" />
+          <div class="min-w-0">
+            <p class="truncate font-medium">{u.name}</p>
+            <div class="mt-0.5 flex flex-wrap gap-1">{@render badges(u)}</div>
+          </div>
+        </div>
+      {/snippet}
+      <dl class="grid grid-cols-[auto_1fr] items-center gap-x-4 gap-y-2">
+        <dt class="text-muted-foreground">{m.common_email()}</dt>
+        <dd class="min-w-0 break-all">{u.email}</dd>
+        <dt class="text-muted-foreground">{m.users_role()}</dt>
+        <dd>{@render role(u)}</dd>
+        <dt class="text-muted-foreground">{m.common_created()}</dt>
+        <dd>{formatDate(u.createdAt)}</dd>
+      </dl>
+    </ExpandableCard>
+  {/each}
+</div>
+
+<div class="hidden sm:block">
+  <Table.Root>
+    <Table.Header>
       <Table.Row>
-        <Table.Cell class="font-medium">
-          <UserAvatar
-            name={u.name}
-            image={u.image}
-            class="mr-2 inline-flex size-7 align-middle text-[10px]"
-          />
-          {u.name}
-          {#if isSelf(u)}
-            <Badge variant="secondary" class="ml-2">{m.users_you()}</Badge>
-          {/if}
-          {#if u.superadmin}
-            <Badge variant="outline" class="ml-2">{m.users_owner()}</Badge>
-          {/if}
-          {#if u.twoFactorEnabled}
-            <Badge variant="secondary" class="ml-2">{m.users_two_factor_badge()}</Badge>
-          {:else if twoFactorRequired}
-            <Badge variant="outline" class="ml-2 text-muted-foreground"
-              >{m.users_two_factor_pending()}</Badge
-            >
-          {/if}
-        </Table.Cell>
-        <Table.Cell>{u.email}</Table.Cell>
-        <Table.Cell>
-          {#if locked(u)}
-            <span class="text-sm">{u.role === 'admin' ? m.role_admin() : m.role_user()}</span>
-          {:else}
-            <SimpleSelect
-              label={m.users_role()}
-              value={u.role}
-              options={ROLES}
-              onchange={(v) => setRole(u, v)}
-              class="w-28"
-            />
-          {/if}
-        </Table.Cell>
-        <Table.Cell class="text-muted-foreground">
-          {formatDate(u.createdAt)}
-        </Table.Cell>
-        <Table.Cell>
-          <DropdownMenu.Root>
-            <DropdownMenu.Trigger>
-              {#snippet child({ props })}
-                <Button {...props} variant="ghost" size="icon-sm" aria-label={m.users_actions()}>
-                  <EllipsisVertical />
-                </Button>
-              {/snippet}
-            </DropdownMenu.Trigger>
-            <DropdownMenu.Content align="end">
-              <DropdownMenu.Item
-                onclick={() => {
-									target = u;
-									renameOpen = true;
-								}}
-              >
-                <Pencil />
-                {m.common_rename()}
-              </DropdownMenu.Item>
-              <DropdownMenu.Item
-                onclick={() => {
-									target = u;
-									passwordOpen = true;
-								}}
-              >
-                <KeyRound />
-                {m.users_set_password()}
-              </DropdownMenu.Item>
-              {#if u.twoFactorEnabled && !isSelf(u)}
-                <DropdownMenu.Item
-                  onclick={() => {
-										target = u;
-										resetTwoFactorOpen = true;
-									}}
-                >
-                  <ShieldOff />
-                  {m.users_two_factor_reset()}
-                </DropdownMenu.Item>
-              {/if}
-              {#if !locked(u)}
-                <DropdownMenu.Separator />
-                <DropdownMenu.Item
-                  variant="destructive"
-                  onclick={() => {
-										target = u;
-										deleteOpen = true;
-									}}
-                >
-                  <Trash />
-                  {m.common_delete()}
-                </DropdownMenu.Item>
-              {/if}
-            </DropdownMenu.Content>
-          </DropdownMenu.Root>
-        </Table.Cell>
+        <Table.Head>{m.common_name()}</Table.Head>
+        <Table.Head>{m.common_email()}</Table.Head>
+        <Table.Head>{m.users_role()}</Table.Head>
+        <Table.Head>{m.common_created()}</Table.Head>
+        <Table.Head class="w-10"></Table.Head>
       </Table.Row>
-    {/each}
-  </Table.Body>
-</Table.Root>
+    </Table.Header>
+    <Table.Body>
+      {#each data.users as u (u.id)}
+        <Table.Row>
+          <Table.Cell class="font-medium">
+            <UserAvatar
+              name={u.name}
+              image={u.image}
+              class="mr-2 inline-flex size-7 align-middle text-[10px]"
+            />
+            {u.name}
+            <span class="ml-2 inline-flex gap-2 align-middle">{@render badges(u)}</span>
+          </Table.Cell>
+          <Table.Cell class="max-w-64 truncate" title={u.email}>{u.email}</Table.Cell>
+          <Table.Cell>{@render role(u)}</Table.Cell>
+          <Table.Cell class="text-muted-foreground">
+            {formatDate(u.createdAt)}
+          </Table.Cell>
+          <Table.Cell>
+            <ActionMenu actions={actionsFor(u)} label={m.users_actions()} />
+          </Table.Cell>
+        </Table.Row>
+      {/each}
+    </Table.Body>
+  </Table.Root>
+</div>
 
 <Dialog.Root bind:open={createOpen}>
   <Dialog.Content class="sm:max-w-md">

@@ -250,6 +250,7 @@
   "invite_link_validity": "Er funktioniert einmal und läuft am {date} ab. Er wird nur jetzt angezeigt.",
   "common_copy_link": "Link kopieren",
   "common_done": "Fertig",
+  "common_more_actions": "Weitere Aktionen",
   "share": "Teilen",
   "share_aria_active": "Teilen (Link aktiv)",
   "share_aria_expired": "Teilen (Links abgelaufen)",

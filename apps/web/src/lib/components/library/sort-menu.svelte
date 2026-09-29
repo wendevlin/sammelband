@@ -1,3 +1,16 @@
+<script lang="ts" module>
+import type { SortMode as Mode } from "@sammelband/shared";
+import { m as messages } from "$lib/paraglide/messages.js";
+
+/** The sort orders a container offers, for this menu and the mobile page menu. */
+export const SORT_OPTIONS: { value: Mode; label: string }[] = [
+  { value: "created", label: messages.sort_created() },
+  { value: "name", label: messages.sort_name() },
+  { value: "modified", label: messages.sort_modified() },
+  { value: "manual", label: messages.sort_manual() },
+];
+</script>
+
 <script lang="ts">
 import ArrowDownUp from "@lucide/svelte/icons/arrow-down-up";
 import type { SortMode } from "@sammelband/shared";
@@ -8,13 +21,7 @@ import { m } from "$lib/paraglide/messages.js";
 /** "Sort: Newest first" button with the order choices (per user and folder). */
 let { value, onchange }: { value: SortMode; onchange: (mode: SortMode) => void } = $props();
 
-const OPTIONS: { value: SortMode; label: string }[] = [
-  { value: "created", label: m.sort_created() },
-  { value: "name", label: m.sort_name() },
-  { value: "modified", label: m.sort_modified() },
-  { value: "manual", label: m.sort_manual() },
-];
-const current = $derived(OPTIONS.find((o) => o.value === value)?.label ?? "");
+const current = $derived(SORT_OPTIONS.find((o) => o.value === value)?.label ?? "");
 </script>
 
 <DropdownMenu.Root>
@@ -29,7 +36,7 @@ const current = $derived(OPTIONS.find((o) => o.value === value)?.label ?? "");
   <DropdownMenu.Content align="end" class="min-w-48">
     <DropdownMenu.Label>{m.sort_by()}</DropdownMenu.Label>
     <DropdownMenu.RadioGroup {value} onValueChange={(v) => v !== value && onchange(v as SortMode)}>
-      {#each OPTIONS as o (o.value)}
+      {#each SORT_OPTIONS as o (o.value)}
         <DropdownMenu.RadioItem value={o.value}>{o.label}</DropdownMenu.RadioItem>
       {/each}
     </DropdownMenu.RadioGroup>

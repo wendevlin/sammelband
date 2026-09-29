@@ -250,6 +250,7 @@
   "invite_link_validity": "It works once and expires on {date}. It is shown only now.",
   "common_copy_link": "Copy link",
   "common_done": "Done",
+  "common_more_actions": "More actions",
   "share": "Share",
   "share_aria_active": "Share (link active)",
   "share_aria_expired": "Share (links expired)",

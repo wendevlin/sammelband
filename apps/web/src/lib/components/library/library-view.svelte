@@ -1,6 +1,9 @@
 <script lang="ts">
+import ArrowDownUp from "@lucide/svelte/icons/arrow-down-up";
+import Ellipsis from "@lucide/svelte/icons/ellipsis";
 import FolderPlus from "@lucide/svelte/icons/folder-plus";
 import Plus from "@lucide/svelte/icons/plus";
+import Share from "@lucide/svelte/icons/share-2";
 import type { Album, Folder, FolderTile, SortMode } from "@sammelband/shared";
 import { flip } from "svelte/animate";
 import { toast } from "svelte-sonner";
@@ -15,10 +18,11 @@ import MoveMenuItems from "$lib/components/library/move-menu-items.svelte";
 import ShareButton from "$lib/components/share/share-button.svelte";
 import * as Breadcrumb from "$lib/components/ui/breadcrumb";
 import { Button } from "$lib/components/ui/button";
+import * as DropdownMenu from "$lib/components/ui/dropdown-menu";
 import { albumPath } from "$lib/links";
 import { m } from "$lib/paraglide/messages.js";
 import { cn } from "$lib/utils";
-import SortMenu from "./sort-menu.svelte";
+import SortMenu, { SORT_OPTIONS } from "./sort-menu.svelte";
 
 /** Contents of one folder (or the root when `folder` is null). */
 let {
@@ -263,6 +267,7 @@ const trail = $derived.by(() => {
 
 let newFolderOpen = $state(false);
 let newAlbumOpen = $state(false);
+let shareOpen = $state(false);
 let renameTarget = $state<Folder | null>(null);
 let renameOpen = $state(false);
 let deleteTarget = $state<Folder | null>(null);
@@ -288,8 +293,45 @@ const deleteFolder = () =>
   deleteTarget ? attempt(() => del(`/folders/${deleteTarget?.id}`), m.folder_deleted()) : null;
 </script>
 
+{#snippet mobileMenu()}
+  <DropdownMenu.Root>
+    <DropdownMenu.Trigger class="sm:hidden">
+      {#snippet child({ props })}
+        <Button {...props} variant="outline" size="icon" aria-label={m.common_more_actions()}>
+          <Ellipsis />
+        </Button>
+      {/snippet}
+    </DropdownMenu.Trigger>
+    <DropdownMenu.Content align="end" class="min-w-52">
+      <DropdownMenu.Item onclick={() => (newAlbumOpen = true)}
+        ><Plus /> {m.album_new()}</DropdownMenu.Item
+      >
+      <DropdownMenu.Item onclick={() => (newFolderOpen = true)}
+        ><FolderPlus />
+        {m.folder_new()}</DropdownMenu.Item
+      >
+      {#if folder}
+        <DropdownMenu.Item onclick={() => (shareOpen = true)}
+          ><Share /> {m.share()}</DropdownMenu.Item
+        >
+      {/if}
+      <DropdownMenu.Separator />
+      <!-- Inline rather than a submenu: those open off-screen on phones. -->
+      <DropdownMenu.Label class="flex items-center gap-2"
+        ><ArrowDownUp class="size-4" />
+        {m.sort_by()}</DropdownMenu.Label
+      >
+      <DropdownMenu.RadioGroup value={sort} onValueChange={(v) => v !== sort && setSort(v)}>
+        {#each SORT_OPTIONS as o (o.value)}
+          <DropdownMenu.RadioItem value={o.value}>{o.label}</DropdownMenu.RadioItem>
+        {/each}
+      </DropdownMenu.RadioGroup>
+    </DropdownMenu.Content>
+  </DropdownMenu.Root>
+{/snippet}
+
 <div class="mb-10 flex flex-wrap items-end justify-between gap-4">
-  <div>
+  <div class="min-w-0 flex-1">
     <Breadcrumb.Root class="mb-2">
       <Breadcrumb.List>
         <Breadcrumb.Item>
@@ -327,12 +369,16 @@ const deleteFolder = () =>
         {/each}
       </Breadcrumb.List>
     </Breadcrumb.Root>
-    <h1 class="font-heading text-4xl">{folder?.name ?? m.nav_library()}</h1>
+    <div class="flex items-start justify-between gap-2">
+      <h1 class="min-w-0 font-heading text-4xl">{folder?.name ?? m.nav_library()}</h1>
+      {@render mobileMenu()}
+    </div>
   </div>
-  <div class="flex flex-wrap items-center gap-2">
+  <!-- Phones get the same actions from the "⋯" menu next to the title. -->
+  <div class="hidden flex-wrap items-center gap-2 sm:flex">
     <SortMenu value={sort} onchange={setSort} />
     {#if folder}
-      <ShareButton target={{ folderId: folder.id }} name={folder.name} />
+      <ShareButton target={{ folderId: folder.id }} name={folder.name} bind:open={shareOpen} />
     {/if}
     <Button variant="outline" onclick={() => (newFolderOpen = true)}>
       <FolderPlus />
