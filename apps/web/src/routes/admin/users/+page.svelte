@@ -141,7 +141,7 @@ const locked = (u: User) => isSelf(u) || lastAdmin(u) || u.superadmin;
       {m.users_description({ sammelband: auth.tenant?.name ?? 'Sammelband' })}
     </p>
   </div>
-  <div class="flex gap-2">
+  <div class="flex flex-wrap gap-2">
     <Button variant="outline" onclick={() => (inviteRoleOpen = true)}
       ><Link />
       {m.invite_link()}</Button

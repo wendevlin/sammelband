@@ -31,7 +31,8 @@ const trail = $derived.by(() => {
 
 <article class="mx-auto max-w-4xl">
   <div class="mb-10 flex flex-wrap items-start justify-between gap-4">
-    <div>
+    <!-- min-w-0: long titles wrap instead of widening the page. -->
+    <div class="min-w-0">
       <Breadcrumb.Root class="mb-3">
         <Breadcrumb.List>
           <Breadcrumb.Item
@@ -45,7 +46,7 @@ const trail = $derived.by(() => {
           {/each}
         </Breadcrumb.List>
       </Breadcrumb.Root>
-      <h1 class="font-heading text-5xl leading-tight">{live.album.title}</h1>
+      <h1 class="font-heading text-4xl leading-tight sm:text-5xl">{live.album.title}</h1>
       {#if live.album.description}
         <p class="mt-4 max-w-2xl text-lg text-muted-foreground">{live.album.description}</p>
       {/if}

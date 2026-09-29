@@ -100,7 +100,7 @@ const crumbHref = (i: number, id: string) =>
 
   {#if view.kind === 'album'}
     <article class="mx-auto max-w-4xl">
-      <h1 class="font-heading text-5xl leading-tight">{view.album.title}</h1>
+      <h1 class="font-heading text-4xl leading-tight sm:text-5xl">{view.album.title}</h1>
       {#if view.album.description}
         <p class="mt-4 max-w-2xl text-lg text-muted-foreground">{view.album.description}</p>
       {/if}

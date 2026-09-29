@@ -86,9 +86,9 @@ async function deleteAlbum() {
 }
 </script>
 
-<svelte:head><title>Edit {live.album.title} · Sammelband</title></svelte:head>
+<svelte:head><title>{m.album_edit()}: {live.album.title} · Sammelband</title></svelte:head>
 
-<div class="mb-6 flex items-center justify-between gap-4">
+<div class="mb-6 flex flex-wrap items-center justify-between gap-2">
   <Button variant="ghost" href={albumPath(live.album)}><ArrowLeft /> {m.album_view()}</Button>
   <Button variant="destructive" onclick={() => (deleteOpen = true)}
     ><Trash /> {m.album_delete()}</Button
