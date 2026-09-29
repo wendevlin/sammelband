@@ -28,6 +28,8 @@ class AuthStore {
   needsOnboarding = $state(false);
   /** The server hosts several Sammelbände (MULTI_TENANT=true). */
   multiTenant = $state(false);
+  /** The server sends email (SMTP configured): "Forgot password?" works. */
+  mail = $state(false);
   #initialized = false;
 
   get isAdmin(): boolean {
@@ -51,14 +53,14 @@ class AuthStore {
     if (this.#initialized) return;
     this.#initialized = true;
     const [status] = await Promise.all([
-      api<{ needsOnboarding: boolean; multiTenant: boolean }>("/onboarding/status").catch(() => ({
-        needsOnboarding: false,
-        multiTenant: false,
-      })),
+      api<{ needsOnboarding: boolean; multiTenant: boolean; mail: boolean }>(
+        "/onboarding/status",
+      ).catch(() => ({ needsOnboarding: false, multiTenant: false, mail: false })),
       this.refresh(),
     ]);
     this.needsOnboarding = status.needsOnboarding;
     this.multiTenant = status.multiTenant;
+    this.mail = status.mail;
   }
 
   async refresh(): Promise<void> {

@@ -14,11 +14,13 @@
     "better-auth": "1.7.6",
     "hono": "4.13.9",
     "kysely": "0.29.6",
+    "nodemailer": "10.0.12",
     "pg": "8.23.0",
     "zod": "4.6.5"
   },
   "devDependencies": {
     "@types/bun": "1.4.2",
+    "@types/nodemailer": "8.0.2",
     "@types/pg": "8.23.1",
     "typescript": "7.0.2"
   },

@@ -31,6 +31,7 @@ export const ERRORS = {
   setup_not_active: { status: 410, message: "Setup is not active" },
   invalid_setup_code: { status: 401, message: "Invalid setup code" },
   invite_invalid: { status: 404, message: "This invite link is invalid or has expired" },
+  mail_disabled: { status: 404, message: "This server doesn't send email" },
 
   // Users and profile
   user_not_found: { status: 404, message: "User not found" },

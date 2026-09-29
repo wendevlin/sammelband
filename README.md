@@ -117,6 +117,16 @@ there; the app doesn't send it.
 | `TRUST_PROXY` | `false` | Use `X-Forwarded-For` for rate limiting. Only behind a proxy that sets it |
 | `MAX_UPLOAD_MB` | `50` | Largest accepted photo |
 | `MULTI_TENANT` | `false` | Host several Sammelbände; the owner manages them under Admin settings |
+| `SMTP_HOST` | unset | SMTP server for email. Without it no mail is sent and "Forgot password?" is hidden |
+| `SMTP_PORT` | `587` (`465` with `SMTP_SECURE`) | SMTP port |
+| `SMTP_SECURE` | `true` on port 465 | TLS from the start (465); otherwise STARTTLS is used when offered |
+| `SMTP_USER`, `SMTP_PASSWORD` | unset | SMTP login |
+| `SMTP_FROM` | required with `SMTP_HOST` | Sender, e.g. `Sammelband <sammelband@example.com>` |
+
+With SMTP set up, users reset a forgotten password with a link by mail. It works
+once within an hour and signs them out everywhere. `BASE_URL` has to be the
+address people open, since the link points there. The server checks the SMTP
+connection at startup and logs the result.
 
 ## Database
 

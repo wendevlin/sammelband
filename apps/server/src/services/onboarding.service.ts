@@ -2,6 +2,7 @@ import { randomBytes } from "node:crypto";
 import { appUrl, config } from "../config";
 import { db } from "../db/client";
 import { fail } from "../lib/errors";
+import { mailEnabled } from "../lib/mail";
 import { createFirstTenant } from "./tenant.service";
 import { createAccount } from "./user.service";
 
@@ -52,8 +53,13 @@ export async function initOnboarding(): Promise<void> {
   );
 }
 
-export function getStatus(): { needsOnboarding: boolean; multiTenant: boolean } {
-  return { needsOnboarding: bootstrapCode !== null && !consumed, multiTenant: config.MULTI_TENANT };
+/** What the web app needs before sign-in: setup pending, several Sammelbände, mail. */
+export function getStatus(): { needsOnboarding: boolean; multiTenant: boolean; mail: boolean } {
+  return {
+    needsOnboarding: bootstrapCode !== null && !consumed,
+    multiTenant: config.MULTI_TENANT,
+    mail: mailEnabled(),
+  };
 }
 
 export async function claim(input: {

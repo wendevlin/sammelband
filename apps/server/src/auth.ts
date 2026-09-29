@@ -4,6 +4,8 @@ import { twoFactor } from "better-auth/plugins/two-factor";
 import { config } from "./config";
 import { db, dbType } from "./db/client";
 import { ERRORS } from "./lib/error-codes";
+import { sendMailInBackground } from "./lib/mail";
+import { mailLocale, passwordResetMail } from "./lib/mail-templates";
 import * as twoFactorService from "./services/two-factor.service";
 
 export const auth = betterAuth({
@@ -14,8 +16,19 @@ export const auth = betterAuth({
   trustedOrigins: config.TRUSTED_ORIGINS,
 
   // Email + password only. Accounts are created by an admin, through an invite
-  // link or by the first-run setup; passwords are reset by an admin (no mail).
-  emailAndPassword: { enabled: true },
+  // link or by the first-run setup. Admins can set passwords; with SMTP
+  // configured, users can also reset theirs by mail (index.ts blocks the
+  // request endpoint without it).
+  emailAndPassword: {
+    enabled: true,
+    resetPasswordTokenExpiresIn: 60 * 60,
+    // Whoever had the old password (or a session) is signed out.
+    revokeSessionsOnPasswordReset: true,
+    sendResetPassword: async ({ user, url }, request) => {
+      const locale = mailLocale((user as { locale?: string | null }).locale, request);
+      sendMailInBackground(passwordResetMail(locale, user, url));
+    },
+  },
 
   // TOTP codes from an authenticator app, plus one-time backup codes. Signing
   // in with a password then answers { twoFactorRedirect: true }, and

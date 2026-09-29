@@ -11,7 +11,9 @@ import { config } from "./config";
 import { migrate } from "./db/migrate";
 import { errorBody } from "./lib/error-codes";
 import { AppError } from "./lib/errors";
-import { authRateLimit } from "./middleware/rate-limit.middleware";
+import { checkMailOnStartup } from "./lib/mail";
+import { requireMail } from "./middleware/mail.middleware";
+import { authRateLimit, passwordResetRateLimit } from "./middleware/rate-limit.middleware";
 import { adminInviteRoutes } from "./routes/admin/invites";
 import { adminStorageRoutes } from "./routes/admin/storage";
 import { adminUserRoutes } from "./routes/admin/users";
@@ -38,6 +40,7 @@ mkdirSync(join(config.UPLOADS_PATH, "tenants"), { recursive: true });
 await migrate();
 await reconcileStorage();
 await initOnboarding();
+void checkMailOnStartup();
 
 const app = new Hono();
 
@@ -94,6 +97,8 @@ app.use("/api/*", csrf({ origin: config.ALLOWED_ORIGINS }));
 // the first-run setup, all server-side, so the public sign-up endpoint is blocked.
 app.use("/api/auth/*", authRateLimit);
 app.post("/api/auth/sign-up/*", (c) => c.json(errorBody("signup_disabled"), 403));
+// "Forgot password?" needs SMTP (see lib/mail.ts).
+app.post("/api/auth/request-password-reset", passwordResetRateLimit, requireMail);
 app.on(["GET", "POST"], "/api/auth/*", (c) => auth.handler(c.req.raw));
 
 app.route("/api/onboarding", onboardingRoutes);
