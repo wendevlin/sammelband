@@ -92,9 +92,11 @@ compose pull && docker compose up -d`; migrations run on start. To build the
 image from source instead: `docker build -t ghcr.io/wendevlin/sammelband:latest .`
 
 Data lives in two volumes: the SQLite database (`/data`, unused with Postgres) and the photos
-(`/uploads`, originals plus a regenerable cache of resized versions). The
-container runs as the unprivileged user `bun` (uid 1000): named volumes work as
-is, bind mounts must be writable by uid 1000.
+(`/uploads`, originals plus a regenerable cache of resized versions). Named
+volumes and bind mounts (`./db_data:/data`) both work: the container starts as
+root only to hand these two directories to the app user, then runs the app as
+that user (uid/gid 1000 by default; set `PUID`/`PGID` to use another, e.g. your
+NAS user). Don't set `user:` in compose; the entrypoint can't fix the owner then.
 
 Put a reverse proxy with TLS in front (Caddy, Traefik, nginx). Set
 `TRUST_PROXY=true` so rate limits see the real client IP, and configure HSTS
