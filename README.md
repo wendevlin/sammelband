@@ -87,14 +87,13 @@ Put a reverse proxy with TLS in front (Caddy, Traefik, nginx). Set
 `TRUST_PROXY=true` so rate limits see the real client IP, and configure HSTS
 there; the app doesn't send it.
 
-The backend alone also runs in Docker for development:
-`docker compose -f docker-compose.dev.yml up`, with `bun run dev:web` on the host.
 
 ## Configuration
 
 | Variable | Default (dev) | Purpose |
 |---|---|---|
-| `PORT` | `3000` | HTTP port |
+| `PORT` | `3000` | HTTP port of the server (the dev proxy follows it). Fixed to 3000 in the Docker image |
+| `HOST_PORT` | `3000` | `docker compose` only: the host port mapped to the container's 3000 |
 | `BASE_URL` | `http://localhost:3000` | Public URL, used for the CSRF origin check |
 | `SECRET_KEY` | dev placeholder | Signs sessions and share-link cookies. Required in production, at least 32 characters |
 | `DATABASE_URL` | unset | `postgres://user:pass@host:5432/db` to use PostgreSQL instead of SQLite |

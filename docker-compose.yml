@@ -4,7 +4,8 @@ services:
     build: .
     restart: unless-stopped
     ports:
-      - "${PORT:-3000}:3000"
+      # Host port; the app inside the container always listens on 3000.
+      - "${HOST_PORT:-3000}:3000"
     environment:
       - NODE_ENV=production
       - DATABASE_PATH=/data/sammelband.db
