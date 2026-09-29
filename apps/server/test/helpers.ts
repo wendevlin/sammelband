@@ -25,8 +25,10 @@ const TABLES = [
   "session",
   "account",
   "verification",
+  "twoFactor",
   "user",
   "tenants",
+  "instance_settings",
 ];
 
 export async function resetDatabase(): Promise<void> {

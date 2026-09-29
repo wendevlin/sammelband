@@ -42,6 +42,10 @@ export const adminUserRoutes = new Hono<AuthEnv>()
     await userService.setPassword(c.req.param("id"), c.req.valid("json").password);
     return c.json({ ok: true });
   })
+  // Lost phone: the user signs in with the password again and sets it up anew.
+  .post("/:id/two-factor/reset", async (c) =>
+    c.json(await userService.resetTwoFactor(c.get("user").id, c.req.param("id"))),
+  )
   .delete("/:id", async (c) => {
     await userService.deleteUser(c.get("user").id, c.req.param("id"));
     return c.json({ ok: true });

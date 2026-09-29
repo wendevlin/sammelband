@@ -6,7 +6,16 @@ import { currentTenantId, tdb } from "../lib/tenant-context";
 
 export type { Role };
 
-const COLUMNS = ["id", "email", "name", "role", "superadmin", "image", "createdAt"] as const;
+const COLUMNS = [
+  "id",
+  "email",
+  "name",
+  "role",
+  "superadmin",
+  "image",
+  "twoFactorEnabled",
+  "createdAt",
+] as const;
 
 // SQLite stores better-auth dates as ISO strings and booleans as 0/1.
 function toPublic(u: {
@@ -16,9 +25,15 @@ function toPublic(u: {
   role: Role;
   superadmin: boolean | number | null;
   image: string | null;
+  twoFactorEnabled: boolean | number | null;
   createdAt: string | Date;
 }): User {
-  return { ...u, superadmin: !!u.superadmin, createdAt: new Date(u.createdAt).toISOString() };
+  return {
+    ...u,
+    superadmin: !!u.superadmin,
+    twoFactorEnabled: !!u.twoFactorEnabled,
+    createdAt: new Date(u.createdAt).toISOString(),
+  };
 }
 
 /**
@@ -133,6 +148,29 @@ export async function setPassword(id: string, password: string): Promise<void> {
   const hash = await ctx.password.hash(password);
   await ctx.internalAdapter.updatePassword(id, hash);
   await signOutEverywhere(id);
+}
+
+/**
+ * Admin: turn off a user's two-factor authentication, e.g. after they lost
+ * their phone. They sign in with their password again (and set it up anew
+ * where it's required); trusted devices are forgotten.
+ */
+export async function resetTwoFactor(actorId: string, id: string): Promise<User> {
+  await requireUser(id);
+  if (id === actorId) throw fail("two_factor_reset_own");
+  await tdb()
+    .updateTable("user")
+    .set({ twoFactorEnabled: false, updatedAt: new Date().toISOString() })
+    .where("id", "=", id)
+    .execute();
+  // Not tenant tables; the user was checked above.
+  await db.deleteFrom("twoFactor").where("userId", "=", id).execute();
+  await db
+    .deleteFrom("verification")
+    .where("value", "=", id)
+    .where("identifier", "like", "trust-device-%")
+    .execute();
+  return requireUser(id);
 }
 
 export async function deleteUser(actorId: string, id: string): Promise<void> {

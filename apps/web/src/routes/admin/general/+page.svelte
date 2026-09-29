@@ -6,12 +6,17 @@ import SimpleSelect from "$lib/components/app/simple-select.svelte";
 import { Button } from "$lib/components/ui/button";
 import * as Card from "$lib/components/ui/card";
 import { Input } from "$lib/components/ui/input";
+import { Label } from "$lib/components/ui/label";
+import { Switch } from "$lib/components/ui/switch";
 import { m } from "$lib/paraglide/messages.js";
 import { auth } from "$lib/stores/auth.svelte";
 import { browserTimeZone, formatInZone } from "$lib/timezone";
 
 /** Settings of the admin's own Sammelband. */
-async function save(patch: { name?: string; timezone?: string }, message: string) {
+async function save(
+  patch: { name?: string; timezone?: string; twoFactorRequired?: boolean },
+  message: string,
+) {
   const updated = await attempt(
     () => api<TenantInfo>("/tenant", { method: "PATCH", body: patch }),
     message,
@@ -43,6 +48,20 @@ async function saveZone() {
   savingZone = true;
   await save({ timezone }, m.general_timezone_saved());
   savingZone = false;
+}
+
+// Two-factor authentication for everyone. The server refuses to turn it on for
+// admins who don't use it themselves; the switch then flips back.
+let twoFactorRequired = $state(auth.tenant?.two_factor_required ?? false);
+let savingTwoFactor = $state(false);
+async function saveTwoFactor(required: boolean) {
+  savingTwoFactor = true;
+  const ok = await save(
+    { twoFactorRequired: required },
+    required ? m.general_two_factor_on() : m.general_two_factor_off(),
+  );
+  if (!ok) twoFactorRequired = !required;
+  savingTwoFactor = false;
 }
 </script>
 
@@ -105,5 +124,28 @@ async function saveZone() {
         >{m.common_save()}</Button
       >
     </Card.Footer>
+  </Card.Root>
+
+  <Card.Root>
+    <Card.Header>
+      <Card.Title>{m.two_factor_title()}</Card.Title>
+      <Card.Description>
+        {m.general_two_factor_description({ sammelband: auth.tenant?.name ?? 'Sammelband' })}
+      </Card.Description>
+    </Card.Header>
+    <Card.Content class="grid gap-3">
+      <div class="flex items-center justify-between gap-4">
+        <Label for="two-factor-required">{m.general_two_factor_switch()}</Label>
+        <Switch
+          id="two-factor-required"
+          bind:checked={twoFactorRequired}
+          disabled={savingTwoFactor}
+          onCheckedChange={saveTwoFactor}
+        />
+      </div>
+      {#if auth.tenant?.two_factor_required_by_instance}
+        <p class="text-sm text-muted-foreground">{m.general_two_factor_by_instance()}</p>
+      {/if}
+    </Card.Content>
   </Card.Root>
 </div>

@@ -7,6 +7,7 @@ import * as Alert from "$lib/components/ui/alert";
 import { Button } from "$lib/components/ui/button";
 import { Input } from "$lib/components/ui/input";
 import { Label } from "$lib/components/ui/label";
+import { Switch } from "$lib/components/ui/switch";
 import { errorText } from "$lib/i18n";
 import { m } from "$lib/paraglide/messages.js";
 import { auth } from "$lib/stores/auth.svelte";
@@ -16,13 +17,25 @@ let password = $state("");
 let busy = $state(false);
 let errorMessage = $state<string | null>(null);
 
+// Second step for accounts with two-factor authentication.
+let step = $state<"password" | "code">("password");
+let code = $state("");
+let backup = $state(false);
+let trustDevice = $state(false);
+
+const finish = () => goto(safeNext(page.url), { invalidateAll: true, replaceState: true });
+
 async function submit(e: SubmitEvent) {
   e.preventDefault();
   busy = true;
   errorMessage = null;
   try {
-    await auth.signIn(email, password);
-    await goto(safeNext(page.url), { invalidateAll: true, replaceState: true });
+    if ((await auth.signIn(email, password)) === "two-factor") {
+      step = "code";
+      password = "";
+    } else {
+      await finish();
+    }
   } catch (err) {
     errorMessage =
       err instanceof ApiError && err.status === 401 && !err.code
@@ -32,29 +45,97 @@ async function submit(e: SubmitEvent) {
     busy = false;
   }
 }
+
+async function submitCode(e: SubmitEvent) {
+  e.preventDefault();
+  busy = true;
+  errorMessage = null;
+  try {
+    await auth.verifyCode(code, { backup, trustDevice });
+    await finish();
+  } catch (err) {
+    errorMessage = errorText(err);
+    code = "";
+  } finally {
+    busy = false;
+  }
+}
+
+function toggleBackup() {
+  backup = !backup;
+  code = "";
+  errorMessage = null;
+}
+
+function back() {
+  step = "password";
+  code = "";
+  backup = false;
+  errorMessage = null;
+}
 </script>
 
-<AuthShell title={m.login_title()} description={m.login_description()}>
-  <form class="grid gap-4" onsubmit={submit}>
-    {#if errorMessage}
-      <Alert.Root variant="destructive">
-        <Alert.Description>{errorMessage}</Alert.Description>
-      </Alert.Root>
-    {/if}
-    <div class="grid gap-2">
-      <Label for="email">{m.common_email()}</Label>
-      <Input id="email" type="email" bind:value={email} required autocomplete="email" />
-    </div>
-    <div class="grid gap-2">
-      <Label for="password">{m.common_password()}</Label>
-      <Input
-        id="password"
-        type="password"
-        bind:value={password}
-        required
-        autocomplete="current-password"
-      />
-    </div>
-    <Button type="submit" disabled={busy}>{m.login_submit()}</Button>
-  </form>
-</AuthShell>
+{#if step === 'password'}
+  <AuthShell title={m.login_title()} description={m.login_description()}>
+    <form class="grid gap-4" onsubmit={submit}>
+      {#if errorMessage}
+        <Alert.Root variant="destructive">
+          <Alert.Description>{errorMessage}</Alert.Description>
+        </Alert.Root>
+      {/if}
+      <div class="grid gap-2">
+        <Label for="email">{m.common_email()}</Label>
+        <Input id="email" type="email" bind:value={email} required autocomplete="email" />
+      </div>
+      <div class="grid gap-2">
+        <Label for="password">{m.common_password()}</Label>
+        <Input
+          id="password"
+          type="password"
+          bind:value={password}
+          required
+          autocomplete="current-password"
+        />
+      </div>
+      <Button type="submit" disabled={busy}>{m.login_submit()}</Button>
+    </form>
+  </AuthShell>
+{:else}
+  <AuthShell
+    title={m.login_code_title()}
+    description={backup ? m.login_backup_description() : m.login_code_description()}
+  >
+    <form class="grid gap-4" onsubmit={submitCode}>
+      {#if errorMessage}
+        <Alert.Root variant="destructive">
+          <Alert.Description>{errorMessage}</Alert.Description>
+        </Alert.Root>
+      {/if}
+      <div class="grid gap-2">
+        <Label for="code">{backup ? m.login_backup_label() : m.login_code_label()}</Label>
+        <Input
+          id="code"
+          bind:value={code}
+          required
+          autocomplete="one-time-code"
+          inputmode={backup ? 'text' : 'numeric'}
+          maxlength={backup ? 20 : 9}
+          class="font-mono tracking-widest"
+        />
+      </div>
+      <div class="flex items-center justify-between gap-4">
+        <Label for="trust-device" class="font-normal">{m.login_trust_device()}</Label>
+        <Switch id="trust-device" bind:checked={trustDevice} />
+      </div>
+      <Button type="submit" disabled={busy || !code.trim()}>{m.login_verify()}</Button>
+      <div class="flex flex-wrap justify-between gap-2 text-sm">
+        <Button variant="link" class="h-auto p-0" onclick={toggleBackup}>
+          {backup ? m.login_use_app() : m.login_use_backup()}
+        </Button>
+        <Button variant="link" class="h-auto p-0 text-muted-foreground" onclick={back}>
+          {m.login_back()}
+        </Button>
+      </div>
+    </form>
+  </AuthShell>
+{/if}

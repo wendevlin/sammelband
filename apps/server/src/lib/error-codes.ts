@@ -50,6 +50,25 @@ export const ERRORS = {
     message: (p: { maxMb: number }) => `Avatar images can be at most ${p.maxMb} MB`,
   },
 
+  // Two-factor authentication
+  two_factor_setup_required: {
+    status: 403,
+    message: "Set up two-factor authentication to continue",
+  },
+  two_factor_own_first: {
+    status: 400,
+    message:
+      "Nice try! Set up two-factor authentication for yourself first, then you can make everyone else do it.",
+  },
+  two_factor_still_required: {
+    status: 400,
+    message: "Two-factor authentication is required here, so it can't be turned off",
+  },
+  two_factor_reset_own: {
+    status: 400,
+    message: "Manage your own two-factor authentication in your profile",
+  },
+
   // Sammelbände (tenants)
   sammelband_not_found: { status: 404, message: "Sammelband not found" },
   multi_tenant_disabled: { status: 404, message: "Multiple Sammelbände are not enabled" },

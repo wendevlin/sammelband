@@ -75,6 +75,14 @@ export type Tenant = {
   created_at: number;
   /** IANA zone, e.g. "Europe/Vienna": share links expire at the end of a day here. */
   timezone: string;
+  /** 0/1: every user must set up two-factor authentication. */
+  two_factor_required: number;
+};
+
+/** Instance-wide settings of the superadmin; `value` is JSON. */
+export type InstanceSetting = {
+  key: string;
+  value: string;
 };
 
 export type TenantInvite = {
@@ -136,8 +144,23 @@ type UserTable = {
   image: string | null;
   /** UI language, null = follow the browser. */
   locale: string | null;
+  /** Set by better-auth's twoFactor plugin once a code was verified. */
+  twoFactorEnabled: boolean | number | null;
   createdAt: string | Date;
   updatedAt: string | Date;
+};
+
+/** better-auth's twoFactor plugin: the TOTP secret and backup codes (encrypted). */
+type TwoFactorTable = {
+  id: string;
+  userId: string;
+};
+
+/** Only the columns app code reads: trusted-device records of the twoFactor plugin. */
+type VerificationTable = {
+  id: string;
+  identifier: string;
+  value: string;
 };
 
 type SessionTable = {
@@ -156,6 +179,9 @@ export type Database = {
   user: UserTable;
   session: SessionTable;
   account: AccountTable;
+  verification: VerificationTable;
+  twoFactor: TwoFactorTable;
+  instance_settings: InstanceSetting;
   folders: Folder;
   albums: Album;
   album_blocks: AlbumBlock;

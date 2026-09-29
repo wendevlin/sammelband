@@ -15,6 +15,8 @@ export type User = {
   superadmin: boolean;
   /** Avatar URL, or null. */
   image: string | null;
+  /** Signs in with a code from an authenticator app. */
+  twoFactorEnabled: boolean;
   createdAt: string;
 };
 
@@ -26,6 +28,10 @@ export type TenantInfo = {
   storage_used_bytes: number;
   /** IANA zone that share-link expiry dates refer to. */
   timezone: string;
+  /** Its admins require two-factor authentication of every user. */
+  two_factor_required: boolean;
+  /** The instance owner requires it of every user on the instance. */
+  two_factor_required_by_instance: boolean;
 };
 
 /** A Sammelband as the instance owner sees it: metadata, never content. */
@@ -41,6 +47,8 @@ export type TenantOverview = TenantInfo & {
 
 export type InstanceOverview = {
   database: { type: "sqlite" | "postgres"; size_bytes: number };
+  /** Every user on the instance must use two-factor authentication. */
+  two_factor_required: boolean;
   tenants: TenantOverview[];
 };
 

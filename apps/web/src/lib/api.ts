@@ -103,7 +103,13 @@ export async function load<T>(path: string, f: typeof fetch): Promise<T> {
     return await api<T>(path, { fetch: f });
   } catch (e) {
     if (e instanceof ApiError) {
-      if (e.status === 401) redirect(307, loginUrl(location.href.slice(location.origin.length)));
+      const here = location.href.slice(location.origin.length);
+      if (e.status === 401) redirect(307, loginUrl(here));
+      // Required since this page was opened: reload the session, then set it up.
+      if (e.code === "two_factor_setup_required") {
+        await auth.refresh();
+        redirect(307, `/two-factor?next=${encodeURIComponent(here)}`);
+      }
       error(e.status, errorText(e));
     }
     throw e;

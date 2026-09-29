@@ -9,6 +9,7 @@ import { tenantDir } from "../lib/storage-paths";
 import { currentTenantId } from "../lib/tenant-context";
 import { isValidTimeZone, serverTimeZone } from "../lib/timezone";
 import { type CreatedInvite, createInvite } from "./invite.service";
+import * as twoFactorService from "./two-factor.service";
 
 // Tenants ("Sammelbände"). The instance functions here are for the superadmin
 // and work across tenants on purpose: they see names, counts and storage
@@ -30,10 +31,23 @@ async function requireTenant(id: string): Promise<Tenant> {
 
 /** The signed-in user's tenant. */
 export async function currentTenant(): Promise<TenantInfo> {
-  const { id, name, quota_bytes, storage_used_bytes, timezone } = await requireTenant(
-    currentTenantId(),
-  );
-  return { id, name, quota_bytes, storage_used_bytes, timezone };
+  const tenant = await requireTenant(currentTenantId());
+  return {
+    ...info(tenant),
+    two_factor_required_by_instance: await twoFactorService.requiredByInstance(),
+  };
+}
+
+function info(t: Tenant): Omit<TenantInfo, "two_factor_required_by_instance"> {
+  const { id, name, quota_bytes, storage_used_bytes, timezone } = t;
+  return {
+    id,
+    name,
+    quota_bytes,
+    storage_used_bytes,
+    timezone,
+    two_factor_required: Boolean(t.two_factor_required),
+  };
 }
 
 /** Tenant admin: settings of the own Sammelband (name, time zone for share-link expiry). */
@@ -45,14 +59,14 @@ export async function updateCurrentTenant(patch: {
   if (patch.timezone !== undefined && !isValidTimeZone(patch.timezone)) {
     throw fail("unknown_timezone");
   }
-  await db
-    .updateTable("tenants")
-    .set({
-      ...(patch.name !== undefined && { name: patch.name.trim() }),
-      ...(patch.timezone !== undefined && { timezone: patch.timezone }),
-    })
-    .where("id", "=", currentTenantId())
-    .execute();
+  const changes = {
+    ...(patch.name !== undefined && { name: patch.name.trim() }),
+    ...(patch.timezone !== undefined && { timezone: patch.timezone }),
+  };
+  // Nothing to set when the request only changed another setting (2FA).
+  if (Object.keys(changes).length > 0) {
+    await db.updateTable("tenants").set(changes).where("id", "=", currentTenantId()).execute();
+  }
   return currentTenant();
 }
 
@@ -119,6 +133,7 @@ async function insertTenant(
     suspended_at: null,
     created_at: Date.now(),
     timezone: zone,
+    two_factor_required: 0,
   };
   await db.insertInto("tenants").values(tenant).execute();
   return tenant;
@@ -160,8 +175,11 @@ export async function listTenants(ownTenantId: string): Promise<TenantOverview[]
     ])
     .orderBy("t.created_at")
     .execute();
+  const byInstance = await twoFactorService.requiredByInstance();
   return rows.map((r) => ({
     ...r,
+    ...info(r),
+    two_factor_required_by_instance: byInstance,
     own: r.id === ownTenantId,
     user_count: Number(r.user_count ?? 0),
     album_count: Number(r.album_count ?? 0),
@@ -260,7 +278,10 @@ export async function deleteTenant(
 
 /** Instance-wide numbers for the superadmin. */
 export async function instanceStats(): Promise<Omit<InstanceOverview, "tenants">> {
-  return { database: { type: dbType, size_bytes: await databaseSize() } };
+  return {
+    database: { type: dbType, size_bytes: await databaseSize() },
+    two_factor_required: await twoFactorService.requiredByInstance(),
+  };
 }
 
 async function databaseSize(): Promise<number> {

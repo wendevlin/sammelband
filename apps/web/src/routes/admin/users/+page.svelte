@@ -3,6 +3,7 @@ import EllipsisVertical from "@lucide/svelte/icons/ellipsis-vertical";
 import KeyRound from "@lucide/svelte/icons/key-round";
 import Link from "@lucide/svelte/icons/link";
 import Pencil from "@lucide/svelte/icons/pencil";
+import ShieldOff from "@lucide/svelte/icons/shield-off";
 import Trash from "@lucide/svelte/icons/trash-2";
 import UserPlus from "@lucide/svelte/icons/user-plus";
 import type { CreatedInvite, Role, User } from "@sammelband/shared";
@@ -73,6 +74,23 @@ let target = $state<User | null>(null);
 let renameOpen = $state(false);
 let passwordOpen = $state(false);
 let deleteOpen = $state(false);
+let resetTwoFactorOpen = $state(false);
+const twoFactorRequired = $derived(
+  Boolean(auth.tenant?.two_factor_required || auth.tenant?.two_factor_required_by_instance),
+);
+
+async function resetTwoFactor() {
+  if (!target) return;
+  const name = target.name;
+  if (
+    await attempt(
+      () => post(`/admin/users/${target?.id}/two-factor/reset`),
+      m.users_two_factor_reset_done({ name }),
+    )
+  ) {
+    await refresh();
+  }
+}
 
 async function setRole(u: User, role: string) {
   if (await attempt(() => patch(`/admin/users/${u.id}`, { role }))) await refresh();
@@ -158,6 +176,13 @@ const locked = (u: User) => isSelf(u) || lastAdmin(u) || u.superadmin;
           {#if u.superadmin}
             <Badge variant="outline" class="ml-2">{m.users_owner()}</Badge>
           {/if}
+          {#if u.twoFactorEnabled}
+            <Badge variant="secondary" class="ml-2">{m.users_two_factor_badge()}</Badge>
+          {:else if twoFactorRequired}
+            <Badge variant="outline" class="ml-2 text-muted-foreground"
+              >{m.users_two_factor_pending()}</Badge
+            >
+          {/if}
         </Table.Cell>
         <Table.Cell>{u.email}</Table.Cell>
         <Table.Cell>
@@ -204,6 +229,17 @@ const locked = (u: User) => isSelf(u) || lastAdmin(u) || u.superadmin;
                 <KeyRound />
                 {m.users_set_password()}
               </DropdownMenu.Item>
+              {#if u.twoFactorEnabled && !isSelf(u)}
+                <DropdownMenu.Item
+                  onclick={() => {
+										target = u;
+										resetTwoFactorOpen = true;
+									}}
+                >
+                  <ShieldOff />
+                  {m.users_two_factor_reset()}
+                </DropdownMenu.Item>
+              {/if}
               {#if !locked(u)}
                 <DropdownMenu.Separator />
                 <DropdownMenu.Item
@@ -309,6 +345,13 @@ const locked = (u: User) => isSelf(u) || lastAdmin(u) || u.superadmin;
   label={m.users_set_password_label()}
   submitLabel={m.users_set_password()}
   onsubmit={setPassword}
+/>
+<ConfirmDialog
+  bind:open={resetTwoFactorOpen}
+  title={m.users_two_factor_reset_title({ name: target?.name ?? '' })}
+  description={m.users_two_factor_reset_description()}
+  confirmLabel={m.users_two_factor_reset_confirm()}
+  onconfirm={resetTwoFactor}
 />
 <ConfirmDialog
   bind:open={deleteOpen}

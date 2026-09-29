@@ -32,7 +32,7 @@ $effect(() => setDocumentLanguage());
   {@render children()}
 {:else if auth.needsOnboarding}
   <Onboarding />
-{:else if auth.user}
+{:else if auth.user && !auth.needsTwoFactorSetup}
   <AppHeader />
   <main class="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6">
     {@render children()}

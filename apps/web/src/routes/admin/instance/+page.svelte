@@ -21,6 +21,7 @@ import * as Dialog from "$lib/components/ui/dialog";
 import * as DropdownMenu from "$lib/components/ui/dropdown-menu";
 import { Input } from "$lib/components/ui/input";
 import { Label } from "$lib/components/ui/label";
+import { Switch } from "$lib/components/ui/switch";
 import * as Table from "$lib/components/ui/table";
 import { formatDate } from "$lib/i18n";
 import { formatBytes } from "$lib/images";
@@ -39,6 +40,22 @@ type GbInput = number | string | null;
 const toBytes = (gb: GbInput) =>
   gb === null || String(gb).trim() === "" ? null : Math.round(Number(gb) * GB);
 const toGb = (bytes: number | null): GbInput => (bytes === null ? null : +(bytes / GB).toFixed(2));
+
+// Two-factor authentication for everyone on the instance. The server refuses
+// to turn it on while the owner doesn't use it; the switch then flips back.
+// Follows the page data after a reload; the switch overrides it until then.
+let twoFactorRequired = $derived(data.overview.two_factor_required);
+let savingTwoFactor = $state(false);
+async function saveTwoFactor(required: boolean) {
+  savingTwoFactor = true;
+  const ok = await attempt(
+    () => patch("/instance/settings", { twoFactorRequired: required }),
+    required ? m.general_two_factor_on() : m.general_two_factor_off(),
+  );
+  if (ok) await refresh();
+  else twoFactorRequired = !required;
+  savingTwoFactor = false;
+}
 
 // Invite link shown after creating a Sammelband or renewing its admin invite.
 let invite = $state<CreatedInvite | null>(null);
@@ -188,6 +205,24 @@ function open(t: TenantOverview, what: "rename" | "quota" | "suspend" | "delete"
   </Card.Root>
 </div>
 
+<Card.Root class="mb-8">
+  <Card.Header>
+    <Card.Title>{m.two_factor_title()}</Card.Title>
+    <Card.Description>{m.instance_two_factor_description()}</Card.Description>
+  </Card.Header>
+  <Card.Content>
+    <div class="flex max-w-md items-center justify-between gap-4">
+      <Label for="instance-two-factor">{m.general_two_factor_switch()}</Label>
+      <Switch
+        id="instance-two-factor"
+        bind:checked={twoFactorRequired}
+        disabled={savingTwoFactor}
+        onCheckedChange={saveTwoFactor}
+      />
+    </div>
+  </Card.Content>
+</Card.Root>
+
 <Table.Root>
   <Table.Header>
     <Table.Row>
@@ -209,6 +244,9 @@ function open(t: TenantOverview, what: "rename" | "quota" | "suspend" | "delete"
           {/if}
           {#if t.suspended_at}
             <Badge variant="destructive" class="ml-2">{m.instance_suspended()}</Badge>
+          {/if}
+          {#if t.two_factor_required}
+            <Badge variant="outline" class="ml-2">{m.users_two_factor_badge()}</Badge>
           {/if}
           {#if t.user_count === 0}
             <Badge variant="outline" class="ml-2">

@@ -14,7 +14,12 @@ export type SessionUser = {
   image: string | null;
   /** UI language saved with the account; null follows the browser. */
   locale: string | null;
+  /** Signs in with a code from an authenticator app. */
+  twoFactorEnabled: boolean;
 };
+
+/** A sign-in with the password: done, or waiting for the second factor. */
+export type SignInResult = "signed-in" | "two-factor";
 
 class AuthStore {
   user = $state<SessionUser | null>(null);
@@ -31,6 +36,14 @@ class AuthStore {
 
   get isSuperadmin(): boolean {
     return this.user?.superadmin === true;
+  }
+
+  /** Two-factor authentication is required here, and the user hasn't set it up yet. */
+  get needsTwoFactorSetup(): boolean {
+    if (!this.user || this.user.twoFactorEnabled) return false;
+    return Boolean(
+      this.tenant?.two_factor_required || this.tenant?.two_factor_required_by_instance,
+    );
   }
 
   /** Runs once per page load (root layout load). */
@@ -56,6 +69,7 @@ class AuthStore {
             ...session.user,
             role: session.user.role === "admin" ? "admin" : "user",
             superadmin: session.user.superadmin === true,
+            twoFactorEnabled: session.user.twoFactorEnabled === true,
           }
         : null;
       this.tenant = this.user ? await api<TenantInfo>("/tenant").catch(() => null) : null;
@@ -67,8 +81,22 @@ class AuthStore {
     }
   }
 
-  async signIn(email: string, password: string): Promise<void> {
-    await post("/auth/sign-in/email", { email, password });
+  async signIn(email: string, password: string): Promise<SignInResult> {
+    const res = await post<{ twoFactorRedirect?: boolean }>("/auth/sign-in/email", {
+      email,
+      password,
+    });
+    if (res.twoFactorRedirect) return "two-factor";
+    await this.refresh();
+    return "signed-in";
+  }
+
+  /** Second step of a sign-in: a code from the app, or a backup code. */
+  async verifyCode(code: string, opts: { backup: boolean; trustDevice: boolean }): Promise<void> {
+    const path = opts.backup
+      ? "/auth/two-factor/verify-backup-code"
+      : "/auth/two-factor/verify-totp";
+    await post(path, { code: code.replace(/\s/g, ""), trustDevice: opts.trustDevice });
     await this.refresh();
   }
 

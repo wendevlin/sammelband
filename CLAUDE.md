@@ -60,6 +60,11 @@ where `.env`, the dev SQLite file, `uploads/` and `dist/` live.
   `requireAdmin` for `/api/admin/*` (users, invites, storage of the own tenant),
   `requireSuperadmin` for `/api/instance/*` (tenant management, metadata only). No
   per-resource grants.
+- Two-factor authentication is better-auth's `twoFactor` plugin (`/api/auth/two-factor/*`).
+  Tenant admins and the superadmin can require it (`services/two-factor.service.ts`;
+  only if they use it themselves). Then the guards answer `two_factor_setup_required`
+  to users without it, and the web app sends them to `/two-factor`. Only `requireSession`
+  lets them through, for what that page needs (`GET /api/tenant`).
 - All HTTP routes live under `/api`; `/ws` is the change-event WebSocket; everything
   else is the SPA. Services `emit()` change events (`lib/events.ts`); pages call
   `live(topics, key)` to `invalidate()` their load data when an event arrives.

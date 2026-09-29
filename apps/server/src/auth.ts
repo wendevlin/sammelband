@@ -1,7 +1,10 @@
 import { betterAuth } from "better-auth";
-import { APIError } from "better-auth/api";
+import { APIError, createAuthMiddleware, getSessionFromCtx } from "better-auth/api";
+import { twoFactor } from "better-auth/plugins/two-factor";
 import { config } from "./config";
 import { db, dbType } from "./db/client";
+import { ERRORS } from "./lib/error-codes";
+import * as twoFactorService from "./services/two-factor.service";
 
 export const auth = betterAuth({
   // Shares the app's Kysely instance (and so its connection/pool).
@@ -13,6 +16,26 @@ export const auth = betterAuth({
   // Email + password only. Accounts are created by an admin, through an invite
   // link or by the first-run setup; passwords are reset by an admin (no mail).
   emailAndPassword: { enabled: true },
+
+  // TOTP codes from an authenticator app, plus one-time backup codes. Signing
+  // in with a password then answers { twoFactorRedirect: true }, and
+  // /two-factor/verify-totp (or verify-backup-code) creates the session.
+  plugins: [twoFactor({ issuer: "Sammelband" })],
+
+  hooks: {
+    // Where two-factor authentication is required, it can't be turned off.
+    before: createAuthMiddleware(async (ctx) => {
+      if (ctx.path !== "/two-factor/disable") return;
+      const session = await getSessionFromCtx(ctx);
+      const tenantId = (session?.user as { tenantId?: string | null } | undefined)?.tenantId;
+      if (tenantId && (await twoFactorService.isRequired(tenantId))) {
+        throw new APIError("BAD_REQUEST", {
+          message: ERRORS.two_factor_still_required.message,
+          code: "TWO_FACTOR_STILL_REQUIRED",
+        });
+      }
+    }),
+  },
 
   user: {
     // None of these are settable via sign-up; the tenant and user services manage them.

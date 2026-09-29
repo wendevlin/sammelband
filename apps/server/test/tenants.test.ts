@@ -77,6 +77,8 @@ describe("tenant settings", () => {
     await runInTenant(tenant.id, async () => {
       expect((await tenantService.updateCurrentTenant({ name: "  Family  " })).name).toBe("Family");
       await expect(tenantService.updateCurrentTenant({ name: " " })).rejects.toThrow("Name");
+      // An empty patch (only another setting changed) returns the tenant as is.
+      expect((await tenantService.updateCurrentTenant({})).name).toBe("Family");
       expect((await tenantService.currentTenant()).name).toBe("Family");
     });
   });

@@ -5,6 +5,7 @@ import { fail } from "../lib/errors";
 import { validate } from "../lib/validate";
 import { type AuthEnv, requireSuperadmin } from "../middleware/auth.middleware";
 import * as tenantService from "../services/tenant.service";
+import * as twoFactorService from "../services/two-factor.service";
 
 const name = z.string().trim().min(1).max(100);
 const quotaBytes = z.number().int().positive().nullable();
@@ -22,6 +23,13 @@ export const instanceRoutes = new Hono<AuthEnv>()
       tenants: await tenantService.listTenants(c.get("user").tenantId),
     }),
   )
+  .patch("/settings", validate("json", z.object({ twoFactorRequired: z.boolean() })), async (c) => {
+    await twoFactorService.setRequiredForInstance(
+      c.get("user"),
+      c.req.valid("json").twoFactorRequired,
+    );
+    return c.json(await tenantService.instanceStats());
+  })
   .post(
     "/tenants",
     validate(

@@ -3,10 +3,15 @@ import Trash from "@lucide/svelte/icons/trash-2";
 import Upload from "@lucide/svelte/icons/upload";
 import { api, del, patch, post } from "$lib/api";
 import { attempt } from "$lib/attempt";
+import BackupCodes from "$lib/components/app/backup-codes.svelte";
 import SimpleSelect from "$lib/components/app/simple-select.svelte";
+import TwoFactorSetup from "$lib/components/app/two-factor-setup.svelte";
 import UserAvatar from "$lib/components/app/user-avatar.svelte";
+import PasswordDialog from "$lib/components/dialogs/password-dialog.svelte";
+import { Badge } from "$lib/components/ui/badge";
 import { Button } from "$lib/components/ui/button";
 import * as Card from "$lib/components/ui/card";
+import * as Dialog from "$lib/components/ui/dialog";
 import { Input } from "$lib/components/ui/input";
 import { Label } from "$lib/components/ui/label";
 import {
@@ -81,6 +86,41 @@ async function savePassword(e: SubmitEvent) {
   );
   savingPassword = false;
   if (ok) currentPassword = newPassword = repeatPassword = "";
+}
+
+// Two-factor authentication
+let settingUpTwoFactor = $state(false);
+let newCodesOpen = $state(false);
+let disableOpen = $state(false);
+let freshCodes = $state<string[]>([]);
+const twoFactorRequired = $derived(
+  Boolean(auth.tenant?.two_factor_required || auth.tenant?.two_factor_required_by_instance),
+);
+
+async function twoFactorSetUp() {
+  settingUpTwoFactor = false;
+  await auth.refresh();
+}
+
+async function newBackupCodes(password: string) {
+  const res = await attempt(() =>
+    post<{ backupCodes: string[] }>("/auth/two-factor/generate-backup-codes", { password }),
+  );
+  if (res) freshCodes = res.backupCodes;
+  return Boolean(res);
+}
+
+function closeCodes() {
+  freshCodes = [];
+}
+
+async function disableTwoFactor(password: string) {
+  const ok = await attempt(
+    () => post("/auth/two-factor/disable", { password }),
+    m.two_factor_disabled(),
+  );
+  if (ok) await auth.refresh();
+  return Boolean(ok);
 }
 
 // Avatar: cropped to a centered square in the browser, the server re-encodes it.
@@ -254,4 +294,73 @@ async function removeAvatar() {
       </form>
     </Card.Content>
   </Card.Root>
+
+  <Card.Root>
+    <Card.Header>
+      <Card.Title class="flex items-center gap-2">
+        {m.two_factor_title()}
+        {#if auth.user?.twoFactorEnabled}
+          <Badge>{m.two_factor_status_on()}</Badge>
+        {:else}
+          <Badge variant="outline">{m.two_factor_status_off()}</Badge>
+        {/if}
+      </Card.Title>
+      {#if auth.user?.twoFactorEnabled}
+        <Card.Description>{m.two_factor_on_description()}</Card.Description>
+      {/if}
+    </Card.Header>
+    <Card.Content class="grid gap-4">
+      {#if auth.user?.twoFactorEnabled}
+        {#if twoFactorRequired}
+          <p class="text-sm text-muted-foreground">
+            {auth.tenant?.two_factor_required
+              ? m.two_factor_required_note({ sammelband: auth.tenant.name })
+              : m.two_factor_required_by_instance_note()}
+          </p>
+        {/if}
+        <div class="flex flex-wrap gap-2">
+          <Button variant="outline" onclick={() => (newCodesOpen = true)}
+            >{m.two_factor_new_codes()}</Button
+          >
+          {#if !twoFactorRequired}
+            <Button variant="ghost" onclick={() => (disableOpen = true)}
+              >{m.two_factor_disable()}</Button
+            >
+          {/if}
+        </div>
+      {:else if settingUpTwoFactor}
+        <TwoFactorSetup ondone={twoFactorSetUp} oncancel={() => (settingUpTwoFactor = false)} />
+      {:else}
+        <p class="text-sm text-muted-foreground">{m.two_factor_intro()}</p>
+        <div>
+          <Button onclick={() => (settingUpTwoFactor = true)}>{m.two_factor_start()}</Button>
+        </div>
+      {/if}
+    </Card.Content>
+  </Card.Root>
 </div>
+
+<PasswordDialog
+  bind:open={newCodesOpen}
+  title={m.two_factor_new_codes()}
+  description={m.two_factor_new_codes_description()}
+  submitLabel={m.two_factor_new_codes()}
+  onsubmit={newBackupCodes}
+/>
+<PasswordDialog
+  bind:open={disableOpen}
+  title={m.two_factor_disable()}
+  description={m.two_factor_disable_description()}
+  submitLabel={m.two_factor_disable()}
+  destructive
+  onsubmit={disableTwoFactor}
+/>
+<Dialog.Root open={freshCodes.length > 0} onOpenChange={(open) => open || closeCodes()}>
+  <Dialog.Content class="sm:max-w-md">
+    <Dialog.Title class="sr-only">{m.two_factor_backup_title()}</Dialog.Title>
+    <BackupCodes codes={freshCodes} />
+    <Dialog.Footer>
+      <Button onclick={closeCodes}>{m.two_factor_backup_done()}</Button>
+    </Dialog.Footer>
+  </Dialog.Content>
+</Dialog.Root>
