@@ -22,7 +22,7 @@ export class BunSqliteDialect implements Dialect {
   constructor(private readonly database: Database) {}
 
   createAdapter() {
-    return new SqliteAdapter();
+    return new BunSqliteAdapter();
   }
   createDriver(): Driver {
     return new BunSqliteDriver(this.database);
@@ -32,6 +32,18 @@ export class BunSqliteDialect implements Dialect {
   }
   createIntrospector(db: Kysely<unknown>): DatabaseIntrospector {
     return new SqliteIntrospector(db);
+  }
+}
+
+/**
+ * Kysely (0.29+) queues connections itself for single-connection adapters,
+ * before the driver is asked. A root query inside a transaction would then
+ * wait in that queue forever, and the driver's guard below never sees it. The
+ * driver serializes the connection on its own, so Kysely's queue is off here.
+ */
+class BunSqliteAdapter extends SqliteAdapter {
+  override get supportsMultipleConnections(): boolean {
+    return true;
   }
 }
 

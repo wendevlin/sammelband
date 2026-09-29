@@ -37,7 +37,10 @@ async function start(e: SubmitEvent) {
   e.preventDefault();
   busy = true;
   const res = await attempt(() =>
-    post<{ totpURI: string; backupCodes: string[] }>("/auth/two-factor/enable", { password }),
+    post<{ totpURI: string; backupCodes: string[] }>("/auth/two-factor/enable", {
+      password,
+      method: "totp",
+    }),
   );
   busy = false;
   if (!res) return;

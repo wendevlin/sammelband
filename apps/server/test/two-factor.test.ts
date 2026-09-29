@@ -44,14 +44,21 @@ function totp(uri: string, at = Date.now()): string {
   return code.toString().padStart(6, "0");
 }
 
+/** Start the authenticator-app setup: the otpauth:// URI and the backup codes. */
+async function enableTotp(headers: Headers) {
+  const res = await auth.api.enableTwoFactor({
+    body: { password: "password123", method: "totp" },
+    headers,
+  });
+  if (res.method !== "totp") throw new Error("expected a TOTP setup");
+  return res;
+}
+
 /** A signed-in user who turned on two-factor authentication. */
 async function withTwoFactor(role: "admin" | "user" = "user") {
   const user = await createUser(role);
   const { headers } = await signIn(user.email);
-  const { totpURI, backupCodes } = await auth.api.enableTwoFactor({
-    body: { password: "password123" },
-    headers,
-  });
+  const { totpURI, backupCodes } = await enableTotp(headers);
   const verified = await auth.api.verifyTOTP({
     body: { code: totp(totpURI) },
     headers,
@@ -114,10 +121,7 @@ describe("two-factor authentication", () => {
       // Users who have it aren't affected.
       expect((await app.request("/content", { headers: admin.headers })).status).toBe(200);
 
-      const { totpURI } = await auth.api.enableTwoFactor({
-        body: { password: "password123" },
-        headers,
-      });
+      const { totpURI } = await enableTotp(headers);
       const verified = await auth.api.verifyTOTP({
         body: { code: totp(totpURI) },
         headers,

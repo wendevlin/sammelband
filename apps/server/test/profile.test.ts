@@ -58,10 +58,10 @@ describe("profile", () => {
       const headers = await sessionHeaders(user.email);
       await profileService.updateProfile(user.id, headers, { locale: "de" });
       const session = await auth.api.getSession({ headers });
-      expect((session?.user as { locale?: string }).locale).toBe("de");
+      expect((session?.user as { locale?: string } | undefined)?.locale).toBe("de");
       await profileService.updateProfile(user.id, headers, { locale: null });
       const cleared = await auth.api.getSession({ headers });
-      expect((cleared?.user as { locale?: string | null }).locale ?? null).toBeNull();
+      expect((cleared?.user as { locale?: string | null } | undefined)?.locale ?? null).toBeNull();
     }),
   );
 
