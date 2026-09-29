@@ -40,6 +40,18 @@ async function setup() {
 }
 
 describe("tenant isolation", () => {
+  test("album slugs are unique per tenant, not across tenants", async () => {
+    const a = await createTenant("A");
+    const b = await createTenant("B");
+    const create = (tenantId: string) =>
+      runInTenant(tenantId, async () => {
+        const user = await createUser("admin");
+        return albumService.createAlbum({ title: "Holiday", folderId: null, createdBy: user.id });
+      });
+    expect((await create(a.id)).slug).toBe("holiday");
+    expect((await create(b.id)).slug).toBe("holiday");
+  });
+
   test("folders", async () => {
     const { asB, folder, bUser } = await setup();
     await asB(async () => {

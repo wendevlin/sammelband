@@ -74,7 +74,7 @@ export type Tenant = {
   suspended_at: number | null;
   created_at: number;
   /** IANA zone, e.g. "Europe/Vienna": share links expire at the end of a day here. */
-  timezone: string | null;
+  timezone: string;
 };
 
 export type TenantInvite = {

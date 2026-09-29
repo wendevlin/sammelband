@@ -33,7 +33,7 @@ export async function currentTenant(): Promise<TenantInfo> {
   const { id, name, quota_bytes, storage_used_bytes, timezone } = await requireTenant(
     currentTenantId(),
   );
-  return { id, name, quota_bytes, storage_used_bytes, timezone: timezone ?? "UTC" };
+  return { id, name, quota_bytes, storage_used_bytes, timezone };
 }
 
 /** Tenant admin: settings of the own Sammelband (name, time zone for share-link expiry). */
@@ -162,7 +162,6 @@ export async function listTenants(ownTenantId: string): Promise<TenantOverview[]
     .execute();
   return rows.map((r) => ({
     ...r,
-    timezone: r.timezone ?? "UTC",
     own: r.id === ownTenantId,
     user_count: Number(r.user_count ?? 0),
     album_count: Number(r.album_count ?? 0),
