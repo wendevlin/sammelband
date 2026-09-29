@@ -1,0 +1,4 @@
+[test]
+# Picks the database (SQLite in memory, or DATABASE_URL) and migrates it.
+preload = ["./test/setup.ts"]
+root = "./test"

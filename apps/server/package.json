@@ -1,0 +1,26 @@
+{
+  "name": "@sammelband/server",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "bun test",
+    "test:postgres": "DATABASE_URL=${TEST_DATABASE_URL:-postgres://postgres:test@localhost:55432/sammelband_test} bun test"
+  },
+  "dependencies": {
+    "@hono/zod-validator": "0.9.1",
+    "@sammelband/shared": "workspace:*",
+    "better-auth": "1.6.13",
+    "hono": "4.13.9",
+    "kysely": "0.28.17",
+    "pg": "8.23.0",
+    "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "@types/bun": "1.3.14",
+    "@types/pg": "8.23.1",
+    "typescript": "5.9.3"
+  },
+  "license": "Apache-2.0"
+}

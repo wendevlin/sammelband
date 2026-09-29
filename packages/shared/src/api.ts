@@ -1,0 +1,193 @@
+// What the API sends: the JSON shapes of /api responses and /ws album patches.
+// The server's services return these types, the web app reads them. Rows of
+// signed-in endpoints may carry more columns (e.g. tenant_id) than listed here.
+
+import type { BlockType } from "./blocks";
+
+export type Role = "admin" | "user";
+
+export type User = {
+  id: string;
+  email: string;
+  name: string;
+  role: Role;
+  /** The instance owner; can't be demoted or deleted. */
+  superadmin: boolean;
+  /** Avatar URL, or null. */
+  image: string | null;
+  createdAt: string;
+};
+
+/** The signed-in user's Sammelband (a tenant in the API). */
+export type TenantInfo = {
+  id: string;
+  name: string;
+  quota_bytes: number | null;
+  storage_used_bytes: number;
+  /** IANA zone that share-link expiry dates refer to. */
+  timezone: string;
+};
+
+/** A Sammelband as the instance owner sees it: metadata, never content. */
+export type TenantOverview = TenantInfo & {
+  suspended_at: number | null;
+  created_at: number;
+  own: boolean;
+  user_count: number;
+  album_count: number;
+  /** An unused, unexpired admin invite exists. */
+  invite_pending: boolean;
+};
+
+export type InstanceOverview = {
+  database: { type: "sqlite" | "postgres"; size_bytes: number };
+  tenants: TenantOverview[];
+};
+
+export type CreatedInvite = { url: string; role: Role; expiresAt: number };
+
+export type Folder = {
+  id: string;
+  name: string;
+  parent_id: string | null;
+  created_by: string | null;
+  created_at: number;
+};
+
+export type Album = {
+  id: string;
+  title: string;
+  slug: string;
+  /** URL id; album links are /albums/<slug>-<short_id>. */
+  short_id: string;
+  description: string | null;
+  folder_id: string | null;
+  cover_photo_id: string | null;
+  /** Resolved cover image filename (explicit cover or first image). */
+  cover_filename: string | null;
+  created_by: string | null;
+  created_at: number;
+  updated_at: number;
+};
+
+export type AlbumBlock = {
+  id: string;
+  album_id: string;
+  parent_id: string | null;
+  sort_order: number;
+  type: BlockType;
+  /** JSON-encoded block content, see the *Content types in blocks.ts. */
+  content: string;
+  created_at: number;
+  updated_at: number;
+};
+
+/** A photo of an album: its row plus the image's metadata. */
+export type Photo = {
+  id: string;
+  album_id: string;
+  block_id: string;
+  sort_order: number;
+  image_file_id: string;
+  caption: string | null;
+  uploaded_by: string | null;
+  uploaded_at: number;
+  filename: string;
+  width: number;
+  height: number;
+  /** Tiny blurred preview, shown while the image loads. */
+  placeholder: string;
+};
+
+export type AlbumDetail = {
+  album: Album;
+  blocks: AlbumBlock[];
+  photos: Photo[];
+};
+
+/**
+ * What changed in an album, as full rows. Clients replace rows by id and drop
+ * removed ids, so applying a patch twice or out of order is harmless.
+ */
+export type AlbumPatch = {
+  album?: Album;
+  blocks?: AlbumBlock[];
+  photos?: Photo[];
+  removedBlocks?: string[];
+  removedPhotos?: string[];
+};
+
+/** A folder as a library tile: up to four album covers as a preview, plus counts. */
+export type FolderTile = Folder & {
+  /** Cover filenames of its albums (or of its sub-folders' albums), newest first. */
+  covers: string[];
+  album_count: number;
+  folder_count: number;
+  /** Latest change: its creation or an edit of an album directly inside. */
+  modified_at: number;
+};
+
+/** How a user orders a folder's contents; stored per user and folder. */
+export type SortMode = "name" | "created" | "modified" | "manual";
+
+export type LibraryContents = {
+  folders: FolderTile[];
+  albums: Album[];
+  sort: SortMode;
+};
+
+export type FolderContents = LibraryContents & { folder: Folder };
+
+export type StorageStats = {
+  quota: { used_bytes: number; limit_bytes: number | null };
+  originals: { file_count: number; size_bytes: number };
+  variants: { file_count: number; size_bytes: number };
+  orphans: { missing_on_disk: number; unknown_on_disk: number };
+};
+
+/** A public link to an album or folder, as its owners see it. */
+export type ShareLinkInfo = {
+  id: string;
+  url: string;
+  has_password: boolean;
+  expires_at: number | null;
+  created_at: number;
+  created_by_name: string | null;
+};
+
+// --- Public links (GET /api/public/:token): trimmed rows, no user or tenant ids.
+
+export type SharedAlbum = Pick<Album, "id" | "title" | "description" | "short_id">;
+export type SharedBlock = Pick<AlbumBlock, "id" | "parent_id" | "sort_order" | "type" | "content">;
+export type SharedPhoto = Pick<
+  Photo,
+  "id" | "block_id" | "sort_order" | "caption" | "filename" | "width" | "height" | "placeholder"
+>;
+export type SharedTile = Pick<
+  FolderTile,
+  "id" | "name" | "covers" | "album_count" | "folder_count"
+>;
+export type SharedAlbumCard = SharedAlbum & { cover_filename: string | null };
+export type Crumb = { id: string; name: string };
+
+/** What a public link shows. */
+export type SharedView =
+  | { status: "locked" }
+  | {
+      status: "ok";
+      kind: "album";
+      album: SharedAlbum;
+      blocks: SharedBlock[];
+      photos: SharedPhoto[];
+      /** Folders from the shared folder down to this album (folder shares only). */
+      trail: Crumb[];
+    }
+  | {
+      status: "ok";
+      kind: "folder";
+      folder: Crumb;
+      folders: SharedTile[];
+      albums: SharedAlbumCard[];
+      /** Folders from the shared folder down to this one. */
+      trail: Crumb[];
+    };

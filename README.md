@@ -28,12 +28,16 @@ size, never the originals.
 - **Frontend:** SvelteKit (Svelte 5) as a static SPA, shadcn-svelte, Tailwind v4, PhotoSwipe
 - The backend serves the built SPA, so production is a single process and container.
 
+A Bun workspace: `apps/server` (backend), `apps/web` (SPA) and `packages/shared`
+(the API types both use). Run the scripts from the repo root; `.env`, the SQLite
+file, `uploads/` and `dist/` live there too.
+
 ## Development
 
 ```sh
-bun install && bun install --cwd frontend
+bun install
 bun run dev            # backend on :3000 (restarts on change)
-bun run dev:frontend   # Vite on :5173, proxies /api and /ws to :3000
+bun run dev:web        # Vite on :5173, proxies /api and /ws to :3000
 ```
 
 Open http://localhost:5173. On the first start the backend prints a one-time
@@ -44,10 +48,10 @@ Sammelband. Afterwards admins create further accounts or invite links under
 Checks:
 
 ```sh
-bun run lint                   # Biome: format + lint, backend and frontend
-bun run typecheck              # backend types
-bun run --cwd frontend check   # svelte-check
-bun test                       # service tests, SQLite in memory
+bun run lint                   # Biome: format + lint, all packages
+bun run typecheck              # server and shared types
+bun run check:web              # svelte-check
+bun run test                   # service tests, SQLite in memory
 ```
 
 To run the tests against Postgres, point `DATABASE_URL` at a throwaway database
@@ -62,8 +66,8 @@ bun run test:postgres          # uses TEST_DATABASE_URL or the container above
 ## Translations
 
 The UI is available in English and German ([Paraglide JS](https://inlang.com/m/gerre34r/library-inlang-paraglideJs)).
-Messages live in `frontend/messages/<locale>.json`; the locale list is in
-`frontend/project.inlang/settings.json`. Users pick their language on the sign-in page
+Messages live in `apps/web/messages/<locale>.json`; the locale list is in
+`apps/web/project.inlang/settings.json`. Users pick their language on the sign-in page
 or in their profile; otherwise the browser language is used.
 
 ## Production
@@ -84,7 +88,7 @@ Put a reverse proxy with TLS in front (Caddy, Traefik, nginx). Set
 there; the app doesn't send it.
 
 The backend alone also runs in Docker for development:
-`docker compose -f docker-compose.dev.yml up`, with `bun run dev:frontend` on the host.
+`docker compose -f docker-compose.dev.yml up`, with `bun run dev:web` on the host.
 
 ## Configuration
 
@@ -111,11 +115,11 @@ Migrations run automatically on every start:
 
 1. better-auth's migrator creates or extends its own tables (`user`, `session`,
    `account`, `verification`, plus tables of enabled plugins) from the auth config.
-2. Kysely's migrator applies the domain migrations in `src/db/migrations/`
+2. Kysely's migrator applies the domain migrations in `apps/server/src/db/migrations/`
    and records them in `kysely_migration`.
 
-To change the schema, add a new file to `src/db/migrations/` and register it in
-`src/db/migrations/index.ts`. Never edit a migration that has been released.
+To change the schema, add a new file to `apps/server/src/db/migrations/` and register it in
+`apps/server/src/db/migrations/index.ts`. Never edit a migration that has been released.
 Use Kysely's schema builder and avoid dialect-specific SQL; if something can't
 be expressed portably, branch on the adapter as `0001_initial.ts` does for
 its trigger.

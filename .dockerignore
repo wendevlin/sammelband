@@ -1,8 +1,9 @@
-node_modules
-frontend/node_modules
-frontend/.svelte-kit
+**/node_modules
+apps/web/.svelte-kit
+apps/web/src/lib/paraglide
 dist
 uploads
+.data
 *.db
 *.db-shm
 *.db-wal
