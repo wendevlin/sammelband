@@ -84,6 +84,8 @@
   "error_too_many_attempts_request_new_code": "Too many attempts. Please sign in again.",
   "error_two_factor_not_enabled": "Two-factor authentication isn't turned on.",
   "error_totp_not_enabled": "Two-factor authentication isn't set up yet.",
+  "error_account_temporarily_locked": "Too many wrong codes. Your account is locked for a while, please try again later.",
+  "error_totp_already_enabled": "Two-factor authentication is already on.",
   "error_unknown": "Something went wrong",
   "setup_done": "Your Sammelband is ready. Sign in to continue.",
   "setup_title": "Set up Sammelband",

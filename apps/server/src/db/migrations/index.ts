@@ -1,4 +1,4 @@
-import type { Migration } from "kysely";
+import type { Migration } from "kysely/migration";
 import * as initial from "./0001_initial";
 import * as twoFactor from "./0002_two_factor";
 

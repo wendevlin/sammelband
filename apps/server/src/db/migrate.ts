@@ -1,5 +1,6 @@
 import { getMigrations } from "better-auth/db/migration";
-import { Migrator, sql } from "kysely";
+import { sql } from "kysely";
+import { Migrator } from "kysely/migration";
 import { auth } from "../auth";
 import { db, dbType } from "./client";
 import { migrations } from "./migrations";

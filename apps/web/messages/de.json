@@ -84,6 +84,8 @@
   "error_too_many_attempts_request_new_code": "Zu viele Versuche. Bitte melde dich neu an.",
   "error_two_factor_not_enabled": "Zwei-Faktor-Authentifizierung ist nicht eingeschaltet.",
   "error_totp_not_enabled": "Zwei-Faktor-Authentifizierung ist noch nicht eingerichtet.",
+  "error_account_temporarily_locked": "Zu viele falsche Codes. Dein Konto ist kurz gesperrt, bitte versuch es später noch einmal.",
+  "error_totp_already_enabled": "Zwei-Faktor-Authentifizierung ist schon eingeschaltet.",
   "error_unknown": "Etwas ist schiefgelaufen",
   "setup_done": "Dein Sammelband ist bereit. Melde dich an, um weiterzumachen.",
   "setup_title": "Sammelband einrichten",
