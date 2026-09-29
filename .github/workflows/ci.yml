@@ -9,7 +9,7 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.4.2 # keep in sync with the Dockerfile
@@ -36,7 +36,7 @@ jobs:
     env:
       DATABASE_URL: ${{ matrix.database == 'postgres' && 'postgres://postgres:test@localhost:5432/sammelband_test' || '' }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.4.2 # keep in sync with the Dockerfile
