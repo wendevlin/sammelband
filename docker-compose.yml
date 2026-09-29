@@ -12,6 +12,9 @@ services:
       - UPLOADS_PATH=/uploads
       - SECRET_KEY=${SECRET_KEY}
       - BASE_URL=${BASE_URL}
+      # The user the app runs as and who owns /data and /uploads.
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
     volumes:
       - db_data:/data
       - uploads:/uploads
