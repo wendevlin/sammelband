@@ -1,6 +1,7 @@
 # Sammelband
 
-Self-hosted photo book app. See README.md for setup; TASKS.md for the plan and backlog.
+Self-hosted photo book app. See README.md for setup and ROADMAP.md for open work
+(finished work is in the git history, not there).
 
 ## Layout
 
@@ -33,7 +34,7 @@ where `.env`, the dev SQLite file, `uploads/` and `dist/` live.
 ## Conventions
 
 - Language: everything in the repo is English (code, comments, UI strings, commit
-  messages, TASKS.md and other docs), even when the conversation is in German.
+  messages, ROADMAP.md and other docs), even when the conversation is in German.
 - Tenants ("Sammelband" in the UI, `tenant` in code): every content row has a
   `tenant_id`. The guards in `middleware/auth.middleware.ts` run each request inside
   the user's tenant (`lib/tenant-context.ts`). Content services query through `tdb()`,
