@@ -12,13 +12,23 @@ COPY packages/shared/package.json packages/shared/
 FROM manifests AS deps
 RUN bun install --frozen-lockfile --production
 
-FROM manifests AS web
+# The SPA is the same on every platform: build it natively on the build machine
+# instead of under emulation for multi-arch images.
+FROM --platform=$BUILDPLATFORM oven/bun:1.4.2 AS web
+WORKDIR /app
+COPY package.json bun.lock bunfig.toml ./
+COPY apps/server/package.json apps/server/
+COPY apps/web/package.json apps/web/
+COPY packages/shared/package.json packages/shared/
 RUN bun install --frozen-lockfile
 COPY packages/shared/ packages/shared/
 COPY apps/web/ apps/web/
 RUN bun run build
 
 FROM base AS production
+# Set by the release workflow: "0.1.0-beta.1", "nightly-20260930", …
+ARG VERSION=dev
+ENV SAMMELBAND_VERSION=$VERSION
 ENV NODE_ENV=production
 ENV FRONTEND_DIST=/app/dist/frontend
 # Defaults so the bare image runs; docker-compose.yml mounts volumes at these paths.

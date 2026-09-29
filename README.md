@@ -74,9 +74,22 @@ or in their profile; otherwise the browser language is used.
 
 ```sh
 cp .env.example .env   # set SECRET_KEY (openssl rand -hex 32) and BASE_URL
-docker compose up -d --build
+docker compose up -d
 docker compose logs app  # shows the setup link on first start
 ```
+
+The image is `ghcr.io/wendevlin/sammelband` for amd64 and arm64:
+
+| Tag | What |
+|---|---|
+| `latest` | The newest stable release |
+| `beta` | The newest pre-release (until 1.0 the only releases there are) |
+| `nightly`, `nightly-YYYYMMDD` | Built from `main` every night with new commits |
+| `0.1.0`, `0.1.0-beta.1`, … | One release |
+
+Pick one with `SAMMELBAND_TAG` in `.env` (default `latest`). To update, `docker
+compose pull && docker compose up -d`; migrations run on start. To build the
+image from source instead: `docker build -t ghcr.io/wendevlin/sammelband:latest .`
 
 Data lives in two volumes: the SQLite database (`/data`, unused with Postgres) and the photos
 (`/uploads`, originals plus a regenerable cache of resized versions). The
