@@ -194,7 +194,7 @@ async function dropIntoGroup(e: DragEvent, group: AlbumBlock) {
 
 <!-- A "+" between blocks: add one right here, no dragging needed. -->
 {#snippet inserter(parentId: string | null, anchor: Anchor)}
-  <div class="group/ins relative flex h-7 items-center justify-center">
+  <li class="group/ins relative flex h-7 items-center justify-center">
     <div
       class="absolute inset-x-0 top-1/2 h-px bg-border opacity-0 transition-opacity group-hover/ins:opacity-100"
     ></div>
@@ -221,24 +221,25 @@ async function dropIntoGroup(e: DragEvent, group: AlbumBlock) {
         {/each}
       </DropdownMenu.Content>
     </DropdownMenu.Root>
-  </div>
+  </li>
 {/snippet}
 
 <!-- Blocks of one parent with "+" before, between and after them. -->
 {#snippet list(items: AlbumBlock[], parentId: string | null)}
-  {#if items.length > 0}
-    {@render inserter(parentId, { beforeId: items[0]?.id })}
-  {/if}
-  {#each items as b (b.id)}
-    {@render card(b)}
-    {@render inserter(parentId, { afterId: b.id })}
-  {/each}
+  <ul>
+    {#if items.length > 0}
+      {@render inserter(parentId, { beforeId: items[0]?.id })}
+    {/if}
+    {#each items as b (b.id)}
+      {@render card(b)}
+      {@render inserter(parentId, { afterId: b.id })}
+    {/each}
+  </ul>
 {/snippet}
 
 {#snippet card(b: AlbumBlock)}
   {@const c = contentOf(b)}
-  <div
-    role="listitem"
+  <li
     class={cn(
       'rounded-xl border bg-card p-4 transition-opacity',
       dragId === b.id && 'opacity-40',
@@ -249,8 +250,8 @@ async function dropIntoGroup(e: DragEvent, group: AlbumBlock) {
     ondrop={(e) => drop(e, b)}
   >
     <div class="mb-3 flex items-center gap-2">
-      <span
-        role="button"
+      <button
+        type="button"
         tabindex="-1"
         aria-label={m.block_drag()}
         class="cursor-grab text-muted-foreground"
@@ -262,7 +263,7 @@ async function dropIntoGroup(e: DragEvent, group: AlbumBlock) {
         ondragend={endDrag}
       >
         <GripVertical class="size-4" />
-      </span>
+      </button>
       <span class="flex-1 text-xs font-semibold tracking-widest text-muted-foreground uppercase">
         {typeLabel(b.type)}
       </span>
@@ -322,13 +323,13 @@ async function dropIntoGroup(e: DragEvent, group: AlbumBlock) {
         {#if siblingsOf(b.id).length > 0}
           {@render list(siblingsOf(b.id), b.id)}
         {:else}
-          <div
-            role="listitem"
-            class={cn(
+          <ul>
+            <li
+              class={cn(
               'mb-3 rounded-lg border border-dashed px-4 py-6 text-center text-sm text-muted-foreground',
               groupTarget === b.id && 'border-primary bg-muted'
             )}
-            ondragover={(e) => {
+              ondragover={(e) => {
               const d = dragged();
               if (!d || d.type === 'group') return;
               e.preventDefault();
@@ -336,16 +337,17 @@ async function dropIntoGroup(e: DragEvent, group: AlbumBlock) {
               groupTarget = b.id;
               dropTarget = null;
             }}
-            ondragleave={() => (groupTarget = null)}
-            ondrop={(e) => dropIntoGroup(e, b)}
-          >
-            {m.block_group_empty()}
-          </div>
+              ondragleave={() => (groupTarget = null)}
+              ondrop={(e) => dropIntoGroup(e, b)}
+            >
+              {m.block_group_empty()}
+            </li>
+          </ul>
         {/if}
         {@render addButtons(b.id)}
       </div>
     {/if}
-  </div>
+  </li>
 {/snippet}
 
 <div>
