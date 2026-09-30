@@ -60,6 +60,10 @@ where `.env`, the dev SQLite file, `uploads/` and `dist/` live.
   `requireAdmin` for `/api/admin/*` (users, invites, storage of the own tenant),
   `requireSuperadmin` for `/api/instance/*` (tenant management, metadata only). No
   per-resource grants.
+- Email is optional (`SMTP_*`, `lib/mail.ts`): check `mailEnabled()` and send with
+  `sendMailInBackground()` (never await it in a request: timing would reveal accounts).
+  Texts in `lib/mail-templates.ts`, English and German. Password reset is better-auth's
+  (`sendResetPassword` in `auth.ts`); `requireMail` closes its request endpoint without SMTP.
 - Two-factor authentication is better-auth's `twoFactor` plugin (`/api/auth/two-factor/*`).
   Tenant admins and the superadmin can require it (`services/two-factor.service.ts`;
   only if they use it themselves). Then the guards answer `two_factor_setup_required`

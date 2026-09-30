@@ -88,7 +88,16 @@ function back() {
         <Input id="email" type="email" bind:value={email} required autocomplete="email" />
       </div>
       <div class="grid gap-2">
-        <Label for="password">{m.common_password()}</Label>
+        <div class="flex items-baseline justify-between gap-2">
+          <Label for="password">{m.common_password()}</Label>
+          {#if auth.mail}
+            <a
+              href="/forgot-password{email ? `?email=${encodeURIComponent(email)}` : ''}"
+              class="text-sm text-muted-foreground underline-offset-4 hover:underline"
+              >{m.login_forgot()}</a
+            >
+          {/if}
+        </div>
         <Input
           id="password"
           type="password"

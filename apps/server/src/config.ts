@@ -40,6 +40,26 @@ if (!isDev && secretKey.length < 32) {
 
 const baseUrl = required("BASE_URL", isDev ? "http://localhost:3000" : undefined);
 
+// Outgoing email over SMTP (password reset links). Optional: without SMTP_HOST
+// the app sends no mail and hides "Forgot password?".
+const smtp = (() => {
+  const host = optional("SMTP_HOST");
+  if (!host) return null;
+  // Port 465 speaks TLS from the start; 587 and 25 upgrade with STARTTLS.
+  const secure = process.env.SMTP_SECURE
+    ? process.env.SMTP_SECURE === "true"
+    : process.env.SMTP_PORT === "465";
+  return {
+    host,
+    port: Number(process.env.SMTP_PORT ?? (secure ? 465 : 587)),
+    secure,
+    user: optional("SMTP_USER"),
+    password: optional("SMTP_PASSWORD"),
+    /** Sender, e.g. `Sammelband <sammelband@example.com>`. */
+    from: required("SMTP_FROM"),
+  };
+})();
+
 export const config = {
   NODE_ENV,
   isDev,
@@ -63,6 +83,7 @@ export const config = {
   DATABASE_PATH: process.env.DATABASE_PATH ?? "./sammelband.db",
   UPLOADS_PATH: required("UPLOADS_PATH", isDev ? "./uploads" : undefined),
   FRONTEND_DIST: process.env.FRONTEND_DIST ?? "./dist/frontend",
+  SMTP: smtp,
 } as const;
 
 /**

@@ -63,6 +63,14 @@ export const authRateLimit = rateLimit({
   max: 30,
 });
 
+// Password reset mails: 5 per IP per hour, so the app can't be used to flood
+// someone's inbox.
+export const passwordResetRateLimit = rateLimit({
+  name: "password-reset",
+  windowMs: 60 * 60 * 1000,
+  max: 5,
+});
+
 // 60 upload requests per IP per hour.
 export const uploadRateLimit = rateLimit({
   name: "upload",
