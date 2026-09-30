@@ -46,10 +46,12 @@ COPY packages/shared/ ./packages/shared/
 COPY apps/server/package.json apps/server/tsconfig.json ./apps/server/
 COPY apps/server/src/ ./apps/server/src/
 
-# Run as the image's unprivileged "bun" user (uid 1000). Named volumes take
-# over this ownership; bind mounts must be writable by uid 1000.
+# The app runs as the unprivileged "bun" user (uid 1000, or PUID/PGID). The
+# entrypoint starts as root only to hand /data and /uploads to that user (bind
+# mounts are often root-owned), then drops privileges for good.
 RUN mkdir -p /data /uploads/tenants && chown -R bun:bun /data /uploads
-USER bun
+COPY --chmod=755 docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+ENTRYPOINT ["docker-entrypoint.sh"]
 
 EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
