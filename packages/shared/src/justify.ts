@@ -15,10 +15,15 @@ export type JustifyOptions = {
   gap: number;
 };
 
+/** How low a row may get (share of the target height) to take in the last photos. */
+const MIN_MERGED_HEIGHT = 0.75;
+
 /**
  * Split photos (given as width / height ratios, in order) into rows.
  * A row is closed before or after the photo that makes it overflow, whichever
- * gives a height closer to the target. Invalid ratios count as square.
+ * gives a height closer to the target. Photos that don't fill a last row
+ * join the row above when it stays at least 75% of the target height.
+ * Invalid ratios count as square.
  */
 export function justify(
   ratios: number[],
@@ -46,9 +51,19 @@ export function justify(
     while (end < ar.length && fitHeight(start, end) > targetHeight) end++;
     const fitted = fitHeight(start, end);
     if (fitted > targetHeight) {
-      // The rest doesn't fill a row: unstretched, at the target height, but
-      // no taller than the row above.
-      rows.push(row(start, end, Math.min(targetHeight, rows.at(-1)?.height ?? targetHeight)));
+      // The rest doesn't fill a row. Squeeze it into the row above if that
+      // stays close enough to the target height (no lonely photo at the end),
+      // else leave it unstretched: target height, no taller than the row above.
+      const prev = rows.at(-1);
+      const prevStart = prev?.items[0]?.index;
+      if (prev && prevStart !== undefined) {
+        const merged = fitHeight(prevStart, end);
+        if (merged >= targetHeight * MIN_MERGED_HEIGHT) {
+          rows[rows.length - 1] = row(prevStart, end, merged);
+          break;
+        }
+      }
+      rows.push(row(start, end, Math.min(targetHeight, prev?.height ?? targetHeight)));
       break;
     }
     // One photo fewer may come closer to the target height.
