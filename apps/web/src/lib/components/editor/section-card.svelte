@@ -52,6 +52,7 @@ let createdId = $state<string | null>(null);
 let creating: Promise<string | null> | null = null;
 
 const sectionId = $derived(section?.id ?? createdId);
+const highlightId = $props.id();
 const value = <K extends keyof Fields>(key: K, fallback: Fields[K]): Fields[K] =>
   (edits[key] ?? section?.[key] ?? fallback) as Fields[K];
 const title = $derived(value("title", ""));
@@ -150,13 +151,15 @@ const pending = $derived(saving || Object.keys(edits).length > 0);
     {#if pending}
       <span class="text-xs text-muted-foreground">{m.common_saving()}</span>
     {/if}
-    <label class="flex items-center gap-2 text-sm text-muted-foreground">
+    <div class="flex items-center gap-2 text-sm text-muted-foreground">
       <Switch
+        id={highlightId}
+        aria-label={m.section_highlight()}
         checked={highlight}
         onCheckedChange={(checked) => change({ highlight: checked }, 0)}
       />
-      <span class="hidden sm:inline">{m.section_highlight()}</span>
-    </label>
+      <label for={highlightId} class="hidden sm:inline">{m.section_highlight()}</label>
+    </div>
     {#if section}
       <Button variant="ghost" size="icon-sm" aria-label={m.section_delete()} onclick={ondelete}>
         <Trash />
