@@ -416,15 +416,13 @@ const deleteFolder = () =>
     <h2 class="mb-4 text-xs font-semibold tracking-widest text-muted-foreground uppercase">
       {m.library_folders()}
     </h2>
-    <div
-      role="list"
+    <ul
       class="grid grid-cols-1 gap-x-6 gap-y-10 sm:grid-cols-2 lg:grid-cols-3"
       ondragover={(e) => dragOverGrid(e, 'folder')}
       ondrop={drop}
     >
       {#each shownFolders as f, i (f.id)}
-        <div
-          role="listitem"
+        <li
           class="relative"
           animate:flip={{ duration: 180 }}
           draggable="true"
@@ -456,9 +454,9 @@ const deleteFolder = () =>
             </FolderCard>
           </div>
           {@render dropOverlay(f.id, f.name)}
-        </div>
+        </li>
       {/each}
-    </div>
+    </ul>
   </section>
 {/if}
 
@@ -474,15 +472,13 @@ const deleteFolder = () =>
       {folder ? m.folder_is_empty() : m.library_empty()}
     </p>
   {:else if albumOrder.length > 0}
-    <div
-      role="list"
+    <ul
       class="grid grid-cols-1 gap-x-6 gap-y-10 sm:grid-cols-2 lg:grid-cols-3"
       ondragover={(e) => dragOverGrid(e, 'album')}
       ondrop={drop}
     >
       {#each shownAlbums as album, i (album.id)}
-        <div
-          role="listitem"
+        <li
           class="relative"
           animate:flip={{ duration: 180 }}
           draggable="true"
@@ -503,9 +499,9 @@ const deleteFolder = () =>
             </AlbumCard>
           </div>
           {@render dropOverlay(album.id)}
-        </div>
+        </li>
       {/each}
-    </div>
+    </ul>
   {/if}
 </section>
 
