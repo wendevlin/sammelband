@@ -117,10 +117,9 @@ const draggingForeign = $derived(
 </script>
 
 {#if photos.length > 0}
-  <div class="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-6">
+  <ul class="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-6">
     {#each photos as p (p.id)}
-      <div
-        role="listitem"
+      <li
         class={cn(
 					'relative transition-opacity',
 					photoDrag.current?.id === p.id && 'opacity-40',
@@ -173,9 +172,9 @@ const draggingForeign = $derived(
           value={p.caption ?? ''}
           onchange={(e) => saveCaption(p, e.currentTarget.value)}
         />
-      </div>
+      </li>
     {/each}
-  </div>
+  </ul>
 {/if}
 
 <button
