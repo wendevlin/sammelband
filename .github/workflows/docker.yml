@@ -51,7 +51,7 @@ jobs:
             echo "version=nightly-$(date -u +%Y%m%d)" >> "$GITHUB_OUTPUT"
           fi
 
-      - uses: docker/metadata-action@v5
+      - uses: docker/metadata-action@v6
         id: meta
         if: steps.changes.outputs.build == 'true'
         with:
