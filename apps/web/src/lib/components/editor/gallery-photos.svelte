@@ -15,8 +15,19 @@ import { m } from "$lib/paraglide/messages.js";
 import { cn } from "$lib/utils";
 import { photoDrag } from "./photo-drag.svelte";
 
-/** Photo manager for one gallery block: upload, caption, reorder, delete. */
-let { blockId, photos }: { blockId: string; photos: Photo[] } = $props();
+/**
+ * Photo manager for one section: upload, caption, reorder, delete. The empty
+ * section at the end has no id yet; `ensureSection` creates it first.
+ */
+let {
+  sectionId,
+  photos,
+  ensureSection,
+}: {
+  sectionId: string | null;
+  photos: Photo[];
+  ensureSection: () => Promise<string | null>;
+} = $props();
 
 let over = $state(false);
 let uploading = $state(0);
@@ -36,7 +47,9 @@ async function upload(files: FileList | File[]) {
   uploading = list.length;
   let res: { uploaded: { deduplicated: boolean }[] } | undefined;
   try {
-    res = await api<{ uploaded: { deduplicated: boolean }[] }>(`/blocks/${blockId}/photos`, {
+    const id = sectionId ?? (await ensureSection());
+    if (!id) return;
+    res = await api<{ uploaded: { deduplicated: boolean }[] }>(`/sections/${id}/photos`, {
       method: "POST",
       body: fd,
     });
@@ -71,8 +84,8 @@ async function saveCaption(p: Photo, raw: string) {
 }
 
 /**
- * Drop the dragged photo (from this or another gallery) before or after
- * `target`, or at the end of this gallery. One write either way.
+ * Drop the dragged photo (from this or another section) before or after
+ * `target`, or at the end of this section. One write either way.
  */
 async function drop(target: Photo | null) {
   const dragged = photoDrag.current;
@@ -86,7 +99,9 @@ async function drop(target: Photo | null) {
       ? (rest[rest.findIndex((p) => p.id === target.id) + 1]?.id ?? null)
       : target.id;
   }
-  await attempt(() => post(`/photos/${dragged.id}/move`, { blockId, beforeId }));
+  const id = sectionId ?? (await ensureSection());
+  if (!id) return;
+  await attempt(() => post(`/photos/${dragged.id}/move`, { sectionId: id, beforeId }));
 }
 
 function endDrag() {
@@ -95,9 +110,9 @@ function endDrag() {
   over = false;
 }
 
-/** A photo from another gallery is being dragged over this one. */
+/** A photo from another section is being dragged over this one. */
 const draggingForeign = $derived(
-  photoDrag.current !== null && photoDrag.current.blockId !== blockId,
+  photoDrag.current !== null && photoDrag.current.sectionId !== sectionId,
 );
 </script>
 
@@ -128,7 +143,9 @@ const draggingForeign = $derived(
           aria-label={p.caption ?? m.photo()}
           class="group relative aspect-square cursor-grab overflow-hidden rounded-lg bg-muted"
           draggable="true"
-          ondragstart={() => (photoDrag.current = { id: p.id, blockId })}
+          ondragstart={() => {
+            if (sectionId) photoDrag.current = { id: p.id, sectionId };
+          }}
           ondragend={endDrag}
         >
           <img

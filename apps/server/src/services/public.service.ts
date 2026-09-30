@@ -108,21 +108,21 @@ async function trailWithin(rootId: string, folderId: string | null): Promise<Cru
 }
 
 async function albumView(ref: string, trail: Crumb[]): Promise<SharedView> {
-  const { album, blocks, photos } = await albumService.getAlbumDetail(ref);
+  const { album, sections, photos } = await albumService.getAlbumDetail(ref);
   return {
     status: "ok",
     kind: "album",
     album: publicAlbum(album),
-    blocks: blocks.map(({ id, parent_id, sort_order, type, content }) => ({
+    sections: sections.map(({ id, sort_order, title, text, highlight }) => ({
       id,
-      parent_id,
       sort_order,
-      type,
-      content,
+      title,
+      text,
+      highlight,
     })),
     photos: photos.map((p) => ({
       id: p.id,
-      block_id: p.block_id,
+      section_id: p.section_id,
       sort_order: p.sort_order,
       caption: p.caption,
       filename: p.filename,

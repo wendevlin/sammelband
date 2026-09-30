@@ -19,7 +19,7 @@ const TABLES = [
   "tenant_invites",
   "photos",
   "image_files",
-  "album_blocks",
+  "sections",
   "albums",
   "folders",
   "session",

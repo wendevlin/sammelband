@@ -10,9 +10,10 @@ Bun workspace (isolated installs, one root `bun.lock`). Scripts run from the rep
 where `.env`, the dev SQLite file, `uploads/` and `dist/` live.
 
 - `packages/shared` (`@sammelband/shared`): the API types (`api.ts`: what `/api` and
-  the `/ws` album patches send) and block content (`blocks.ts`). Services return
-  these types and the web app imports them; a new or changed response shape goes
-  here. DB row types stay in the server's `db/schema.ts`.
+  the `/ws` album patches send) and code both sides need, like the justified
+  gallery rows (`justify.ts`, for the album page and a later PDF export). Services
+  return these types and the web app imports them; a new or changed response shape
+  goes here. DB row types stay in the server's `db/schema.ts`.
 - `apps/server/src/` backend (Bun + Hono). `index.ts` wires everything; `routes/` are thin Hono
   routers with zod validation (`lib/validate.ts`); `services/` hold all logic and
   queries (async, Kysely query builder). Services throw `fail(code, params?)` (`lib/errors.ts`);
@@ -55,7 +56,7 @@ where `.env`, the dev SQLite file, `uploads/` and `dist/` live.
   `imageSrc()`.
 - Security headers and the CSP are set in `index.ts` (`secureHeaders`). A feature that
   loads from other hosts (e.g. map tiles) has to extend the CSP there. Don't add
-  `{@html}`; block content is rendered as text.
+  `{@html}`; section text is rendered as text.
 - Permissions: `requireAuth` for all content (everyone in a tenant edits everything),
   `requireAdmin` for `/api/admin/*` (users, invites, storage of the own tenant),
   `requireSuperadmin` for `/api/instance/*` (tenant management, metadata only). No
@@ -78,7 +79,11 @@ where `.env`, the dev SQLite file, `uploads/` and `dist/` live.
 - Inside `db.transaction().execute(async (trx) => …)` use `trx` for every query.
   SQLite has one connection; inside `runInTenant` the driver throws on a root query
   during a transaction (`withTransactionGuard`), elsewhere it would wait forever.
-- Every change to an album's blocks, photos or chosen cover calls
+- Albums are a list of sections (`sections`: `title`, `text` as Markdown, `highlight`
+  0/1, `sort_order`); photos belong to a section (`photos.section_id`). The editor
+  shows one empty section at the end that exists only in the browser; its first
+  input or upload creates the row, so the database has no empty placeholders.
+- Every change to an album's sections, photos or chosen cover calls
   `imageService.albumChanged(albumId)`: it bumps `updated_at` and recomputes the stored
   `albums.cover_filename` that library pages read.
 - Deleting a tenant (`tenant.service.deleteTenant`) removes rows table by table; a new

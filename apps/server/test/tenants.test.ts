@@ -7,10 +7,10 @@ import { TENANT_COLUMNS } from "../src/db/tenant-scope";
 import { tenantDir } from "../src/lib/storage-paths";
 import { runInTenant } from "../src/lib/tenant-context";
 import * as albumService from "../src/services/album.service";
-import * as blockService from "../src/services/block.service";
 import * as folderService from "../src/services/folder.service";
 import * as imageService from "../src/services/image.service";
 import * as inviteService from "../src/services/invite.service";
+import * as sectionService from "../src/services/section.service";
 import * as shareService from "../src/services/share.service";
 import * as tenantService from "../src/services/tenant.service";
 import * as userService from "../src/services/user.service";
@@ -26,12 +26,8 @@ async function gallery(tenantId: string) {
       folderId: null,
       createdBy: user.id,
     });
-    const block = await blockService.createBlock({
-      albumId: album.id,
-      type: "gallery",
-      content: {},
-    });
-    return { user, album, block };
+    const section = await sectionService.createSection({ albumId: album.id });
+    return { user, album, section };
   });
 }
 
@@ -41,7 +37,7 @@ const signIn = (email: string) =>
 describe("quota", () => {
   test("new originals count against the quota, duplicates don't, deletes free space", async () => {
     const tenant = await createTenant();
-    const { user, block } = await gallery(tenant.id);
+    const { user, section } = await gallery(tenant.id);
     const red = png().size;
     const blue = png([0, 0, 255]).size;
     await db
@@ -51,10 +47,10 @@ describe("quota", () => {
     const used = async () => (await tenantService.currentTenant()).storage_used_bytes;
 
     await runInTenant(tenant.id, async () => {
-      const first = await imageService.uploadPhoto(png(), block.id, user.id);
-      await imageService.uploadPhoto(png(), block.id, user.id); // duplicate: free
-      await imageService.uploadPhoto(png([0, 0, 255]), block.id, user.id);
-      await expect(imageService.uploadPhoto(png([0, 255, 0]), block.id, user.id)).rejects.toThrow(
+      const first = await imageService.uploadPhoto(png(), section.id, user.id);
+      await imageService.uploadPhoto(png(), section.id, user.id); // duplicate: free
+      await imageService.uploadPhoto(png([0, 0, 255]), section.id, user.id);
+      await expect(imageService.uploadPhoto(png([0, 255, 0]), section.id, user.id)).rejects.toThrow(
         "quota",
       );
       expect(await used()).toBe(red + blue);
@@ -62,11 +58,11 @@ describe("quota", () => {
       // The red file is still used by its duplicate after the first delete.
       await imageService.deletePhoto(first.photo.id);
       expect(await used()).toBe(red + blue);
-      const others = await imageService.photosWithImage({ blockId: block.id });
+      const others = await imageService.photosWithImage({ sectionId: section.id });
       const duplicate = others.find((p) => p.image_file_id === first.imageFile.id);
       await imageService.deletePhoto(duplicate?.id ?? "");
       expect(await used()).toBe(blue);
-      await imageService.uploadPhoto(png([0, 255, 0]), block.id, user.id);
+      await imageService.uploadPhoto(png([0, 255, 0]), section.id, user.id);
     });
   });
 });
@@ -87,8 +83,8 @@ describe("tenant settings", () => {
 describe("storage counter", () => {
   test("reconciling corrects a drifted counter from the stored files", async () => {
     const tenant = await createTenant();
-    const { user, block } = await gallery(tenant.id);
-    await runInTenant(tenant.id, () => imageService.uploadPhoto(png(), block.id, user.id));
+    const { user, section } = await gallery(tenant.id);
+    await runInTenant(tenant.id, () => imageService.uploadPhoto(png(), section.id, user.id));
     const used = async () =>
       (await db.selectFrom("tenants").select("storage_used_bytes").executeTakeFirstOrThrow())
         .storage_used_bytes;
@@ -218,8 +214,8 @@ describe("superadmin", () => {
   test("deleting removes users, content and files; needs the name", async () => {
     const own = await createTenant("Own");
     const tenant = await createTenant("Doomed");
-    const { user, block } = await gallery(tenant.id);
-    await runInTenant(tenant.id, () => imageService.uploadPhoto(png(), block.id, user.id));
+    const { user, section } = await gallery(tenant.id);
+    await runInTenant(tenant.id, () => imageService.uploadPhoto(png(), section.id, user.id));
     expect(existsSync(tenantDir(tenant.id))).toBe(true);
 
     await expect(tenantService.deleteTenant(own.id, tenant.id, "Doom")).rejects.toThrow("name");
@@ -228,7 +224,7 @@ describe("superadmin", () => {
     await tenantService.deleteTenant(own.id, tenant.id, " DOOMED ");
 
     expect(existsSync(tenantDir(tenant.id))).toBe(false);
-    for (const table of ["albums", "album_blocks", "photos", "image_files", "folders"] as const) {
+    for (const table of ["albums", "sections", "photos", "image_files", "folders"] as const) {
       expect(await db.selectFrom(table).select("id").execute()).toEqual([]);
     }
     expect(await db.selectFrom("user").select("id").where("id", "=", user.id).execute()).toEqual(
@@ -240,13 +236,13 @@ describe("superadmin", () => {
     const own = await createTenant("Own");
     const tenant = await createTenant("Full");
     await runInTenant(tenant.id, async () => {
-      const { user, album, block } = await gallery(tenant.id);
+      const { user, album, section } = await gallery(tenant.id);
       const folder = await folderService.createFolder({
         name: "F",
         parentId: null,
         createdBy: user.id,
       });
-      await imageService.uploadPhoto(png(), block.id, user.id);
+      await imageService.uploadPhoto(png(), section.id, user.id);
       await folderService.moveItem(null, user.id, { kind: "album", id: album.id, beforeId: null });
       await folderService.moveItem(null, user.id, {
         kind: "folder",

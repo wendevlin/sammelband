@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import * as albumService from "../src/services/album.service";
-import * as blockService from "../src/services/block.service";
 import * as folderService from "../src/services/folder.service";
 import * as imageService from "../src/services/image.service";
+import * as sectionService from "../src/services/section.service";
 import { createUser, inTenant, png } from "./helpers";
 
 type RGB = [number, number, number];
@@ -11,8 +11,8 @@ type RGB = [number, number, number];
 async function album(userId: string, folderId: string | null, color: RGB | null) {
   const a = await albumService.createAlbum({ title: "A", folderId, createdBy: userId });
   if (color) {
-    const block = await blockService.createBlock({ albumId: a.id, type: "gallery", content: {} });
-    const { imageFile } = await imageService.uploadPhoto(png(color), block.id, userId);
+    const section = await sectionService.createSection({ albumId: a.id });
+    const { imageFile } = await imageService.uploadPhoto(png(color), section.id, userId);
     await Bun.sleep(2); // distinct created_at for a stable order
     return { album: a, cover: imageFile.filename };
   }

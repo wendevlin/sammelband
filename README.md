@@ -1,8 +1,8 @@
 # Sammelband
 
 Self-hosted digital photo books. Folders hold albums; an album is a sequence of
-blocks (headings, text, photo galleries and groups of those). Photos are
-deduplicated on disk and resized on demand.
+sections, each with a title, text and photos (shown in justified rows), and
+optionally highlighted. Photos are deduplicated on disk and resized on demand.
 
 One installation can host several independent **Sammelbände**, e.g. one per
 family or group of friends (off by default, enable with `MULTI_TENANT=true`).

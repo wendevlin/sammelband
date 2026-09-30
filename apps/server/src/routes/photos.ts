@@ -6,10 +6,10 @@ import { type AuthEnv, requireAuth } from "../middleware/auth.middleware";
 import { uploadRateLimit } from "../middleware/rate-limit.middleware";
 import * as imageService from "../services/image.service";
 
-/** Mounted under /api/blocks: photos are uploaded directly into a gallery block. */
-export const blockPhotoRoutes = new Hono<AuthEnv>()
+/** Mounted under /api/sections: photos are uploaded straight into a section. */
+export const sectionPhotoRoutes = new Hono<AuthEnv>()
   .use("*", requireAuth)
-  .post("/:blockId/photos", uploadRateLimit, async (c) => {
+  .post("/:sectionId/photos", uploadRateLimit, async (c) => {
     const body = await c.req.parseBody({ all: true });
     const raw = body.files;
     const files = (Array.isArray(raw) ? raw : raw === undefined ? [] : [raw]).filter(
@@ -19,18 +19,18 @@ export const blockPhotoRoutes = new Hono<AuthEnv>()
     const uploaded = [];
     // Sequential so sort_order follows the selection order.
     for (const f of files) {
-      uploaded.push(await imageService.uploadPhoto(f, c.req.param("blockId"), c.get("user").id));
+      uploaded.push(await imageService.uploadPhoto(f, c.req.param("sectionId"), c.get("user").id));
     }
     return c.json({ uploaded }, 201);
   })
   .post(
-    "/:blockId/photos/reorder",
+    "/:sectionId/photos/reorder",
     validate(
       "json",
       z.object({ order: z.array(z.object({ id: z.string(), sortOrder: z.number() })) }),
     ),
     async (c) => {
-      await imageService.reorderPhotos(c.req.param("blockId"), c.req.valid("json").order);
+      await imageService.reorderPhotos(c.req.param("sectionId"), c.req.valid("json").order);
       return c.json({ ok: true });
     },
   );
@@ -46,10 +46,10 @@ export const photoRoutes = new Hono<AuthEnv>()
   )
   .post(
     "/:photoId/move",
-    validate("json", z.object({ blockId: z.string(), beforeId: z.string().nullable() })),
+    validate("json", z.object({ sectionId: z.string(), beforeId: z.string().nullable() })),
     async (c) => {
-      const { blockId, beforeId } = c.req.valid("json");
-      return c.json(await imageService.movePhoto(c.req.param("photoId"), blockId, beforeId));
+      const { sectionId, beforeId } = c.req.valid("json");
+      return c.json(await imageService.movePhoto(c.req.param("photoId"), sectionId, beforeId));
     },
   )
   .delete("/:photoId", async (c) => {

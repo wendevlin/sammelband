@@ -18,7 +18,7 @@ export type UploadedPhoto = {
 
 /**
  * The cover image of an album: the explicitly chosen cover, else its first
- * image (first gallery in block order, first photo by sort_order), else null.
+ * image (first photo of the first section with photos), else null.
  */
 async function computeCover(albumId: string): Promise<string | null> {
   const chosen = await tdb()
@@ -32,10 +32,10 @@ async function computeCover(albumId: string): Promise<string | null> {
   const first = await tdb()
     .selectFrom("photos as p")
     .innerJoin("image_files as i", "i.id", "p.image_file_id")
-    .innerJoin("album_blocks as b", "b.id", "p.block_id")
+    .innerJoin("sections as s", "s.id", "p.section_id")
     .select("i.filename")
     .where("p.album_id", "=", albumId)
-    .orderBy("b.sort_order")
+    .orderBy("s.sort_order")
     .orderBy("p.sort_order")
     .limit(1)
     .executeTakeFirst();
@@ -46,7 +46,7 @@ async function computeCover(albumId: string): Promise<string | null> {
  * Record that an album's content changed: bumps `updated_at` (the "recently
  * changed" order counts content edits) and recomputes the stored
  * `cover_filename`, so listing albums never has to look covers up. Every
- * change to blocks, photos or the chosen cover must call this.
+ * change to sections, photos or the chosen cover must call this.
  */
 export async function albumChanged(albumId: string): Promise<void> {
   await tdb()
@@ -59,7 +59,7 @@ export async function albumChanged(albumId: string): Promise<void> {
 /** Photos joined with their image metadata, ordered by sort_order. */
 export function photosWithImage(filter: {
   albumId?: string;
-  blockId?: string;
+  sectionId?: string;
   ids?: string[];
 }): Promise<PhotoWithImage[]> {
   let q = tdb()
@@ -69,7 +69,7 @@ export function photosWithImage(filter: {
     .select(["i.filename", "i.width", "i.height", "i.placeholder"])
     .orderBy("p.sort_order");
   if (filter.albumId) q = q.where("p.album_id", "=", filter.albumId);
-  if (filter.blockId) q = q.where("p.block_id", "=", filter.blockId);
+  if (filter.sectionId) q = q.where("p.section_id", "=", filter.sectionId);
   if (filter.ids) q = q.where("p.id", "in", filter.ids);
   return q.execute();
 }
@@ -88,7 +88,7 @@ async function getAlbumRow(id: string): Promise<Album> {
 
 export async function uploadPhoto(
   file: File,
-  blockId: string,
+  sectionId: string,
   uploaderId: string,
 ): Promise<UploadedPhoto> {
   if (file.size > config.MAX_UPLOAD_BYTES) {
@@ -97,15 +97,14 @@ export async function uploadPhoto(
   if (!file.type.startsWith("image/")) {
     throw fail("only_images");
   }
-  // Photos belong to a gallery block; the album is derived from it.
-  const block = await tdb()
-    .selectFrom("album_blocks")
-    .select(["album_id", "type"])
-    .where("id", "=", blockId)
+  // Photos belong to a section; the album is derived from it.
+  const section = await tdb()
+    .selectFrom("sections")
+    .select("album_id")
+    .where("id", "=", sectionId)
     .executeTakeFirst();
-  if (!block) throw fail("gallery_not_found");
-  if (block.type !== "gallery") throw fail("not_a_gallery");
-  const albumId = block.album_id;
+  if (!section) throw fail("section_not_found");
+  const albumId = section.album_id;
 
   const buf = Buffer.from(await file.arrayBuffer());
 
@@ -130,14 +129,14 @@ export async function uploadPhoto(
   const { max } = await tdb()
     .selectFrom("photos")
     .select((eb) => eb.fn.max("sort_order").as("max"))
-    .where("block_id", "=", blockId)
+    .where("section_id", "=", sectionId)
     .executeTakeFirstOrThrow();
 
   const photo: Photo = {
     id: Bun.randomUUIDv7(),
     tenant_id: currentTenantId(),
     album_id: albumId,
-    block_id: blockId,
+    section_id: sectionId,
     sort_order: (max ?? 0) + 1,
     image_file_id: imageFile.id,
     caption: null,
@@ -275,15 +274,14 @@ export async function deletePhoto(photoId: string): Promise<void> {
   emit({ topic: topics.storageStats(), kind: "updated" });
 }
 
-// Delete every photo belonging to the given blocks, cleaning disk/cache (dedup-aware).
-// Used when a gallery block (or a group containing galleries) is deleted.
-// Returns the deleted photo ids; the caller emits the album change.
-export async function deletePhotosByBlocks(blockIds: string[]): Promise<string[]> {
-  if (blockIds.length === 0) return [];
+// Delete every photo of a section, cleaning disk/cache (dedup-aware). Used when
+// a section is deleted. Returns the deleted photo ids; the caller emits the
+// album change.
+export async function deletePhotosBySection(sectionId: string): Promise<string[]> {
   const photos = await tdb()
     .selectFrom("photos")
     .selectAll()
-    .where("block_id", "in", blockIds)
+    .where("section_id", "=", sectionId)
     .execute();
   if (photos.length === 0) return [];
   await deletePhotoRows(photos);
@@ -305,33 +303,32 @@ export async function deletePhotosByAlbum(albumId: string): Promise<void> {
 }
 
 /**
- * Move a photo into a gallery of the same album, before `beforeId` (null: at
- * the end). Also works within its own gallery.
+ * Move a photo into a section of the same album, before `beforeId` (null: at
+ * the end). Also works within its own section.
  */
 export async function movePhoto(
   photoId: string,
-  blockId: string,
+  sectionId: string,
   beforeId: string | null,
 ): Promise<Photo> {
   const photo = await getPhoto(photoId);
   if (!photo) throw fail("photo_not_found");
-  const block = await tdb()
-    .selectFrom("album_blocks")
-    .select(["album_id", "type"])
-    .where("id", "=", blockId)
+  const section = await tdb()
+    .selectFrom("sections")
+    .select("album_id")
+    .where("id", "=", sectionId)
     .executeTakeFirst();
-  if (!block || block.album_id !== photo.album_id) throw fail("gallery_not_found");
-  if (block.type !== "gallery") throw fail("not_a_gallery");
+  if (!section || section.album_id !== photo.album_id) throw fail("section_not_found");
 
   const others = tdb()
     .selectFrom("photos")
     .select("sort_order")
-    .where("block_id", "=", blockId)
+    .where("section_id", "=", sectionId)
     .where("id", "!=", photoId);
   let sortOrder: number;
   if (beforeId) {
     const before = await getPhoto(beforeId);
-    if (!before || before.block_id !== blockId) throw fail("target_photo_not_found");
+    if (!before || before.section_id !== sectionId) throw fail("target_photo_not_found");
     const prev = await others
       .where("sort_order", "<", before.sort_order)
       .orderBy("sort_order", "desc")
@@ -345,7 +342,7 @@ export async function movePhoto(
 
   await tdb()
     .updateTable("photos")
-    .set({ block_id: blockId, sort_order: sortOrder })
+    .set({ section_id: sectionId, sort_order: sortOrder })
     .where("id", "=", photoId)
     .execute();
   await albumChanged(photo.album_id);
@@ -354,7 +351,7 @@ export async function movePhoto(
 }
 
 export async function reorderPhotos(
-  blockId: string,
+  sectionId: string,
   order: { id: string; sortOrder: number }[],
 ): Promise<void> {
   await tdb()
@@ -365,18 +362,18 @@ export async function reorderPhotos(
           .updateTable("photos")
           .set({ sort_order: e.sortOrder })
           .where("id", "=", e.id)
-          .where("block_id", "=", blockId)
+          .where("section_id", "=", sectionId)
           .execute();
       }
     });
-  const block = await tdb()
-    .selectFrom("album_blocks")
+  const section = await tdb()
+    .selectFrom("sections")
     .select("album_id")
-    .where("id", "=", blockId)
+    .where("id", "=", sectionId)
     .executeTakeFirst();
   const ids = order.map((e) => e.id);
-  if (block && ids.length > 0) {
-    await albumChanged(block.album_id);
-    emitAlbumPatch(block.album_id, { photos: await photosWithImage({ blockId, ids }) });
+  if (section && ids.length > 0) {
+    await albumChanged(section.album_id);
+    emitAlbumPatch(section.album_id, { photos: await photosWithImage({ sectionId, ids }) });
   }
 }

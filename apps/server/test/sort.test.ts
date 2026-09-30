@@ -2,9 +2,9 @@ import { describe, expect, test } from "bun:test";
 import { db } from "../src/db/client";
 import { runInTenant } from "../src/lib/tenant-context";
 import * as albumService from "../src/services/album.service";
-import * as blockService from "../src/services/block.service";
 import * as folderService from "../src/services/folder.service";
 import * as imageService from "../src/services/image.service";
+import * as sectionService from "../src/services/section.service";
 import { sortItems } from "../src/services/sort.service";
 import { createTenant, createUser, inTenant, png } from "./helpers";
 
@@ -190,7 +190,7 @@ describe("folder sort order", () => {
       await folderService.setSortMode(folder.id, user.id, "modified");
       expect(await titles()).toEqual(["C", "B", "A"]);
       await Bun.sleep(2);
-      await blockService.createBlock({ albumId: a.id, type: "text", content: {} });
+      await sectionService.createSection({ albumId: a.id });
       expect(await titles()).toEqual(["A", "C", "B"]);
 
       const empty = await folderService.createFolder({
@@ -200,7 +200,7 @@ describe("folder sort order", () => {
       });
       await folderService.setSortMode(null, user.id, "modified");
       await Bun.sleep(2);
-      await blockService.createBlock({ albumId: a.id, type: "text", content: {} });
+      await sectionService.createSection({ albumId: a.id });
       const library = await folderService.getLibrary(user.id);
       expect(library.folders.map((f) => f.name)).toEqual(["F", empty.name]);
     })();
@@ -209,17 +209,9 @@ describe("folder sort order", () => {
   test("moving an album elsewhere drops its position; previews follow the order", async () => {
     await inTenant(async () => {
       const { user, folder, a, c, titles } = await setup();
-      const gallery = await blockService.createBlock({
-        albumId: a.id,
-        type: "gallery",
-        content: {},
-      });
+      const gallery = await sectionService.createSection({ albumId: a.id });
       const { imageFile: aImage } = await imageService.uploadPhoto(png(), gallery.id, user.id);
-      const cGallery = await blockService.createBlock({
-        albumId: c.id,
-        type: "gallery",
-        content: {},
-      });
+      const cGallery = await sectionService.createSection({ albumId: c.id });
       const { imageFile: cImage } = await imageService.uploadPhoto(
         png([0, 0, 255]),
         cGallery.id,
