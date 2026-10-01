@@ -4,16 +4,16 @@ import ArrowRight from "@lucide/svelte/icons/arrow-right";
 import * as DropdownMenu from "$lib/components/ui/dropdown-menu";
 import { m } from "$lib/paraglide/messages.js";
 
-/** One step left or right in the grid: reordering without drag and drop (touch, keyboard). */
+/** One step earlier or later in the custom order: reordering without drag and drop (touch, keyboard). */
 let { onmove, first, last }: { onmove: (delta: -1 | 1) => void; first: boolean; last: boolean } =
   $props();
 </script>
 
-<DropdownMenu.Item disabled={first} onclick={() => onmove(-1)} aria-label={m.move_left()}>
+<DropdownMenu.Item disabled={first} onclick={() => onmove(-1)}>
   <ArrowLeft />
-  {m.move()}
+  {m.move_earlier()}
 </DropdownMenu.Item>
-<DropdownMenu.Item disabled={last} onclick={() => onmove(1)} aria-label={m.move_right()}>
+<DropdownMenu.Item disabled={last} onclick={() => onmove(1)}>
   <ArrowRight />
-  {m.move()}
+  {m.move_later()}
 </DropdownMenu.Item>

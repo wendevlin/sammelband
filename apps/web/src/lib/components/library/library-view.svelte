@@ -6,7 +6,6 @@ import Plus from "@lucide/svelte/icons/plus";
 import Share from "@lucide/svelte/icons/share-2";
 import type { Album, Folder, FolderTile, SortMode } from "@sammelband/shared";
 import { flip } from "svelte/animate";
-import { toast } from "svelte-sonner";
 import { goto, invalidateAll } from "$app/navigation";
 import { api, del, patch, post } from "$lib/api";
 import { attempt } from "$lib/attempt";
@@ -57,7 +56,7 @@ let albumOrder = $derived(albums);
 type Kind = "album" | "folder";
 const listOf = (kind: Kind): { id: string }[] => (kind === "album" ? albumOrder : folderOrder);
 
-/** Move an item before `beforeId` (null: to the end). Switches to manual order. */
+/** Move an item before `beforeId` (null: to the end) in the custom order. */
 async function move(kind: Kind, id: string, beforeId: string | null) {
   const list = listOf(kind);
   const item = list.find((i) => i.id === id);
@@ -68,10 +67,7 @@ async function move(kind: Kind, id: string, beforeId: string | null) {
   if (kind === "album") albumOrder = reordered as Album[];
   else folderOrder = reordered as FolderTile[];
 
-  const result = await attempt(() =>
-    post<{ sort: SortMode }>(`${base}/order`, { kind, id, beforeId }),
-  );
-  if (result && sort !== "manual") toast.info(m.sort_switched_manual());
+  await attempt(() => post(`${base}/order`, { kind, id, beforeId }));
   await invalidateAll();
 }
 
@@ -133,9 +129,12 @@ function setDragImage(e: DragEvent) {
   setTimeout(() => card.remove());
 }
 
+/** Reordering by hand only applies to the custom order; other orders are computed. */
+const manual = $derived(sort === "manual");
+
 /** Make room at `targetId`: the dragged item takes its place, from either side. */
 function shiftTo(targetId: string) {
-  if (!drag || !preview || targetId === drag.id) return;
+  if (!manual || !drag || !preview || targetId === drag.id) return;
   // Tiles are still sliding into place; hit-testing them now would bounce back.
   if (performance.now() - lastShift < 180) return;
   const from = preview.indexOf(drag.id);
@@ -165,7 +164,7 @@ function dragOverFolder(e: DragEvent, f: FolderTile) {
 }
 
 function dragOverAlbum(e: DragEvent, album: Album) {
-  if (drag?.kind !== "album") return;
+  if (!manual || drag?.kind !== "album") return;
   e.preventDefault();
   e.stopPropagation();
   intoTarget = null;
@@ -174,7 +173,7 @@ function dragOverAlbum(e: DragEvent, album: Album) {
 
 /** Dropping anywhere in the grid of the dragged kind commits the shown order. */
 function dragOverGrid(e: DragEvent, kind: Kind) {
-  if (drag?.kind !== kind) return;
+  if (!manual || drag?.kind !== kind) return;
   e.preventDefault();
 }
 
@@ -445,11 +444,13 @@ const deleteFolder = () =>
             }}
             >
               {#snippet menu()}
-                <MoveMenuItems
-                  first={i === 0}
-                  last={i === folderOrder.length - 1}
-                  onmove={(d) => step('folder', f.id, d)}
-                />
+                {#if manual}
+                  <MoveMenuItems
+                    first={i === 0}
+                    last={i === folderOrder.length - 1}
+                    onmove={(d) => step('folder', f.id, d)}
+                  />
+                {/if}
               {/snippet}
             </FolderCard>
           </div>
@@ -488,15 +489,19 @@ const deleteFolder = () =>
           ondrop={drop}
         >
           <div class={cn('transition-opacity', drag?.id === album.id && 'opacity-25')}>
-            <AlbumCard {album}>
-              {#snippet menu()}
-                <MoveMenuItems
-                  first={i === 0}
-                  last={i === albumOrder.length - 1}
-                  onmove={(d) => step('album', album.id, d)}
-                />
-              {/snippet}
-            </AlbumCard>
+            {#if manual}
+              <AlbumCard {album}>
+                {#snippet menu()}
+                  <MoveMenuItems
+                    first={i === 0}
+                    last={i === albumOrder.length - 1}
+                    onmove={(d) => step('album', album.id, d)}
+                  />
+                {/snippet}
+              </AlbumCard>
+            {:else}
+              <AlbumCard {album} />
+            {/if}
           </div>
           {@render dropOverlay(album.id)}
         </li>

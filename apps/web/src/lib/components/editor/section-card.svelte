@@ -9,10 +9,10 @@ import { attempt } from "$lib/attempt";
 import { Button } from "$lib/components/ui/button";
 import { Input } from "$lib/components/ui/input";
 import { Switch } from "$lib/components/ui/switch";
-import { Textarea } from "$lib/components/ui/textarea";
 import { m } from "$lib/paraglide/messages.js";
 import { cn } from "$lib/utils";
 import GalleryPhotos from "./gallery-photos.svelte";
+import MarkdownEditor from "./markdown-editor.svelte";
 
 type Fields = { title: string; text: string; highlight: boolean };
 
@@ -167,12 +167,10 @@ const pending = $derived(saving || Object.keys(edits).length > 0);
     {/if}
   </div>
 
-  <Textarea
-    rows={3}
-    class="field-sizing-content min-h-20"
+  <MarkdownEditor
     placeholder={section || createdId ? m.section_text_placeholder() : m.section_new()}
     value={text}
-    oninput={(e) => change({ text: e.currentTarget.value })}
+    onchange={(markdown) => change({ text: markdown })}
     onblur={flush}
   />
 

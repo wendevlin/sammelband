@@ -5,6 +5,7 @@ import "photoswipe/style.css";
 import type { Photo, Section } from "@sammelband/shared";
 import { imageUrls } from "$lib/images";
 import { cn } from "$lib/utils";
+import MarkdownText from "./markdown-text.svelte";
 import SectionGallery from "./section-gallery.svelte";
 
 let { sections, photos }: { sections: Section[]; photos: Photo[] } = $props();
@@ -89,8 +90,8 @@ $effect(() => () => {
 {:else}
   {#each shown as s (s.id)}
     {@const gallery = photosOf(s.id)}
-    <!-- Wider than the text column on large screens (see .bleed); title and
-         text stay in the column, aligned with the album title. -->
+    <!-- Wider than the text column on large screens (see .bleed). Title and
+         text start at its left edge, like the photos, at a readable width. -->
     <section
       class={cn(
         'bleed my-10 first:mt-0',
@@ -98,14 +99,10 @@ $effect(() => () => {
       )}
     >
       {#if s.title.trim()}
-        <h2 class="mx-auto mb-4 max-w-4xl font-heading text-3xl">{s.title}</h2>
+        <h2 class="mb-4 max-w-4xl font-heading text-3xl">{s.title}</h2>
       {/if}
       {#if s.text.trim()}
-        <div class="mx-auto mb-6 prose max-w-4xl prose-stone dark:prose-invert">
-          {#each s.text.split(/\n\n+/).filter((p) => p.trim()) as paragraph, i (i)}
-            <p class="whitespace-pre-line">{paragraph}</p>
-          {/each}
-        </div>
+        <MarkdownText text={s.text} class="mb-6 prose max-w-3xl prose-stone dark:prose-invert" />
       {/if}
       {#if gallery.length > 0}
         <SectionGallery

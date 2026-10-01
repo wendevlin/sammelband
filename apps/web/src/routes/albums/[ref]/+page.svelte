@@ -30,7 +30,8 @@ const trail = $derived.by(() => {
 <svelte:head><title>{live.album.title} · Sammelband</title></svelte:head>
 
 <article class="mx-auto max-w-4xl">
-  <div class="mb-10 flex flex-wrap items-start justify-between gap-4">
+  <!-- As wide as the sections below, so title and photos share the left edge. -->
+  <div class="bleed mb-10 flex flex-wrap items-start justify-between gap-4">
     <!-- min-w-0: long titles wrap instead of widening the page. -->
     <div class="min-w-0">
       <Breadcrumb.Root class="mb-3">

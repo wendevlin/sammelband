@@ -3,6 +3,7 @@ import Trash from "@lucide/svelte/icons/trash-2";
 import Upload from "@lucide/svelte/icons/upload";
 import { api, del, patch, post } from "$lib/api";
 import { attempt } from "$lib/attempt";
+import { avatarForm } from "$lib/avatar";
 import BackupCodes from "$lib/components/app/backup-codes.svelte";
 import SimpleSelect from "$lib/components/app/simple-select.svelte";
 import TwoFactorSetup from "$lib/components/app/two-factor-setup.svelte";
@@ -123,37 +124,16 @@ async function disableTwoFactor(password: string) {
   return Boolean(ok);
 }
 
-// Avatar: cropped to a centered square in the browser, the server re-encodes it.
+// Avatar: cropped to a centered square in the browser (avatarForm), re-encoded by the server.
 let fileInput = $state<HTMLInputElement | null>(null);
 let uploading = $state(false);
 
-async function squareCrop(file: File, size = 512): Promise<Blob> {
-  const bitmap = await createImageBitmap(file);
-  const side = Math.min(bitmap.width, bitmap.height);
-  const canvas = new OffscreenCanvas(size, size);
-  const ctx = canvas.getContext("2d");
-  if (!ctx) throw new Error(m.profile_avatar_unsupported());
-  ctx.drawImage(
-    bitmap,
-    (bitmap.width - side) / 2,
-    (bitmap.height - side) / 2,
-    side,
-    side,
-    0,
-    0,
-    size,
-    size,
-  );
-  return canvas.convertToBlob({ type: "image/jpeg", quality: 0.92 });
-}
-
 async function uploadAvatar(file: File) {
   uploading = true;
-  const ok = await attempt(async () => {
-    const fd = new FormData();
-    fd.append("file", new File([await squareCrop(file)], "avatar.jpg", { type: "image/jpeg" }));
-    return api("/profile/avatar", { method: "POST", body: fd });
-  }, m.profile_avatar_updated());
+  const ok = await attempt(
+    async () => api("/profile/avatar", { method: "POST", body: await avatarForm(file) }),
+    m.profile_avatar_updated(),
+  );
   uploading = false;
   if (ok) await auth.refresh();
 }
