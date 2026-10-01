@@ -9,7 +9,7 @@ import { imageUrls } from "$lib/images";
 import { albumPath } from "$lib/links";
 import { m } from "$lib/paraglide/messages.js";
 
-type CardAlbum = Pick<Album, "title" | "description" | "short_id"> & {
+type CardAlbum = Pick<Album, "title" | "short_id"> & {
   cover_filename?: string | null;
   slug?: string;
 };
@@ -47,9 +47,6 @@ const images = imageUrls();
   <div class="flex items-start gap-2 pt-3">
     <a {href} class="min-w-0 flex-1" draggable="false">
       <h3 class="font-heading text-lg leading-snug group-hover:underline">{album.title}</h3>
-      {#if album.description}
-        <p class="mt-1 line-clamp-2 text-sm text-muted-foreground">{album.description}</p>
-      {/if}
     </a>
     {#if menu}
       <DropdownMenu.Root>

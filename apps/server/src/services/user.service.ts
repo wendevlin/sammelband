@@ -3,6 +3,7 @@ import { auth } from "../auth";
 import { db } from "../db/client";
 import { fail } from "../lib/errors";
 import { currentTenantId, tdb } from "../lib/tenant-context";
+import * as profileService from "./profile.service";
 
 export type { Role };
 
@@ -139,6 +140,19 @@ export async function updateUser(
     })
     .where("id", "=", id)
     .execute();
+  return requireUser(id);
+}
+
+/** An admin sets someone's avatar: same rules as one's own (square, re-encoded). */
+export async function setAvatar(id: string, file: File): Promise<User> {
+  await requireUser(id);
+  await profileService.setAvatar(id, file);
+  return requireUser(id);
+}
+
+export async function removeAvatar(id: string): Promise<User> {
+  await requireUser(id);
+  await profileService.removeAvatar(id);
   return requireUser(id);
 }
 

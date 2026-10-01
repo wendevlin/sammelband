@@ -112,4 +112,23 @@ describe("profile", () => {
       expect((await userService.getUser(user.id))?.image).toBeNull();
     });
   });
+
+  test("admins set and remove other users' avatars, in their own Sammelband only", async () => {
+    const tenant = await createTenant();
+    const user = await runInTenant(tenant.id, () => createUser());
+    const other = await createTenant("Other");
+    await runInTenant(other.id, async () => {
+      await expect(
+        userService.setAvatar(user.id, png([0, 0, 255], "a.png", 64, 64)),
+      ).rejects.toThrow("User not found");
+      await expect(userService.removeAvatar(user.id)).rejects.toThrow("User not found");
+    });
+    await runInTenant(tenant.id, async () => {
+      expect(existsSync(avatarPath(user.id))).toBe(false);
+      const updated = await userService.setAvatar(user.id, png([0, 0, 255], "a.png", 64, 64));
+      expect(updated.image).toMatch(new RegExp(`^/api/avatars/${user.id}\\?v=\\d+$`));
+      expect((await userService.removeAvatar(user.id)).image).toBeNull();
+      expect(existsSync(avatarPath(user.id))).toBe(false);
+    });
+  });
 });

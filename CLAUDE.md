@@ -56,7 +56,10 @@ where `.env`, the dev SQLite file, `uploads/` and `dist/` live.
   `imageSrc()`.
 - Security headers and the CSP are set in `index.ts` (`secureHeaders`). A feature that
   loads from other hosts (e.g. map tiles) has to extend the CSP there. Don't add
-  `{@html}`; section text is rendered as text.
+  `{@html}`: section text is Markdown, rendered from marked's tokens as Svelte elements
+  (`album/markdown-text.svelte`, links only to http(s)/mailto/tel). The editor is Tiptap
+  with its markdown extension (`editor/markdown-editor.svelte`); both parse with the
+  same options (`$lib/markdown`).
 - Permissions: `requireAuth` for all content (everyone in a tenant edits everything),
   `requireAdmin` for `/api/admin/*` (users, invites, storage of the own tenant),
   `requireSuperadmin` for `/api/instance/*` (tenant management, metadata only). No
@@ -94,7 +97,10 @@ where `.env`, the dev SQLite file, `uploads/` and `dist/` live.
 - Formatting and linting: Biome only, one root `biome.json` for all packages
   (`bun run lint` / `bun run lint:fix`). Svelte support is Biome's experimental full
   support: template usage is invisible to it, so unused-variable/import rules are off
-  for `*.svelte`. Type errors in Svelte come from `bun run check:web`.
+  for `*.svelte`. Type errors in Svelte come from `bun run check:web`. Biome 2.5's
+  `check --write` (so `lint:fix`) mangles Svelte templates: it flips quotes and turns
+  `{@const x = …}` into `{@const (x = …)}`. Run `biome format --write <file>` on Svelte
+  files instead, and avoid `{@const}` where a function does the job.
 - i18n: Paraglide JS. UI strings live in `apps/web/messages/{en,de}.json` (English is the
   base locale) and are used as `m.key(params)` from `$lib/paraglide/messages.js`, which
   the web build and dev server generate. No hard-coded UI text. Plurals are `_one`/`_other` keys

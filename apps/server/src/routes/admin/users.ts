@@ -1,7 +1,9 @@
 import { Hono } from "hono";
 import { z } from "zod";
+import { fail } from "../../lib/errors";
 import { validate } from "../../lib/validate";
 import { type AuthEnv, requireAdmin } from "../../middleware/auth.middleware";
+import { uploadRateLimit } from "../../middleware/rate-limit.middleware";
 import * as userService from "../../services/user.service";
 
 const role = z.enum(["admin", "user"]);
@@ -42,6 +44,13 @@ export const adminUserRoutes = new Hono<AuthEnv>()
     await userService.setPassword(c.req.param("id"), c.req.valid("json").password);
     return c.json({ ok: true });
   })
+  // A square image, cropped in the browser like on the profile page.
+  .post("/:id/avatar", uploadRateLimit, async (c) => {
+    const body = await c.req.parseBody();
+    if (!(body.file instanceof File)) throw fail("no_files");
+    return c.json(await userService.setAvatar(c.req.param("id"), body.file));
+  })
+  .delete("/:id/avatar", async (c) => c.json(await userService.removeAvatar(c.req.param("id"))))
   // Lost phone: the user signs in with the password again and sets it up anew.
   .post("/:id/two-factor/reset", async (c) =>
     c.json(await userService.resetTwoFactor(c.get("user").id, c.req.param("id"))),

@@ -1,4 +1,6 @@
 <script lang="ts">
+import ImageMinus from "@lucide/svelte/icons/image-minus";
+import ImageUp from "@lucide/svelte/icons/image-up";
 import KeyRound from "@lucide/svelte/icons/key-round";
 import Link from "@lucide/svelte/icons/link";
 import Pencil from "@lucide/svelte/icons/pencil";
@@ -7,8 +9,9 @@ import Trash from "@lucide/svelte/icons/trash-2";
 import UserPlus from "@lucide/svelte/icons/user-plus";
 import type { CreatedInvite, Role, User } from "@sammelband/shared";
 import { invalidate } from "$app/navigation";
-import { del, patch, post } from "$lib/api";
+import { api, del, patch, post } from "$lib/api";
 import { attempt } from "$lib/attempt";
+import { avatarForm } from "$lib/avatar";
 import ActionMenu from "$lib/components/app/action-menu.svelte";
 import ExpandableCard from "$lib/components/app/expandable-card.svelte";
 import type { RowAction } from "$lib/components/app/row-actions";
@@ -93,6 +96,29 @@ async function resetTwoFactor() {
   }
 }
 
+// Profile pictures, cropped in the browser like on the profile page.
+let avatarInput = $state<HTMLInputElement | null>(null);
+let avatarTarget: User | null = null;
+
+async function uploadAvatar(file: File) {
+  const u = avatarTarget;
+  if (!u) return;
+  const ok = await attempt(
+    async () =>
+      api(`/admin/users/${u.id}/avatar`, { method: "POST", body: await avatarForm(file) }),
+    m.users_avatar_updated({ name: u.name }),
+  );
+  if (ok) await refresh();
+}
+
+async function removeAvatar(u: User) {
+  const ok = await attempt(
+    () => del(`/admin/users/${u.id}/avatar`),
+    m.users_avatar_removed({ name: u.name }),
+  );
+  if (ok) await refresh();
+}
+
 async function setRole(u: User, role: string) {
   if (await attempt(() => patch(`/admin/users/${u.id}`, { role }))) await refresh();
 }
@@ -140,6 +166,17 @@ function actionsFor(u: User): RowAction[] {
   return [
     { label: m.common_rename(), icon: Pencil, run: open(() => (renameOpen = true)) },
     { label: m.users_set_password(), icon: KeyRound, run: open(() => (passwordOpen = true)) },
+    {
+      label: m.users_avatar_set(),
+      icon: ImageUp,
+      run: () => {
+        avatarTarget = u;
+        avatarInput?.click();
+      },
+    },
+    ...(u.image
+      ? [{ label: m.users_avatar_remove(), icon: ImageMinus, run: () => removeAvatar(u) }]
+      : []),
     ...(u.twoFactorEnabled && !isSelf(u)
       ? [
           {
@@ -165,6 +202,18 @@ function actionsFor(u: User): RowAction[] {
 </script>
 
 <svelte:head><title>{m.admin_tab_users()} · Sammelband</title></svelte:head>
+
+<input
+  bind:this={avatarInput}
+  type="file"
+  accept="image/*"
+  class="hidden"
+  onchange={(e) => {
+    const file = e.currentTarget.files?.[0];
+    if (file) void uploadAvatar(file);
+    e.currentTarget.value = '';
+  }}
+>
 
 <div class="mb-8 flex flex-wrap items-end justify-between gap-4">
   <div>

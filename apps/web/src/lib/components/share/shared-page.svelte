@@ -84,7 +84,7 @@ const crumbHref = (i: number, id: string) =>
   </div>
 {:else}
   {#if crumbs.length > 0}
-    <Breadcrumb.Root class="mb-3">
+    <Breadcrumb.Root class={view.kind === 'album' ? 'bleed mb-3' : 'mb-3'}>
       <Breadcrumb.List>
         {#each crumbs as c, i (c.id)}
           {#if i > 0}
@@ -100,10 +100,12 @@ const crumbHref = (i: number, id: string) =>
 
   {#if view.kind === 'album'}
     <article class="mx-auto max-w-4xl">
-      <h1 class="font-heading text-4xl leading-tight sm:text-5xl">{view.album.title}</h1>
-      {#if view.album.description}
-        <p class="mt-4 max-w-2xl text-lg text-muted-foreground">{view.album.description}</p>
-      {/if}
+      <div class="bleed">
+        <h1 class="font-heading text-4xl leading-tight sm:text-5xl">{view.album.title}</h1>
+        {#if view.album.description}
+          <p class="mt-4 max-w-2xl text-lg text-muted-foreground">{view.album.description}</p>
+        {/if}
+      </div>
       <div class="mt-10">
         <!-- Public rows carry only what rendering needs. -->
         <AlbumContent sections={view.sections as Section[]} photos={view.photos as Photo[]} />
