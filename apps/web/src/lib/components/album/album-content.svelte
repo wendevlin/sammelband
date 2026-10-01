@@ -2,43 +2,36 @@
 import PhotoSwipeLightbox from "photoswipe/lightbox";
 import { m } from "$lib/paraglide/messages.js";
 import "photoswipe/style.css";
-import {
-  type AlbumBlock,
-  type GroupContent,
-  type HeadingContent,
-  type Photo,
-  parseContent,
-  type TextContent,
-} from "@sammelband/shared";
+import type { Photo, Section } from "@sammelband/shared";
 import { imageUrls } from "$lib/images";
-import BlockGallery from "./block-gallery.svelte";
-import BlockGroup from "./block-group.svelte";
+import { cn } from "$lib/utils";
+import SectionGallery from "./section-gallery.svelte";
 
-let { blocks, photos }: { blocks: AlbumBlock[]; photos: Photo[] } = $props();
+let { sections, photos }: { sections: Section[]; photos: Photo[] } = $props();
 const images = imageUrls();
 
 const bySort = (a: { sort_order: number }, b: { sort_order: number }) =>
   a.sort_order - b.sort_order;
 
-const topLevel = $derived(blocks.filter((b) => !b.parent_id).sort(bySort));
-const childrenOf = (id: string) => blocks.filter((b) => b.parent_id === id).sort(bySort);
-const photosOf = (blockId: string) => photos.filter((p) => p.block_id === blockId).sort(bySort);
+const photosOf = (sectionId: string) =>
+  photos.filter((p) => p.section_id === sectionId).sort(bySort);
+// Sections with nothing to show (a cleared one, or one being filled in) are skipped.
+const shown = $derived(
+  [...sections]
+    .sort(bySort)
+    .filter((s) => s.title.trim() || s.text.trim() || photosOf(s.id).length > 0),
+);
 
-// One lightbox spanning every gallery in document order, so swiping flows
-// from one gallery into the next. `offsets` maps a gallery to its first slide.
+// One lightbox spanning every section in document order, so swiping flows
+// from one gallery into the next. `offsets` maps a section to its first slide.
 const sequence = $derived.by(() => {
   // Built fresh inside the derived and never mutated afterwards: no reactivity needed.
   // eslint-disable-next-line svelte/prefer-svelte-reactivity
   const offsets = new Map<string, number>();
   const slides: Photo[] = [];
-  const add = (b: AlbumBlock) => {
-    if (b.type !== "gallery") return;
-    offsets.set(b.id, slides.length);
-    slides.push(...photosOf(b.id));
-  };
-  for (const b of topLevel) {
-    if (b.type === "group") childrenOf(b.id).forEach(add);
-    else add(b);
+  for (const s of shown) {
+    offsets.set(s.id, slides.length);
+    slides.push(...photosOf(s.id));
   }
   return { offsets, slides };
 });
@@ -89,48 +82,35 @@ $effect(() => () => {
   lightbox?.destroy();
   lightbox = null;
 });
-
-const HEADING_CLASS: Record<number, string> = {
-  1: "font-heading mt-14 mb-4 text-4xl",
-  2: "font-heading mt-12 mb-3 text-3xl",
-  3: "mt-8 mb-2 text-lg font-semibold",
-};
 </script>
 
-{#snippet block(b: AlbumBlock)}
-  {#if b.type === 'heading'}
-    {@const c = parseContent<HeadingContent>(b)}
-    {@const level = Math.min(Math.max(c.level ?? 2, 1), 3)}
-    <svelte:element this={`h${level}`} class={HEADING_CLASS[level]}>{c.text ?? ''}</svelte:element>
-  {:else if b.type === 'text'}
-    {@const c = parseContent<TextContent>(b)}
-    <div class="my-6 prose max-w-none prose-stone dark:prose-invert">
-      {#each (c.markdown ?? '').split(/\n\n+/).filter((p) => p.trim()) as paragraph, i (i)}
-        <p class="whitespace-pre-line">{paragraph}</p>
-      {/each}
-    </div>
-  {:else if b.type === 'gallery'}
-    {@const gallery = photosOf(b.id)}
-    {#if gallery.length > 0}
-      <BlockGallery photos={gallery} onopen={(i) => open((sequence.offsets.get(b.id) ?? 0) + i)} />
-    {/if}
-  {:else if b.type === 'group'}
-    {@const kids = childrenOf(b.id)}
-    <BlockGroup
-      background={parseContent<GroupContent>(b).background}
-      photos={kids.flatMap((k) => photosOf(k.id))}
-    >
-      {#each kids as kid (kid.id)}
-        {@render block(kid)}
-      {/each}
-    </BlockGroup>
-  {/if}
-{/snippet}
-
-{#if topLevel.length === 0}
+{#if shown.length === 0}
   <p class="py-16 text-center text-muted-foreground">{m.album_empty()}</p>
 {:else}
-  {#each topLevel as b (b.id)}
-    {@render block(b)}
+  {#each shown as s (s.id)}
+    {@const gallery = photosOf(s.id)}
+    <section
+      class={cn(
+        'my-10 first:mt-0',
+        s.highlight && 'rounded-2xl border border-highlight-border bg-highlight px-5 py-6 sm:px-8'
+      )}
+    >
+      {#if s.title.trim()}
+        <h2 class="mb-4 font-heading text-3xl">{s.title}</h2>
+      {/if}
+      {#if s.text.trim()}
+        <div class="mb-6 prose max-w-none prose-stone dark:prose-invert">
+          {#each s.text.split(/\n\n+/).filter((p) => p.trim()) as paragraph, i (i)}
+            <p class="whitespace-pre-line">{paragraph}</p>
+          {/each}
+        </div>
+      {/if}
+      {#if gallery.length > 0}
+        <SectionGallery
+          photos={gallery}
+          onopen={(i) => open((sequence.offsets.get(s.id) ?? 0) + i)}
+        />
+      {/if}
+    </section>
   {/each}
 {/if}

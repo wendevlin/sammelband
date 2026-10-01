@@ -36,8 +36,6 @@ export function imageUrls(): ImageUrls {
   };
 }
 
-export const GALLERY_SIZES = "(min-width: 900px) 30vw, 100vw";
-
 export function formatBytes(n: number): string {
   if (n < 1024) return `${n} B`;
   const units = ["KB", "MB", "GB", "TB"];

@@ -2,10 +2,10 @@ import { describe, expect, test } from "bun:test";
 import { db } from "../src/db/client";
 import { runInTenant } from "../src/lib/tenant-context";
 import * as albumService from "../src/services/album.service";
-import * as blockService from "../src/services/block.service";
 import * as folderService from "../src/services/folder.service";
 import * as imageService from "../src/services/image.service";
 import * as publicService from "../src/services/public.service";
+import * as sectionService from "../src/services/section.service";
 import * as shareService from "../src/services/share.service";
 import * as tenantService from "../src/services/tenant.service";
 import { createTenant, createUser, png } from "./helpers";
@@ -41,12 +41,8 @@ async function setup() {
       rgb: [number, number, number],
     ) => {
       const album = await albumService.createAlbum({ title, folderId, createdBy: user.id });
-      const block = await blockService.createBlock({
-        albumId: album.id,
-        type: "gallery",
-        content: {},
-      });
-      const { imageFile } = await imageService.uploadPhoto(png(rgb), block.id, user.id);
+      const section = await sectionService.createSection({ albumId: album.id });
+      const { imageFile } = await imageService.uploadPhoto(png(rgb), section.id, user.id);
       return { album, filename: imageFile.filename };
     };
     const inside = await withPhoto("Inside", family.id, [255, 0, 0]);

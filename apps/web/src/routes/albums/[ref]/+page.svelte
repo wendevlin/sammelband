@@ -11,7 +11,7 @@ import { m } from "$lib/paraglide/messages.js";
 
 let { data } = $props();
 
-// Album, blocks and photos come from the layout's live state; `data` still
+// Album, sections and photos come from the layout's live state; `data` still
 // carries the folders.
 const live = getAlbumState();
 
@@ -58,5 +58,5 @@ const trail = $derived.by(() => {
       >
     </div>
   </div>
-  <AlbumContent blocks={live.blocks} photos={live.photos} />
+  <AlbumContent sections={live.sections} photos={live.photos} />
 </article>

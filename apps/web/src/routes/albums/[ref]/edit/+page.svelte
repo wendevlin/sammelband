@@ -9,7 +9,7 @@ import { del, patch, post } from "$lib/api";
 import { attempt } from "$lib/attempt";
 import SimpleSelect from "$lib/components/app/simple-select.svelte";
 import ConfirmDialog from "$lib/components/dialogs/confirm-dialog.svelte";
-import BlockEditor from "$lib/components/editor/block-editor.svelte";
+import SectionEditor from "$lib/components/editor/section-editor.svelte";
 import { Button } from "$lib/components/ui/button";
 import * as Card from "$lib/components/ui/card";
 import { Input } from "$lib/components/ui/input";
@@ -23,7 +23,7 @@ import { cn } from "$lib/utils";
 
 let { data } = $props();
 
-// Album, blocks and photos come from the layout's live state; `data` still
+// Album, sections and photos come from the layout's live state; `data` still
 // carries the folders.
 const live = getAlbumState();
 
@@ -142,7 +142,7 @@ async function deleteAlbum() {
     <Tabs.Trigger value="cover">{m.album_tab_cover()}</Tabs.Trigger>
   </Tabs.List>
   <Tabs.Content value="content">
-    <BlockEditor albumId={live.album.id} blocks={live.blocks} photos={live.photos} />
+    <SectionEditor albumId={live.album.id} sections={live.sections} photos={live.photos} />
   </Tabs.Content>
   <Tabs.Content value="cover">
     <p class="mb-4 text-sm text-muted-foreground">

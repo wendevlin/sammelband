@@ -33,7 +33,7 @@ import {
 export const TENANT_COLUMNS: Record<string, string> = {
   folders: "tenant_id",
   albums: "tenant_id",
-  album_blocks: "tenant_id",
+  sections: "tenant_id",
   image_files: "tenant_id",
   photos: "tenant_id",
   tenant_invites: "tenant_id",

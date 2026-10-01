@@ -3,10 +3,10 @@ import { existsSync } from "node:fs";
 import { subscribe } from "../src/lib/events";
 import { runInTenant } from "../src/lib/tenant-context";
 import * as albumService from "../src/services/album.service";
-import * as blockService from "../src/services/block.service";
 import * as folderService from "../src/services/folder.service";
 import * as imageService from "../src/services/image.service";
 import * as imageDelivery from "../src/services/image-delivery.service";
+import * as sectionService from "../src/services/section.service";
 import * as userService from "../src/services/user.service";
 import { createTenant, createUser, originalFile, png } from "./helpers";
 
@@ -26,13 +26,9 @@ async function setup() {
       folderId: folder.id,
       createdBy: user.id,
     });
-    const block = await blockService.createBlock({
-      albumId: album.id,
-      type: "gallery",
-      content: {},
-    });
-    const upload = await imageService.uploadPhoto(png(), block.id, user.id);
-    return { user, folder, album, block, upload, path: originalFile(upload.imageFile) };
+    const section = await sectionService.createSection({ albumId: album.id });
+    const upload = await imageService.uploadPhoto(png(), section.id, user.id);
+    return { user, folder, album, section, upload, path: originalFile(upload.imageFile) };
   });
   const asB = <T>(fn: () => Promise<T>) => runInTenant(b.id, fn);
   const bUser = await asB(() => createUser("admin"));
@@ -93,27 +89,28 @@ describe("tenant isolation", () => {
     });
   });
 
-  test("blocks", async () => {
-    const { asB, album, block } = await setup();
+  test("sections", async () => {
+    const { a, asB, album, section } = await setup();
     await asB(async () => {
-      expect(await blockService.listBlocks(album.id)).toEqual([]);
-      expect(await blockService.getBlock(block.id)).toBeNull();
-      await expect(
-        blockService.createBlock({ albumId: album.id, type: "text", content: {} }),
-      ).rejects.toThrow("Album not found");
-      await expect(blockService.updateBlock(block.id, { content: {} })).rejects.toThrow(
+      expect(await sectionService.listSections(album.id)).toEqual([]);
+      expect(await sectionService.getSection(section.id)).toBeNull();
+      await expect(sectionService.createSection({ albumId: album.id })).rejects.toThrow(
+        "Album not found",
+      );
+      await expect(sectionService.updateSection(section.id, { title: "x" })).rejects.toThrow(
         "not found",
       );
-      await expect(blockService.deleteBlock(block.id)).rejects.toThrow("not found");
-      await blockService.reorderBlocks(album.id, [{ id: block.id, sortOrder: 99 }]);
+      await expect(sectionService.deleteSection(section.id)).rejects.toThrow("not found");
+      await sectionService.reorderSections(album.id, [{ id: section.id, sortOrder: 99 }]);
     });
-    expect(block.sort_order).toBe(1);
+    const unchanged = await runInTenant(a.id, () => sectionService.getSection(section.id));
+    expect(unchanged?.sort_order).toBe(1);
   });
 
   test("photos and image files", async () => {
-    const { a, asB, block, upload, path, bUser } = await setup();
+    const { a, asB, section, upload, path, bUser } = await setup();
     await asB(async () => {
-      await expect(imageService.uploadPhoto(png(), block.id, bUser.id)).rejects.toThrow(
+      await expect(imageService.uploadPhoto(png(), section.id, bUser.id)).rejects.toThrow(
         "not found",
       );
       await expect(imageService.updateCaption(upload.photo.id, "x")).rejects.toThrow("not found");
@@ -124,12 +121,12 @@ describe("tenant isolation", () => {
       await expect(
         imageDelivery.serveVariant(upload.imageFile.filename, 400, "webp"),
       ).rejects.toThrow("not found");
-      await imageService.reorderPhotos(block.id, [{ id: upload.photo.id, sortOrder: 9 }]);
-      expect(await imageService.photosWithImage({ blockId: block.id })).toEqual([]);
+      await imageService.reorderPhotos(section.id, [{ id: upload.photo.id, sortOrder: 9 }]);
+      expect(await imageService.photosWithImage({ sectionId: section.id })).toEqual([]);
     });
     expect(existsSync(path)).toBe(true);
     const photos = await runInTenant(a.id, () =>
-      imageService.photosWithImage({ blockId: block.id }),
+      imageService.photosWithImage({ sectionId: section.id }),
     );
     expect(photos.map((p) => p.sort_order)).toEqual([1]);
   });
@@ -142,11 +139,7 @@ describe("tenant isolation", () => {
         folderId: null,
         createdBy: bUser.id,
       });
-      const gallery = await blockService.createBlock({
-        albumId: album.id,
-        type: "gallery",
-        content: {},
-      });
+      const gallery = await sectionService.createSection({ albumId: album.id });
       const result = await imageService.uploadPhoto(png(), gallery.id, bUser.id);
       return { ...result, path: originalFile(result.imageFile) };
     });

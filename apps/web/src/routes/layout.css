@@ -42,6 +42,9 @@
   --sidebar-accent-foreground: oklch(0.34 0.11 16);
   --sidebar-border: oklch(0.88 0.02 50);
   --sidebar-ring: oklch(0.52 0.12 16);
+  /* Highlighted album sections: a warmer, rosier paper with a dusty-rose edge. */
+  --highlight: oklch(0.948 0.024 52);
+  --highlight-border: oklch(0.82 0.06 28);
 }
 
 .dark {
@@ -77,11 +80,16 @@
   --sidebar-accent-foreground: oklch(0.94 0.012 60);
   --sidebar-border: oklch(0.32 0.03 18);
   --sidebar-ring: oklch(0.62 0.11 16);
+  /* A lifted wine tone: stands out from the page without glowing. */
+  --highlight: oklch(0.235 0.036 18);
+  --highlight-border: oklch(0.43 0.075 16);
 }
 
 @theme inline {
   --font-sans: "Noto Sans Variable", sans-serif;
   --font-heading: "Playfair Display Variable", serif;
+  --color-highlight: var(--highlight);
+  --color-highlight-border: var(--highlight-border);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -149,16 +157,6 @@ button:not(:disabled),
 summary,
 label[for] {
   cursor: pointer;
-}
-
-/* Saturation/lightness for the "auto" group background; hue comes from the photos. */
-:root {
-  --tint-s: 45%;
-  --tint-l: 90%;
-}
-.dark {
-  --tint-s: 28%;
-  --tint-l: 20%;
 }
 
 /* PhotoSwipe caption (rendered in PhotoSwipe's own root). */

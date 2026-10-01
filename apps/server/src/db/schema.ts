@@ -2,7 +2,7 @@
 // tables themselves are created by src/db/migrations (domain) and better-auth's
 // migrator (user, session, account, verification).
 
-import type { BlockType, Role, SortMode } from "@sammelband/shared";
+import type { Role, SortMode } from "@sammelband/shared";
 
 export type Folder = {
   id: string;
@@ -29,14 +29,17 @@ export type Album = {
   updated_at: number;
 };
 
-export type AlbumBlock = {
+/** A part of an album; photos point at it with `section_id`. */
+export type Section = {
   id: string;
   tenant_id: string;
   album_id: string;
-  parent_id: string | null;
   sort_order: number;
-  type: BlockType;
-  content: string;
+  title: string;
+  /** Markdown. */
+  text: string;
+  /** 0/1: border and tinted background. */
+  highlight: number;
   created_at: number;
   updated_at: number;
 };
@@ -57,7 +60,7 @@ export type Photo = {
   id: string;
   tenant_id: string;
   album_id: string;
-  block_id: string;
+  section_id: string;
   sort_order: number;
   image_file_id: string;
   caption: string | null;
@@ -184,7 +187,7 @@ export type Database = {
   instance_settings: InstanceSetting;
   folders: Folder;
   albums: Album;
-  album_blocks: AlbumBlock;
+  sections: Section;
   image_files: ImageFile;
   photos: Photo;
   folder_sort: FolderSort;

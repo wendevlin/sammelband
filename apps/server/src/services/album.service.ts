@@ -5,6 +5,7 @@ import { emit, emitAlbumPatch, type PhotoWithImage, topics } from "../lib/events
 import { shortId } from "../lib/short-id";
 import { currentTenantId, tdb } from "../lib/tenant-context";
 import * as imageService from "./image.service";
+import * as sectionService from "./section.service";
 import * as sortService from "./sort.service";
 
 function slugify(s: string): string {
@@ -206,7 +207,7 @@ export async function setCover(albumId: string, photoId: string | null): Promise
 export async function deleteAlbum(id: string): Promise<void> {
   const album = await getAlbum(id);
   if (!album) throw fail("album_not_found");
-  // Remove all photos from disk + variant cache first (dedup-aware); blocks then
+  // Remove all photos from disk + variant cache first (dedup-aware); sections then
   // cascade via FK ON DELETE CASCADE when the album row is gone.
   await imageService.deletePhotosByAlbum(id);
   await tdb().deleteFrom("albums").where("id", "=", id).execute();
@@ -219,16 +220,11 @@ export async function deleteAlbum(id: string): Promise<void> {
 
 export type { PhotoWithImage };
 
-/** Album + ordered blocks + photos (with image metadata + placeholder), by URL ref. */
+/** Album + ordered sections + photos (with image metadata + placeholder), by URL ref. */
 export async function getAlbumDetail(ref: string): Promise<AlbumDetail> {
   const album = await resolveAlbum(ref);
   if (!album) throw fail("album_not_found");
-  const blocks = await tdb()
-    .selectFrom("album_blocks")
-    .selectAll()
-    .where("album_id", "=", album.id)
-    .orderBy("sort_order")
-    .execute();
+  const sections = await sectionService.listSections(album.id);
   const photos = await imageService.photosWithImage({ albumId: album.id });
-  return { album, blocks, photos };
+  return { album, sections, photos };
 }

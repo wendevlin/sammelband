@@ -1,4 +1,4 @@
-import type { Album, AlbumBlock, AlbumDetail, AlbumPatch, Photo } from "@sammelband/shared";
+import type { Album, AlbumDetail, AlbumPatch, Photo, Section } from "@sammelband/shared";
 import { createContext } from "svelte";
 
 /**
@@ -8,7 +8,7 @@ import { createContext } from "svelte";
  */
 export class AlbumState {
   album = $state.raw<Album>() as Album;
-  blocks = $state.raw<AlbumBlock[]>([]);
+  sections = $state.raw<Section[]>([]);
   photos = $state.raw<Photo[]>([]);
 
   constructor(detail: AlbumDetail) {
@@ -17,19 +17,19 @@ export class AlbumState {
 
   reset(detail: AlbumDetail): void {
     this.album = detail.album;
-    this.blocks = detail.blocks;
+    this.sections = detail.sections;
     this.photos = detail.photos;
   }
 
   apply(patch: AlbumPatch): void {
     if (patch.album) this.album = patch.album;
-    if (patch.blocks?.length || patch.removedBlocks?.length) {
-      this.blocks = merge(this.blocks, patch.blocks, patch.removedBlocks);
+    if (patch.sections?.length || patch.removedSections?.length) {
+      this.sections = merge(this.sections, patch.sections, patch.removedSections);
     }
-    const goneBlocks = new Set(patch.removedBlocks);
-    if (patch.photos?.length || patch.removedPhotos?.length || goneBlocks.size) {
+    const goneSections = new Set(patch.removedSections);
+    if (patch.photos?.length || patch.removedPhotos?.length || goneSections.size) {
       this.photos = merge(this.photos, patch.photos, patch.removedPhotos).filter(
-        (p) => !goneBlocks.has(p.block_id),
+        (p) => !goneSections.has(p.section_id),
       );
     }
   }

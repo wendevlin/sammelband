@@ -2,8 +2,6 @@
 // The server's services return these types, the web app reads them. Rows of
 // signed-in endpoints may carry more columns (e.g. tenant_id) than listed here.
 
-import type { BlockType } from "./blocks";
-
 export type Role = "admin" | "user";
 
 export type User = {
@@ -78,14 +76,18 @@ export type Album = {
   updated_at: number;
 };
 
-export type AlbumBlock = {
+/**
+ * A part of an album: an optional title, text (Markdown) and a gallery of the
+ * photos whose `section_id` points here. Highlighted sections get a border and
+ * a tinted background.
+ */
+export type Section = {
   id: string;
   album_id: string;
-  parent_id: string | null;
   sort_order: number;
-  type: BlockType;
-  /** JSON-encoded block content, see the *Content types in blocks.ts. */
-  content: string;
+  title: string;
+  text: string;
+  highlight: boolean;
   created_at: number;
   updated_at: number;
 };
@@ -94,7 +96,7 @@ export type AlbumBlock = {
 export type Photo = {
   id: string;
   album_id: string;
-  block_id: string;
+  section_id: string;
   sort_order: number;
   image_file_id: string;
   caption: string | null;
@@ -109,7 +111,7 @@ export type Photo = {
 
 export type AlbumDetail = {
   album: Album;
-  blocks: AlbumBlock[];
+  sections: Section[];
   photos: Photo[];
 };
 
@@ -119,9 +121,9 @@ export type AlbumDetail = {
  */
 export type AlbumPatch = {
   album?: Album;
-  blocks?: AlbumBlock[];
+  sections?: Section[];
   photos?: Photo[];
-  removedBlocks?: string[];
+  removedSections?: string[];
   removedPhotos?: string[];
 };
 
@@ -166,10 +168,10 @@ export type ShareLinkInfo = {
 // --- Public links (GET /api/public/:token): trimmed rows, no user or tenant ids.
 
 export type SharedAlbum = Pick<Album, "id" | "title" | "description" | "short_id">;
-export type SharedBlock = Pick<AlbumBlock, "id" | "parent_id" | "sort_order" | "type" | "content">;
+export type SharedSection = Pick<Section, "id" | "sort_order" | "title" | "text" | "highlight">;
 export type SharedPhoto = Pick<
   Photo,
-  "id" | "block_id" | "sort_order" | "caption" | "filename" | "width" | "height" | "placeholder"
+  "id" | "section_id" | "sort_order" | "caption" | "filename" | "width" | "height" | "placeholder"
 >;
 export type SharedTile = Pick<
   FolderTile,
@@ -185,7 +187,7 @@ export type SharedView =
       status: "ok";
       kind: "album";
       album: SharedAlbum;
-      blocks: SharedBlock[];
+      sections: SharedSection[];
       photos: SharedPhoto[];
       /** Folders from the shared folder down to this album (folder shares only). */
       trail: Crumb[];

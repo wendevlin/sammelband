@@ -262,7 +262,7 @@ export async function deleteTenant(
     await trx.deleteFrom("folder_sort").where("tenant_id", "=", id).execute();
     await trx.deleteFrom("photos").where("tenant_id", "=", id).execute();
     await trx.deleteFrom("image_files").where("tenant_id", "=", id).execute();
-    await trx.deleteFrom("album_blocks").where("tenant_id", "=", id).execute();
+    await trx.deleteFrom("sections").where("tenant_id", "=", id).execute();
     await trx.deleteFrom("albums").where("tenant_id", "=", id).execute();
     // folders.parent_id is ON DELETE RESTRICT.
     await trx.updateTable("folders").set({ parent_id: null }).where("tenant_id", "=", id).execute();

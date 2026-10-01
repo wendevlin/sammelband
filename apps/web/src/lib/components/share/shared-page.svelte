@@ -1,5 +1,5 @@
 <script lang="ts">
-import type { AlbumBlock, Photo, SharedView } from "@sammelband/shared";
+import type { Photo, Section, SharedView } from "@sammelband/shared";
 import { invalidateAll } from "$app/navigation";
 import { post } from "$lib/api";
 import AlbumContent from "$lib/components/album/album-content.svelte";
@@ -106,7 +106,7 @@ const crumbHref = (i: number, id: string) =>
       {/if}
       <div class="mt-10">
         <!-- Public rows carry only what rendering needs. -->
-        <AlbumContent blocks={view.blocks as AlbumBlock[]} photos={view.photos as Photo[]} />
+        <AlbumContent sections={view.sections as Section[]} photos={view.photos as Photo[]} />
       </div>
     </article>
   {:else}

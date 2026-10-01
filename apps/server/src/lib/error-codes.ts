@@ -103,21 +103,17 @@ export const ERRORS = {
   title_required: { status: 400, message: "Title required" },
   target_not_found: { status: 404, message: "The drop target is no longer here" },
 
-  // Blocks
-  block_not_found: { status: 404, message: "Block not found" },
-  anchor_block_not_found: { status: 404, message: "The neighbouring block no longer exists" },
-  invalid_block_type: { status: 400, message: "Invalid block type" },
-  group_in_group: { status: 400, message: "A group cannot be nested in another group" },
-  block_own_parent: { status: 400, message: "A block cannot be its own parent" },
-  parent_group_not_found: { status: 404, message: "Group not found" },
-  parent_not_group: { status: 400, message: "The parent block is not a group" },
+  // Sections
+  section_not_found: { status: 404, message: "Section not found" },
+  anchor_section_not_found: {
+    status: 404,
+    message: "The neighbouring section no longer exists",
+  },
 
   // Photos and images
   photo_not_found: { status: 404, message: "Photo not found" },
   photo_not_in_album: { status: 404, message: "Photo not found in this album" },
   target_photo_not_found: { status: 404, message: "The neighbouring photo no longer exists" },
-  gallery_not_found: { status: 404, message: "Gallery not found" },
-  not_a_gallery: { status: 400, message: "This block is not a gallery" },
   image_not_found: { status: 404, message: "Image not found" },
   unsupported_width: { status: 400, message: "Unsupported image width" },
   only_images: { status: 400, message: "Only images are allowed" },
