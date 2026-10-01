@@ -159,6 +159,21 @@ label[for] {
   cursor: pointer;
 }
 
+/* Album sections: as wide as the window allows (up to 100rem), keeping the
+   page gutter, centered on their parent column, which is centered on the page.
+   On phones that's exactly the column. */
+.bleed {
+  --bleed-gutter: 1rem;
+  width: min(calc(100vw - 2 * var(--bleed-gutter)), 100rem);
+  max-width: none;
+  margin-left: calc(50% - min(calc(50vw - var(--bleed-gutter)), 50rem));
+}
+@media (min-width: 40rem) {
+  .bleed {
+    --bleed-gutter: 1.5rem;
+  }
+}
+
 /* PhotoSwipe caption (rendered in PhotoSwipe's own root). */
 .pswp-caption {
   position: absolute;

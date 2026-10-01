@@ -22,7 +22,8 @@ let width = $state(0);
 const rows = $derived(
   justify(
     photos.map((p) => p.width / p.height),
-    { width, targetHeight: width < 640 ? 170 : 260, gap: GAP },
+    // Rows grow with the width (about five across), within bounds.
+    { width, targetHeight: Math.min(300, Math.max(170, width / 5)), gap: GAP },
   ),
 );
 

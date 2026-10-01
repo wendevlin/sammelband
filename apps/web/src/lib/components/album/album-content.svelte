@@ -89,17 +89,19 @@ $effect(() => () => {
 {:else}
   {#each shown as s (s.id)}
     {@const gallery = photosOf(s.id)}
+    <!-- Wider than the text column on large screens (see .bleed); title and
+         text stay in the column, aligned with the album title. -->
     <section
       class={cn(
-        'my-10 first:mt-0',
+        'bleed my-10 first:mt-0',
         s.highlight && 'rounded-2xl border border-highlight-border bg-highlight px-5 py-6 sm:px-8'
       )}
     >
       {#if s.title.trim()}
-        <h2 class="mb-4 font-heading text-3xl">{s.title}</h2>
+        <h2 class="mx-auto mb-4 max-w-4xl font-heading text-3xl">{s.title}</h2>
       {/if}
       {#if s.text.trim()}
-        <div class="mb-6 prose max-w-none prose-stone dark:prose-invert">
+        <div class="mx-auto mb-6 prose max-w-4xl prose-stone dark:prose-invert">
           {#each s.text.split(/\n\n+/).filter((p) => p.trim()) as paragraph, i (i)}
             <p class="whitespace-pre-line">{paragraph}</p>
           {/each}

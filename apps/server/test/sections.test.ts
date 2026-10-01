@@ -282,6 +282,16 @@ describe("justified rows", () => {
     expect(justify([1], { ...opts, width: 0 })).toEqual([]);
   });
 
+  test("a lonely last photo joins the row above if that stays high enough", () => {
+    // Three wide photos fill a row (~163px); a narrow fourth fits in at ~154px (≥ 75% of 200).
+    const merged = justify([2, 2, 2, 0.3], opts);
+    expect(merged).toHaveLength(1);
+    expect(merged[0]?.height).toBeCloseTo((1000 - 30) / 6.3);
+    // A wider one would squash the row below 150px: it stays in its own row.
+    const kept = justify([2, 2, 2, 0.6], opts);
+    expect(kept.map((r) => r.items.length)).toEqual([3, 1]);
+  });
+
   test("closes a row where the height comes closer to the target", () => {
     // Squares at 1000px: four make a row ~242px high, five ~192px (closer to 200).
     const rows = justify([1, 1, 1, 1, 1, 1, 1, 1, 1, 1], opts);
