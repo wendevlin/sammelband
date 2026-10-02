@@ -69,7 +69,7 @@ where `.env`, the dev SQLite file, `uploads/` and `dist/` live.
   routes take an account id and only find the user's own. Imports become
   ordinary uploads (`source.service.importPhotos` → `imageService.uploadPhoto`), so
   nothing is ever served from a source. Requests to source servers go through
-  `lib/remote-fetch.ts` (address checks, `SOURCES_ALLOW_PRIVATE_HOSTS`, manual
+  `lib/remote-fetch.ts` (address checks; private networks only with `SOURCES_ALLOW_PRIVATE_HOSTS`, manual
   redirects, size limits), never plain `fetch`. The web side: `$lib/sources.ts`
   (icons), `editor/source-picker.svelte` (same for every source), connect UI in
   `app/source-accounts.svelte`.

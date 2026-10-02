@@ -51,7 +51,7 @@
   "error_source_invalid_url": "Enter the address of the server (https://…)",
   "error_source_not_nextcloud": "No Nextcloud answers at this address",
   "error_source_unreachable": "The server can't be reached right now",
-  "error_source_host_not_allowed": "This server address isn't allowed (private or local network)",
+  "error_source_host_not_allowed": "This server is on a private or local network, which this Sammelband doesn't connect to. The person running it can allow that with SOURCES_ALLOW_PRIVATE_HOSTS.",
   "error_source_auth_failed": "The server didn't accept the login. Connect the account again.",
   "error_source_item_not_found": "Not found on the server any more",
   "error_source_connect_expired": "The login took too long. Start again.",

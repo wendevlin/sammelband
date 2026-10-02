@@ -51,7 +51,7 @@
   "error_source_invalid_url": "Gib die Adresse des Servers ein (https://…)",
   "error_source_not_nextcloud": "Unter dieser Adresse antwortet keine Nextcloud",
   "error_source_unreachable": "Der Server ist gerade nicht erreichbar",
-  "error_source_host_not_allowed": "Diese Server-Adresse ist nicht erlaubt (privates oder lokales Netz)",
+  "error_source_host_not_allowed": "Dieser Server liegt in einem privaten oder lokalen Netz, mit dem sich dieser Sammelband nicht verbindet. Wer ihn betreibt, kann das mit SOURCES_ALLOW_PRIVATE_HOSTS erlauben.",
   "error_source_auth_failed": "Der Server hat die Anmeldung nicht akzeptiert. Verbinde das Konto neu.",
   "error_source_item_not_found": "Auf dem Server nicht mehr vorhanden",
   "error_source_connect_expired": "Die Anmeldung hat zu lange gedauert. Starte sie neu.",

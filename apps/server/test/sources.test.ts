@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { config } from "../src/config";
 import { db } from "../src/db/client";
 import { classifyAddress } from "../src/lib/remote-fetch";
 import { open, seal } from "../src/lib/secret-box";
@@ -175,6 +176,22 @@ describe("photo sources", () => {
     expect(classifyAddress("93.184.216.34")).toBe("public");
     expect(classifyAddress("2a01:4f8::1")).toBe("public");
   });
+
+  test(
+    "private addresses are refused unless SOURCES_ALLOW_PRIVATE_HOSTS is set",
+    inTenant(async () => {
+      const settings = config as { SOURCES_ALLOW_PRIVATE_HOSTS: boolean };
+      settings.SOURCES_ALLOW_PRIVATE_HOSTS = false;
+      try {
+        await expect(
+          sourceService.saveSettings("nextcloud", { enabled: true, config: { url } }),
+        ).rejects.toMatchObject({ code: "source_host_not_allowed" });
+      } finally {
+        settings.SOURCES_ALLOW_PRIVATE_HOSTS = true;
+      }
+      await sourceService.saveSettings("nextcloud", { enabled: true, config: { url } });
+    }),
+  );
 
   test("credentials are sealed; a damaged value doesn't open", async () => {
     const sealed = await seal({ appPassword: "secret" });

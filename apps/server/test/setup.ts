@@ -10,6 +10,8 @@ const uploads = mkdtempSync(join(tmpdir(), "sammelband-test-"));
 process.env.UPLOADS_PATH = uploads;
 process.env.NODE_ENV = "test";
 if (!process.env.DATABASE_URL) process.env.DATABASE_PATH = ":memory:";
+// The fake photo source servers run on localhost.
+process.env.SOURCES_ALLOW_PRIVATE_HOSTS = "true";
 
 const { migrate } = await import("../src/db/migrate");
 const { resetDatabase } = await import("./helpers");

@@ -119,7 +119,8 @@ export const ERRORS = {
   source_unreachable: { status: 502, message: "The server can't be reached right now" },
   source_host_not_allowed: {
     status: 400,
-    message: "This server address isn't allowed (private or local network)",
+    message:
+      "This server is on a private or local network, which this Sammelband doesn't connect to (SOURCES_ALLOW_PRIVATE_HOSTS)",
   },
   source_auth_failed: {
     status: 401,
