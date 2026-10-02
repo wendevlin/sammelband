@@ -60,6 +60,19 @@ where `.env`, the dev SQLite file, `uploads/` and `dist/` live.
   (`album/markdown-text.svelte`, links only to http(s)/mailto/tel). The editor is Tiptap
   with its markdown extension (`editor/markdown-editor.svelte`); both parse with the
   same options (`$lib/markdown`).
+- Photo sources (`apps/server/src/sources/`, Nextcloud now, Immich later): a
+  `PhotoSource` (`sources/types.ts`) browses folders, serves thumbnails and downloads
+  photos; `sources/index.ts` registers them. Admins switch one on per Sammelband
+  (`source_settings`, with an optional default server); users connect accounts
+  (`source_accounts`: several per user, each with its own server config, an optional
+  name, credentials sealed with `lib/secret-box.ts`). Browse, thumbnail and import
+  routes take an account id and only find the user's own. Imports become
+  ordinary uploads (`source.service.importPhotos` → `imageService.uploadPhoto`), so
+  nothing is ever served from a source. Requests to source servers go through
+  `lib/remote-fetch.ts` (address checks; private networks only with `SOURCES_ALLOW_PRIVATE_HOSTS`, manual
+  redirects, size limits), never plain `fetch`. The web side: `$lib/sources.ts`
+  (icons), `editor/source-picker.svelte` (same for every source), connect UI in
+  `app/source-accounts.svelte`.
 - Permissions: `requireAuth` for all content (everyone in a tenant edits everything),
   `requireAdmin` for `/api/admin/*` (users, invites, storage of the own tenant),
   `requireSuperadmin` for `/api/instance/*` (tenant management, metadata only). No

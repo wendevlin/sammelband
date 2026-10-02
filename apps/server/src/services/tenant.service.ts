@@ -257,6 +257,8 @@ export async function deleteTenant(
   await db.transaction().execute(async (trx) => {
     const users = (eb: typeof trx) => eb.selectFrom("user").select("id").where("tenantId", "=", id);
     await trx.deleteFrom("share_links").where("tenant_id", "=", id).execute();
+    await trx.deleteFrom("source_accounts").where("tenant_id", "=", id).execute();
+    await trx.deleteFrom("source_settings").where("tenant_id", "=", id).execute();
     await trx.deleteFrom("album_positions").where("tenant_id", "=", id).execute();
     await trx.deleteFrom("folder_positions").where("tenant_id", "=", id).execute();
     await trx.deleteFrom("folder_sort").where("tenant_id", "=", id).execute();

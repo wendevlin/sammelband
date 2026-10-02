@@ -82,6 +82,31 @@ export type Tenant = {
   two_factor_required: number;
 };
 
+/** A photo source switched on for a Sammelband; `config` is JSON (per source). */
+export type SourceSetting = {
+  tenant_id: string;
+  source: string;
+  enabled: number;
+  config: string;
+  updated_at: number;
+};
+
+/** A user's account at a photo source; `credentials` is encrypted JSON. */
+export type SourceAccount = {
+  id: string;
+  tenant_id: string;
+  user_id: string;
+  source: string;
+  name: string | null;
+  label: string;
+  /** JSON, this account's server etc. */
+  config: string;
+  credentials: string;
+  last_location: string | null;
+  created_at: number;
+  updated_at: number;
+};
+
 /** Instance-wide settings of the superadmin; `value` is JSON. */
 export type InstanceSetting = {
   key: string;
@@ -194,4 +219,6 @@ export type Database = {
   album_positions: AlbumPosition;
   folder_positions: FolderPosition;
   share_links: ShareLink;
+  source_settings: SourceSetting;
+  source_accounts: SourceAccount;
 };

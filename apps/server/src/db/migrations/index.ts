@@ -2,6 +2,7 @@ import type { Migration } from "kysely/migration";
 import * as initial from "./0001_initial";
 import * as twoFactor from "./0002_two_factor";
 import * as sections from "./0003_sections";
+import * as photoSources from "./0004_photo_sources";
 
 /**
  * All migrations, in order. Listed statically (instead of read from disk) so
@@ -12,4 +13,5 @@ export const migrations: Record<string, Migration> = {
   "0001_initial": initial,
   "0002_two_factor": twoFactor,
   "0003_sections": sections,
+  "0004_photo_sources": photoSources,
 };

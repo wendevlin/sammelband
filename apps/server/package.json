@@ -12,6 +12,7 @@
     "@hono/zod-validator": "0.9.1",
     "@sammelband/shared": "workspace:*",
     "better-auth": "1.7.6",
+    "fast-xml-parser": "5.11.2",
     "hono": "4.13.9",
     "kysely": "0.29.6",
     "nodemailer": "10.0.12",

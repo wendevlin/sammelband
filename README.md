@@ -119,6 +119,7 @@ there; the app doesn't send it.
 | `TRUST_PROXY` | `false` | Use `X-Forwarded-For` for rate limiting. Only behind a proxy that sets it |
 | `MAX_UPLOAD_MB` | `50` | Largest accepted photo |
 | `MULTI_TENANT` | `false` | Host several Sammelbände; the owner manages them under Admin settings |
+| `SOURCES_ALLOW_PRIVATE_HOSTS` | `false` | Let photo sources (Nextcloud) live on private addresses: home network, Tailscale, the same host |
 | `SMTP_HOST` | unset | SMTP server for email. Without it no mail is sent and "Forgot password?" is hidden |
 | `SMTP_PORT` | `587` (`465` with `SMTP_SECURE`) | SMTP port |
 | `SMTP_SECURE` | `true` on port 465 | TLS from the start (465); otherwise STARTTLS is used when offered |
@@ -129,6 +130,28 @@ With SMTP set up, users reset a forgotten password with a link by mail. It works
 once within an hour and signs them out everywhere. `BASE_URL` has to be the
 address people open, since the link points there. The server checks the SMTP
 connection at startup and logs the result.
+
+## Photo sources (Nextcloud)
+
+Besides uploads, photos can come from a Nextcloud. An admin switches it on under
+Admin settings → Photo sources, optionally with a default Nextcloud server; then
+everyone connects their own accounts in their profile (they sign in to Nextcloud and
+allow access, or enter an app password). Each person can connect several accounts, on
+the default server or any other, and give them names like "Family" or "Work". In the
+album editor, "Add photos" then offers one entry per account: browse the folders,
+pick photos, and they are copied into the album like uploads.
+Sammelband never serves anything from Nextcloud itself, so public links keep working
+when files move there. The picker opens in the folder you used last in that account.
+
+Sammelband's server talks to Nextcloud itself, and anyone connecting an account
+chooses the server. So it only connects to public addresses unless you set
+`SOURCES_ALLOW_PRIVATE_HOSTS=true`; do that if your Nextcloud is at home, on
+Tailscale or on the same host, and you trust everyone with an account. Link-local
+and cloud metadata addresses stay blocked either way.
+
+Login data is stored encrypted with `SECRET_KEY`; changing it means connecting the
+accounts again. Photo formats Sammelband can't read (HEIC, RAW) are imported as
+Nextcloud's large JPEG preview.
 
 ## Database
 
