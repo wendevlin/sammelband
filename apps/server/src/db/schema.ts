@@ -97,7 +97,10 @@ export type SourceAccount = {
   tenant_id: string;
   user_id: string;
   source: string;
+  name: string | null;
   label: string;
+  /** JSON, this account's server etc. */
+  config: string;
   credentials: string;
   last_location: string | null;
   created_at: number;

@@ -13,8 +13,9 @@ import { m } from "$lib/paraglide/messages.js";
 import { sources as userSources } from "$lib/stores/sources.svelte";
 
 /**
- * Photo sources of the admin's Sammelband: switched on with the server's
- * address, people then connect their own accounts in their profile.
+ * Photo sources of the admin's Sammelband: switched on, optionally with a
+ * default server. People connect their own accounts in their profile, there
+ * or on other servers.
  */
 let { data } = $props();
 
@@ -41,7 +42,11 @@ async function save(s: SourceSettingsInfo, e?: SubmitEvent) {
     m.admin_source_saved({ source: s.name }),
   );
   saving = null;
-  if (!ok) draft.enabled = s.enabled;
+  // Keeps what was typed, so a wrong address can be corrected.
+  if (!ok) {
+    draft.enabled = s.enabled;
+    return;
+  }
   await invalidate("app:sources");
   void userSources.load(true);
 }
@@ -82,8 +87,7 @@ async function save(s: SourceSettingsInfo, e?: SubmitEvent) {
                 const draft = drafts[s.id];
                 if (!draft) return;
                 draft.enabled = on;
-                // Switching off needs no address; switching on waits for one.
-                if (!on || draft.url.trim()) void save(s);
+                void save(s);
               }}
               disabled={saving === s.id}
             />
@@ -98,7 +102,6 @@ async function save(s: SourceSettingsInfo, e?: SubmitEvent) {
                   type="url"
                   class="min-w-64 flex-1"
                   placeholder="https://cloud.example.com"
-                  required
                   value={drafts[s.id]?.url ?? ''}
                   oninput={(e) => {
                     const draft = drafts[s.id];

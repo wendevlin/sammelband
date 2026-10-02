@@ -16,79 +16,121 @@ import {
 
 const THUMB_SIZES = [128, 256, 512] as const;
 
-// Nextcloud login flows waiting for the user to grant access, per user. A flow
-// expires after 20 minutes in Nextcloud too.
+// Nextcloud login flows waiting for the user to grant access, by flow id. A
+// flow expires after 20 minutes in Nextcloud too.
 const FLOW_TTL_MS = 20 * 60 * 1000;
-const flows = new Map<string, { flow: LoginFlow; expires: number }>();
-const flowKey = (userId: string) => `${currentTenantId()}/${userId}`;
+type PendingFlow = {
+  owner: string;
+  flow: LoginFlow;
+  config: NextcloudConfig;
+  name: string | null;
+  expires: number;
+};
+const flows = new Map<string, PendingFlow>();
+const owner = (userId: string) => `${currentTenantId()}/${userId}`;
 
-/** Connecting a Nextcloud account: Login Flow v2, or an app password typed in. */
+const server = z.object({
+  url: z.string().max(2000).optional(),
+  name: z.string().max(100).nullable().optional(),
+});
+
+/**
+ * Connecting a Nextcloud account, on the admins' default server or another
+ * one: Login Flow v2, or an app password typed in.
+ */
 const nextcloudRoutes = new Hono<AuthEnv>()
-  .post("/connect", async (c) => {
-    const config = await sourceService.configFor<NextcloudConfig>("nextcloud");
+  .post("/connect", validate("json", server), async (c) => {
+    const { url, name } = c.req.valid("json");
+    const config = await sourceService.configFor<NextcloudConfig>("nextcloud", { url });
     const flow = await startLogin(config);
-    flows.set(flowKey(c.get("user").id), { flow, expires: Date.now() + FLOW_TTL_MS });
-    return c.json({ login: flow.login });
+    const id = Bun.randomUUIDv7();
+    const now = Date.now();
+    for (const [key, f] of flows) if (f.expires < now) flows.delete(key);
+    flows.set(id, {
+      owner: owner(c.get("user").id),
+      flow,
+      config,
+      name: name ?? null,
+      expires: now + FLOW_TTL_MS,
+    });
+    return c.json({ login: flow.login, flow: id });
   })
-  .post("/connect/poll", async (c) => {
-    const key = flowKey(c.get("user").id);
-    const pending = flows.get(key);
-    if (!pending || pending.expires < Date.now()) {
-      flows.delete(key);
+  .post("/connect/poll", validate("json", z.object({ flow: z.string() })), async (c) => {
+    const id = c.req.valid("json").flow;
+    const pending = flows.get(id);
+    if (!pending || pending.owner !== owner(c.get("user").id) || pending.expires < Date.now()) {
+      flows.delete(id);
       throw fail("source_connect_expired");
     }
-    const config = await sourceService.configFor<NextcloudConfig>("nextcloud");
-    const credentials = await pollLogin(config, pending.flow);
+    const credentials = await pollLogin(pending.config, pending.flow);
     if (!credentials) return c.json({ connected: false });
-    flows.delete(key);
-    const source = await sourceService.saveAccount(
-      c.get("user").id,
-      "nextcloud",
-      credentials.loginName,
+    flows.delete(id);
+    const account = await sourceService.addAccount(c.get("user").id, "nextcloud", {
+      name: pending.name,
+      label: credentials.loginName,
+      config: pending.config,
       credentials,
-    );
-    return c.json({ connected: true, source });
+    });
+    return c.json({ connected: true, account });
   })
-  .put(
-    "/account",
+  .post(
+    "/accounts",
     validate(
       "json",
-      z.object({ loginName: z.string().min(1).max(200), appPassword: z.string().min(1).max(500) }),
+      server.extend({
+        loginName: z.string().min(1).max(200),
+        appPassword: z.string().min(1).max(500),
+      }),
     ),
     async (c) => {
-      const { loginName, appPassword } = c.req.valid("json");
-      const config = await sourceService.configFor<NextcloudConfig>("nextcloud");
+      const { url, name, loginName, appPassword } = c.req.valid("json");
+      const config = await sourceService.configFor<NextcloudConfig>("nextcloud", { url });
       const credentials = await verifyAccount(config, loginName.trim(), appPassword.trim());
-      return c.json(
-        await sourceService.saveAccount(
-          c.get("user").id,
-          "nextcloud",
-          credentials.loginName,
-          credentials,
-        ),
-      );
+      const account = await sourceService.addAccount(c.get("user").id, "nextcloud", {
+        name,
+        label: credentials.loginName,
+        config,
+        credentials,
+      });
+      return c.json(account, 201);
     },
   );
 
-/** Mounted under /api/sources. */
+/** Mounted under /api/sources. Accounts are the user's own; ids of others' are "not found". */
 export const sourceRoutes = new Hono<AuthEnv>()
   .use("*", requireAuth)
   .route("/nextcloud", nextcloudRoutes)
   .get("/", async (c) => c.json(await sourceService.listForUser(c.get("user").id)))
+  .patch(
+    "/accounts/:accountId",
+    validate("json", z.object({ name: z.string().max(100).nullable() })),
+    async (c) =>
+      c.json(
+        await sourceService.renameAccount(
+          c.get("user").id,
+          c.req.param("accountId"),
+          c.req.valid("json").name,
+        ),
+      ),
+  )
+  .delete("/accounts/:accountId", async (c) => {
+    await sourceService.removeAccount(c.get("user").id, c.req.param("accountId"));
+    return c.json({ ok: true });
+  })
   .get(
-    "/:id/browse",
+    "/accounts/:accountId/browse",
     validate("query", z.object({ location: z.string().max(2000).optional() })),
     async (c) =>
       c.json(
         await sourceService.browse(
           c.get("user").id,
-          c.req.param("id"),
+          c.req.param("accountId"),
           c.req.valid("query").location ?? null,
         ),
       ),
   )
   .get(
-    "/:id/thumbnail",
+    "/accounts/:accountId/thumbnail",
     validate(
       "query",
       z.object({
@@ -101,7 +143,12 @@ export const sourceRoutes = new Hono<AuthEnv>()
     ),
     async (c) => {
       const { id, size } = c.req.valid("query");
-      const file = await sourceService.thumbnail(c.get("user").id, c.req.param("id"), id, size);
+      const file = await sourceService.thumbnail(
+        c.get("user").id,
+        c.req.param("accountId"),
+        id,
+        size,
+      );
       return new Response(file.bytes, {
         headers: {
           "Content-Type": file.type.startsWith("image/") ? file.type : "application/octet-stream",
@@ -110,30 +157,27 @@ export const sourceRoutes = new Hono<AuthEnv>()
         },
       });
     },
-  )
-  .delete("/:id/account", async (c) => {
-    await sourceService.removeAccount(c.get("user").id, c.req.param("id"));
-    return c.json({ ok: true });
-  });
-
-/** Mounted under /api/sections: photos picked in a source go into a section. */
-export const sectionImportRoutes = new Hono<AuthEnv>()
-  .use("*", requireAuth)
-  .post(
-    "/:sectionId/import",
-    uploadRateLimit,
-    validate(
-      "json",
-      z.object({ source: z.string(), refs: z.array(z.string().min(1).max(2000)).min(1).max(20) }),
-    ),
-    async (c) => {
-      const { source, refs } = c.req.valid("json");
-      const uploaded = await sourceService.importPhotos(
-        c.get("user").id,
-        source,
-        c.req.param("sectionId"),
-        refs,
-      );
-      return c.json({ uploaded }, 201);
-    },
   );
+
+/** Mounted under /api/sections: photos picked in a source account go into a section. */
+export const sectionImportRoutes = new Hono<AuthEnv>().use("*", requireAuth).post(
+  "/:sectionId/import",
+  uploadRateLimit,
+  validate(
+    "json",
+    z.object({
+      account: z.string(),
+      refs: z.array(z.string().min(1).max(2000)).min(1).max(20),
+    }),
+  ),
+  async (c) => {
+    const { account, refs } = c.req.valid("json");
+    const uploaded = await sourceService.importPhotos(
+      c.get("user").id,
+      account,
+      c.req.param("sectionId"),
+      refs,
+    );
+    return c.json({ uploaded }, 201);
+  },
+);

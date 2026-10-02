@@ -113,7 +113,7 @@ export const ERRORS = {
   // Photo sources (Nextcloud)
   source_not_found: { status: 404, message: "Unknown photo source" },
   source_disabled: { status: 404, message: "This photo source isn't switched on here" },
-  source_not_connected: { status: 409, message: "Connect your account first" },
+  source_account_not_found: { status: 404, message: "This account isn't connected any more" },
   source_invalid_url: { status: 400, message: "Enter the address of the server (https://…)" },
   source_not_nextcloud: { status: 400, message: "No Nextcloud answers at this address" },
   source_unreachable: { status: 502, message: "The server can't be reached right now" },

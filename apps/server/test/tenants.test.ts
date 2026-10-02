@@ -263,7 +263,11 @@ describe("superadmin", () => {
           updated_at: 1,
         })
         .execute();
-      await sourceService.saveAccount(user.id, "nextcloud", "anna", { appPassword: "x" });
+      await sourceService.addAccount(user.id, "nextcloud", {
+        label: "anna",
+        config: {},
+        credentials: { appPassword: "x" },
+      });
     });
     const rowsOf = async () => {
       const counts: Record<string, number> = {};

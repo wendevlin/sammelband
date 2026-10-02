@@ -2,7 +2,7 @@
 import ImagePlus from "@lucide/svelte/icons/image-plus";
 import Upload from "@lucide/svelte/icons/upload";
 import X from "@lucide/svelte/icons/x";
-import type { Photo, SourceInfo } from "@sammelband/shared";
+import type { Photo, SourceAccount } from "@sammelband/shared";
 import { onMount } from "svelte";
 import { toast } from "svelte-sonner";
 import { goto } from "$app/navigation";
@@ -17,6 +17,7 @@ import { Input } from "$lib/components/ui/input";
 import { errorText } from "$lib/i18n";
 import { imageSrc } from "$lib/images";
 import { m } from "$lib/paraglide/messages.js";
+import { accountTitle } from "$lib/sources";
 import { sources } from "$lib/stores/sources.svelte";
 import { cn } from "$lib/utils";
 import { photoDrag } from "./photo-drag.svelte";
@@ -39,10 +40,10 @@ let {
 let over = $state(false);
 // Photo sources (Nextcloud) of this Sammelband, for the "Add photos" menu.
 onMount(() => void sources.load());
-let pickerSource = $state<SourceInfo | null>(null);
+let picker = $state<{ account: SourceAccount; title: string } | null>(null);
 let pickerOpen = $state(false);
-function openPicker(source: SourceInfo) {
-  pickerSource = source;
+function openPicker(account: SourceAccount, title: string) {
+  picker = { account, title };
   pickerOpen = true;
 }
 let uploading = $state(0);
@@ -245,12 +246,13 @@ const draggingForeign = $derived(
         {m.photos_add_upload()}
       </DropdownMenu.Item>
       {#each sources.list as s (s.id)}
-        {#if s.account}
-          <DropdownMenu.Item onclick={() => openPicker(s)}>
+        {#each s.accounts as a (a.id)}
+          <DropdownMenu.Item onclick={() => openPicker(a, accountTitle(s, a))}>
             <SourceIcon id={s.id} />
-            {m.photos_add_from({ source: s.name })}
+            {m.photos_add_from({ source: accountTitle(s, a) })}
           </DropdownMenu.Item>
-        {:else}
+        {/each}
+        {#if s.accounts.length === 0}
           <DropdownMenu.Item onclick={() => goto('/profile#sources')}>
             <SourceIcon id={s.id} />
             {m.photos_add_connect({ source: s.name })}
@@ -263,8 +265,13 @@ const draggingForeign = $derived(
   {@render zone(null)}
 {/if}
 
-{#if pickerSource}
-  <SourcePicker bind:open={pickerOpen} source={pickerSource} {ensureSection} />
+{#if picker}
+  <SourcePicker
+    bind:open={pickerOpen}
+    account={picker.account}
+    title={picker.title}
+    {ensureSection}
+  />
 {/if}
 <input
   bind:this={input}

@@ -206,21 +206,34 @@ export type SharedView =
 
 export type SourceId = "nextcloud";
 
-/** A source switched on for the user's Sammelband, as the "Add photos" menu shows it. */
+/** One of the user's accounts at a source; a user can connect several. */
+export type SourceAccount = {
+  id: string;
+  source: SourceId;
+  /** What the user called it ("Family", "Work"), or null. */
+  name: string | null;
+  /** The account at the source, e.g. the Nextcloud login name. */
+  label: string;
+  /** The server it's on. */
+  server: string;
+};
+
+/** A source switched on for the user's Sammelband, with the user's accounts there. */
 export type SourceInfo = {
   id: SourceId;
   name: string;
-  /** The user's connected account, or null (connect it in the profile). */
-  account: { label: string } | null;
+  /** The server the admins suggest (Nextcloud: its address), or null. */
+  default_server: string | null;
+  accounts: SourceAccount[];
 };
 
 export type SourceFolder = { ref: string; name: string };
 
 export type SourceImage = {
-  /** What to import: pass it to POST /api/sections/:id/import. */
+  /** What to import: pass it to POST /api/sections/:id/import with the account. */
   ref: string;
   name: string;
-  /** For GET /api/sources/:id/thumbnail?id=…, or null without a preview. */
+  /** For GET /api/sources/accounts/:id/thumbnail?id=…, or null without a preview. */
   thumb: string | null;
   size: number | null;
   modified: number | null;
@@ -240,8 +253,8 @@ export type SourceSettingsInfo = {
   id: SourceId;
   name: string;
   enabled: boolean;
-  /** Per source; Nextcloud: { url }. */
+  /** Per source; Nextcloud: { url }, the default server people can change. */
   config: Record<string, string>;
-  /** Users who connected an account. */
+  /** Accounts connected in this Sammelband. */
   accounts: number;
 };

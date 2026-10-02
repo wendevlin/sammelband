@@ -3,7 +3,7 @@ import Check from "@lucide/svelte/icons/check";
 import ChevronRight from "@lucide/svelte/icons/chevron-right";
 import Folder from "@lucide/svelte/icons/folder";
 import ImageIcon from "@lucide/svelte/icons/image";
-import type { SourceImage, SourceInfo, SourceListing } from "@sammelband/shared";
+import type { SourceAccount, SourceImage, SourceListing } from "@sammelband/shared";
 import { SvelteMap } from "svelte/reactivity";
 import { toast } from "svelte-sonner";
 import { api, post } from "$lib/api";
@@ -15,17 +15,20 @@ import { thumbnailUrl } from "$lib/sources";
 import { cn } from "$lib/utils";
 
 /**
- * Pick photos in a source (Nextcloud): folders to browse, photos to select,
- * across folders. It opens where the user was last time. "Add" imports the
- * selection into the section, a few photos per request so progress shows.
+ * Pick photos in a source account (Nextcloud): folders to browse, photos to
+ * select, across folders. It opens where the user was last time in this
+ * account. "Add" imports the selection, a few photos per request so progress shows.
  */
 let {
   open = $bindable(false),
-  source,
+  account,
+  title,
   ensureSection,
 }: {
   open?: boolean;
-  source: SourceInfo;
+  account: SourceAccount;
+  /** The account's name in menus, e.g. "Nextcloud" or "Work". */
+  title: string;
   ensureSection: () => Promise<string | null>;
 } = $props();
 
@@ -42,7 +45,7 @@ async function show(location?: string) {
   problem = null;
   try {
     const query = location === undefined ? "" : `?${new URLSearchParams({ location })}`;
-    listing = await api<SourceListing>(`/sources/${source.id}/browse${query}`);
+    listing = await api<SourceListing>(`/sources/accounts/${account.id}/browse${query}`);
   } catch (err) {
     problem = errorText(err);
   } finally {
@@ -85,7 +88,7 @@ async function add() {
     for (let i = 0; i < refs.length; i += BATCH) {
       const batch = refs.slice(i, i + BATCH);
       try {
-        await post(`/sections/${sectionId}/import`, { source: source.id, refs: batch });
+        await post(`/sections/${sectionId}/import`, { account: account.id, refs: batch });
         added += batch.length;
       } catch (err) {
         failed += batch.length;
@@ -102,13 +105,13 @@ async function add() {
   if (failed === 0) open = false;
 }
 
-const crumbName = (name: string) => name || source.name;
+const crumbName = (name: string) => name || title;
 </script>
 
 <Dialog.Root bind:open>
   <Dialog.Content class="flex max-h-[90dvh] flex-col gap-4 sm:max-w-4xl">
     <Dialog.Header>
-      <Dialog.Title>{m.picker_title({ source: source.name })}</Dialog.Title>
+      <Dialog.Title>{m.picker_title({ source: title })}</Dialog.Title>
       {#if listing}
         <nav class="flex flex-wrap items-center gap-1 text-sm text-muted-foreground">
           {#each listing.crumbs as crumb, i (crumb.ref)}
@@ -173,7 +176,7 @@ const crumbName = (name: string) => name || source.name;
                 >
                   {#if image.thumb}
                     <img
-                      src={thumbnailUrl(source.id, image.thumb)}
+                      src={thumbnailUrl(account.id, image.thumb)}
                       alt=""
                       loading="lazy"
                       class="size-full object-cover"

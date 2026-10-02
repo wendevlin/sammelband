@@ -296,6 +296,7 @@ export const nextcloud: PhotoSource<NextcloudConfig, NextcloudCredentials> = {
     return { url: await normalizeUrl(input.url) };
   },
   showConfig: (config) => ({ url: config.url }),
+  serverOf: (config) => config.url,
   browse,
   thumbnail: (config, c, thumb, size) => preview(config, c, thumb, size, MAX_THUMBNAIL_BYTES),
   download,

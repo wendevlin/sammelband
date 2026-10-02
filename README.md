@@ -134,12 +134,14 @@ connection at startup and logs the result.
 ## Photo sources (Nextcloud)
 
 Besides uploads, photos can come from a Nextcloud. An admin switches it on under
-Admin settings → Photo sources with the Nextcloud address; then everyone connects
-their own account in their profile (they sign in to Nextcloud and allow access, or
-enter an app password). In the album editor, "Add photos" then offers "From Nextcloud":
-browse the folders, pick photos, and they are copied into the album like uploads.
+Admin settings → Photo sources, optionally with a default Nextcloud server; then
+everyone connects their own accounts in their profile (they sign in to Nextcloud and
+allow access, or enter an app password). Each person can connect several accounts, on
+the default server or any other, and give them names like "Family" or "Work". In the
+album editor, "Add photos" then offers one entry per account: browse the folders,
+pick photos, and they are copied into the album like uploads.
 Sammelband never serves anything from Nextcloud itself, so public links keep working
-when files move there. The picker opens in the folder you used last.
+when files move there. The picker opens in the folder you used last in that account.
 
 Login data is stored encrypted with `SECRET_KEY`; changing it means connecting the
 accounts again. Photo formats Sammelband can't read (HEIC, RAW) are imported as

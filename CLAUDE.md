@@ -63,8 +63,10 @@ where `.env`, the dev SQLite file, `uploads/` and `dist/` live.
 - Photo sources (`apps/server/src/sources/`, Nextcloud now, Immich later): a
   `PhotoSource` (`sources/types.ts`) browses folders, serves thumbnails and downloads
   photos; `sources/index.ts` registers them. Admins switch one on per Sammelband
-  (`source_settings`, e.g. the server address); each user connects an account
-  (`source_accounts`, credentials sealed with `lib/secret-box.ts`). Imports become
+  (`source_settings`, with an optional default server); users connect accounts
+  (`source_accounts`: several per user, each with its own server config, an optional
+  name, credentials sealed with `lib/secret-box.ts`). Browse, thumbnail and import
+  routes take an account id and only find the user's own. Imports become
   ordinary uploads (`source.service.importPhotos` → `imageService.uploadPhoto`), so
   nothing is ever served from a source. Requests to source servers go through
   `lib/remote-fetch.ts` (address checks, `SOURCES_ALLOW_PRIVATE_HOSTS`, manual

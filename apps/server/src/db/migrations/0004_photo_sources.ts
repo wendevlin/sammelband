@@ -2,8 +2,9 @@ import type { Kysely } from "kysely";
 
 // Photo sources: places photos can be imported from besides uploads (Nextcloud,
 // later Immich). A source is switched on per Sammelband by its admins
-// (`source_settings`, e.g. the Nextcloud server), and each user connects their
-// own account (`source_accounts`, credentials encrypted with SECRET_KEY).
+// (`source_settings`, with a default server people can change), and users
+// connect accounts (`source_accounts`): several per source, each with its own
+// server, an optional name, and credentials encrypted with SECRET_KEY.
 // Imported photos are stored like uploads; nothing is served from the source.
 
 // biome-ignore lint/suspicious/noExplicitAny: migrations run against a changing schema
@@ -13,7 +14,7 @@ export async function up(db: Kysely<any>): Promise<void> {
     .addColumn("tenant_id", "text", (c) => c.notNull().references("tenants.id"))
     .addColumn("source", "text", (c) => c.notNull())
     .addColumn("enabled", "integer", (c) => c.notNull().defaultTo(0))
-    /** JSON, shape per source (Nextcloud: { url }). */
+    /** JSON, shape per source (Nextcloud: { url }, the default server). */
     .addColumn("config", "text", (c) => c.notNull())
     .addColumn("updated_at", "bigint", (c) => c.notNull())
     .addPrimaryKeyConstraint("source_settings_pk", ["tenant_id", "source"])
@@ -25,20 +26,23 @@ export async function up(db: Kysely<any>): Promise<void> {
     .addColumn("tenant_id", "text", (c) => c.notNull().references("tenants.id"))
     .addColumn("user_id", "text", (c) => c.notNull().references("user.id").onDelete("cascade"))
     .addColumn("source", "text", (c) => c.notNull())
-    /** Shown to the user, e.g. the Nextcloud login name. */
+    /** What the user called it ("Family", "Work"), or null. */
+    .addColumn("name", "text")
+    /** The account at the source, e.g. the Nextcloud login name. */
     .addColumn("label", "text", (c) => c.notNull())
+    /** JSON, shape per source (Nextcloud: { url }, this account's server). */
+    .addColumn("config", "text", (c) => c.notNull())
     /** Encrypted JSON (lib/secret-box.ts), shape per source. */
     .addColumn("credentials", "text", (c) => c.notNull())
     /** Where the picker opened last, so it opens there again. */
     .addColumn("last_location", "text")
     .addColumn("created_at", "bigint", (c) => c.notNull())
     .addColumn("updated_at", "bigint", (c) => c.notNull())
-    .addUniqueConstraint("source_accounts_user_source", ["user_id", "source"])
     .execute();
   await db.schema
-    .createIndex("idx_source_accounts_tenant")
+    .createIndex("idx_source_accounts_user")
     .on("source_accounts")
-    .columns(["tenant_id", "source"])
+    .columns(["tenant_id", "user_id"])
     .execute();
 }
 
