@@ -201,3 +201,47 @@ export type SharedView =
       /** Folders from the shared folder down to this one. */
       trail: Crumb[];
     };
+
+// --- Photo sources (/api/sources): places to import photos from besides uploads.
+
+export type SourceId = "nextcloud";
+
+/** A source switched on for the user's Sammelband, as the "Add photos" menu shows it. */
+export type SourceInfo = {
+  id: SourceId;
+  name: string;
+  /** The user's connected account, or null (connect it in the profile). */
+  account: { label: string } | null;
+};
+
+export type SourceFolder = { ref: string; name: string };
+
+export type SourceImage = {
+  /** What to import: pass it to POST /api/sections/:id/import. */
+  ref: string;
+  name: string;
+  /** For GET /api/sources/:id/thumbnail?id=…, or null without a preview. */
+  thumb: string | null;
+  size: number | null;
+  modified: number | null;
+};
+
+/** One folder of a source: where it is, what's inside. */
+export type SourceListing = {
+  location: string;
+  /** From the top down to this folder, which is the last one. */
+  crumbs: SourceFolder[];
+  folders: SourceFolder[];
+  images: SourceImage[];
+};
+
+/** A source as the Sammelband's admins configure it. */
+export type SourceSettingsInfo = {
+  id: SourceId;
+  name: string;
+  enabled: boolean;
+  /** Per source; Nextcloud: { url }. */
+  config: Record<string, string>;
+  /** Users who connected an account. */
+  accounts: number;
+};

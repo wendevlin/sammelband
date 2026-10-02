@@ -110,6 +110,24 @@ export const ERRORS = {
     message: "The neighbouring section no longer exists",
   },
 
+  // Photo sources (Nextcloud)
+  source_not_found: { status: 404, message: "Unknown photo source" },
+  source_disabled: { status: 404, message: "This photo source isn't switched on here" },
+  source_not_connected: { status: 409, message: "Connect your account first" },
+  source_invalid_url: { status: 400, message: "Enter the address of the server (https://…)" },
+  source_not_nextcloud: { status: 400, message: "No Nextcloud answers at this address" },
+  source_unreachable: { status: 502, message: "The server can't be reached right now" },
+  source_host_not_allowed: {
+    status: 400,
+    message: "This server address isn't allowed (private or local network)",
+  },
+  source_auth_failed: {
+    status: 401,
+    message: "The server didn't accept the login. Connect the account again.",
+  },
+  source_item_not_found: { status: 404, message: "Not found on the server any more" },
+  source_connect_expired: { status: 410, message: "The login took too long. Start again." },
+
   // Photos and images
   photo_not_found: { status: 404, message: "Photo not found" },
   photo_not_in_album: { status: 404, message: "Photo not found in this album" },

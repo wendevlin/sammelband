@@ -1,19 +1,26 @@
 <script lang="ts">
 import ImagePlus from "@lucide/svelte/icons/image-plus";
+import Upload from "@lucide/svelte/icons/upload";
 import X from "@lucide/svelte/icons/x";
-import type { Photo } from "@sammelband/shared";
+import type { Photo, SourceInfo } from "@sammelband/shared";
+import { onMount } from "svelte";
 import { toast } from "svelte-sonner";
+import { goto } from "$app/navigation";
 import { ApiError, api, del, patch, post } from "$lib/api";
 import { attempt } from "$lib/attempt";
+import SourceIcon from "$lib/components/app/source-icon.svelte";
 import ConfirmDialog from "$lib/components/dialogs/confirm-dialog.svelte";
 import NoticeDialog from "$lib/components/dialogs/notice-dialog.svelte";
 import { Button } from "$lib/components/ui/button";
+import * as DropdownMenu from "$lib/components/ui/dropdown-menu";
 import { Input } from "$lib/components/ui/input";
 import { errorText } from "$lib/i18n";
 import { imageSrc } from "$lib/images";
 import { m } from "$lib/paraglide/messages.js";
+import { sources } from "$lib/stores/sources.svelte";
 import { cn } from "$lib/utils";
 import { photoDrag } from "./photo-drag.svelte";
+import SourcePicker from "./source-picker.svelte";
 
 /**
  * Photo manager for one section: upload, caption, reorder, delete. The empty
@@ -30,6 +37,14 @@ let {
 } = $props();
 
 let over = $state(false);
+// Photo sources (Nextcloud) of this Sammelband, for the "Add photos" menu.
+onMount(() => void sources.load());
+let pickerSource = $state<SourceInfo | null>(null);
+let pickerOpen = $state(false);
+function openPicker(source: SourceInfo) {
+  pickerSource = source;
+  pickerOpen = true;
+}
 let uploading = $state(0);
 let dropTarget = $state<{ id: string; after: boolean } | null>(null);
 let deleteTarget = $state<Photo | null>(null);
@@ -177,39 +192,80 @@ const draggingForeign = $derived(
   </ul>
 {/if}
 
-<button
-  type="button"
-  class={cn(
-		'mt-3 flex w-full flex-col items-center gap-2 rounded-xl border border-dashed px-4 py-6 text-sm text-muted-foreground transition-colors',
-		over ? 'border-primary bg-muted' : 'hover:bg-muted/50'
-	)}
-  ondragover={(e) => {
-		if (photoDrag.current && !draggingForeign) return;
-		e.preventDefault();
-		over = true;
-	}}
-  ondragleave={() => (over = false)}
-  ondrop={(e) => {
-		e.preventDefault();
-		if (photoDrag.current) {
-			if (draggingForeign) void drop(null);
-			return;
-		}
-		over = false;
-		if (e.dataTransfer?.files.length) void upload(e.dataTransfer.files);
-	}}
-  onclick={() => input?.click()}
-  disabled={uploading > 0}
->
-  <ImagePlus class="size-5" />
-  {uploading > 0
-		? uploading === 1
-			? m.upload_progress_one()
-			: m.upload_progress_other({ count: uploading })
-		: draggingForeign
-			? m.upload_drop_move()
-			: m.upload_drop()}
-</button>
+<!-- Drop files here, or click: upload, or (with photo sources) a menu to pick where from. -->
+{#snippet zone(triggerProps: Record<string, unknown> | null)}
+  <button
+    {...triggerProps}
+    type="button"
+    class={cn(
+      'mt-3 flex w-full flex-col items-center gap-2 rounded-xl border border-dashed px-4 py-6 text-sm text-muted-foreground transition-colors',
+      over ? 'border-primary bg-muted' : 'hover:bg-muted/50'
+    )}
+    ondragover={(e) => {
+      if (photoDrag.current && !draggingForeign) return;
+      e.preventDefault();
+      over = true;
+    }}
+    ondragleave={() => (over = false)}
+    ondrop={(e) => {
+      e.preventDefault();
+      if (photoDrag.current) {
+        if (draggingForeign) void drop(null);
+        return;
+      }
+      over = false;
+      if (e.dataTransfer?.files.length) void upload(e.dataTransfer.files);
+    }}
+    onclick={triggerProps ? (triggerProps.onclick as () => void) : () => input?.click()}
+    disabled={uploading > 0}
+  >
+    <ImagePlus class="size-5" />
+    {uploading > 0
+      ? uploading === 1
+        ? m.upload_progress_one()
+        : m.upload_progress_other({ count: uploading })
+      : draggingForeign
+        ? m.upload_drop_move()
+        : sources.list.length > 0
+          ? m.upload_drop_or_pick()
+          : m.upload_drop()}
+  </button>
+{/snippet}
+
+{#if sources.list.length > 0}
+  <DropdownMenu.Root>
+    <DropdownMenu.Trigger>
+      {#snippet child({ props })}
+        {@render zone(props)}
+      {/snippet}
+    </DropdownMenu.Trigger>
+    <DropdownMenu.Content align="center" class="min-w-56">
+      <DropdownMenu.Item onclick={() => input?.click()}>
+        <Upload />
+        {m.photos_add_upload()}
+      </DropdownMenu.Item>
+      {#each sources.list as s (s.id)}
+        {#if s.account}
+          <DropdownMenu.Item onclick={() => openPicker(s)}>
+            <SourceIcon id={s.id} />
+            {m.photos_add_from({ source: s.name })}
+          </DropdownMenu.Item>
+        {:else}
+          <DropdownMenu.Item onclick={() => goto('/profile#sources')}>
+            <SourceIcon id={s.id} />
+            {m.photos_add_connect({ source: s.name })}
+          </DropdownMenu.Item>
+        {/if}
+      {/each}
+    </DropdownMenu.Content>
+  </DropdownMenu.Root>
+{:else}
+  {@render zone(null)}
+{/if}
+
+{#if pickerSource}
+  <SourcePicker bind:open={pickerOpen} source={pickerSource} {ensureSection} />
+{/if}
 <input
   bind:this={input}
   type="file"

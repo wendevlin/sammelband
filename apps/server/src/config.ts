@@ -76,6 +76,12 @@ export const config = {
   // default: one Sammelband, no tenant management. Existing tenants keep
   // working if it is switched off again; only managing them is hidden.
   MULTI_TENANT: process.env.MULTI_TENANT === "true",
+  // Photo sources (Nextcloud) on private addresses: home networks, Tailscale,
+  // the same host. Allowed by default with one Sammelband, where its admin runs
+  // the server; with several, their admins could otherwise probe the network.
+  SOURCES_ALLOW_PRIVATE_HOSTS: process.env.SOURCES_ALLOW_PRIVATE_HOSTS
+    ? process.env.SOURCES_ALLOW_PRIVATE_HOSTS === "true"
+    : process.env.MULTI_TENANT !== "true",
   /** Largest accepted photo upload. */
   MAX_UPLOAD_BYTES: Number(process.env.MAX_UPLOAD_MB ?? 50) * 1024 * 1024,
   // postgres://… selects PostgreSQL; otherwise SQLite at DATABASE_PATH.

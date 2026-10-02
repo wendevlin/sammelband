@@ -5,13 +5,14 @@ import { auth } from "../src/auth";
 import { db } from "../src/db/client";
 import { TENANT_COLUMNS } from "../src/db/tenant-scope";
 import { tenantDir } from "../src/lib/storage-paths";
-import { runInTenant } from "../src/lib/tenant-context";
+import { runInTenant, tdb } from "../src/lib/tenant-context";
 import * as albumService from "../src/services/album.service";
 import * as folderService from "../src/services/folder.service";
 import * as imageService from "../src/services/image.service";
 import * as inviteService from "../src/services/invite.service";
 import * as sectionService from "../src/services/section.service";
 import * as shareService from "../src/services/share.service";
+import * as sourceService from "../src/services/source.service";
 import * as tenantService from "../src/services/tenant.service";
 import * as userService from "../src/services/user.service";
 import { createTenant, createUser, png } from "./helpers";
@@ -251,6 +252,18 @@ describe("superadmin", () => {
       });
       await shareService.createShare({ folderId: folder.id }, { password: "secret" }, user.id);
       await inviteService.createTenantInvite("user");
+      // A photo source and an account (without contacting a server).
+      await tdb()
+        .insertInto("source_settings")
+        .values({
+          tenant_id: tenant.id,
+          source: "nextcloud",
+          enabled: 1,
+          config: "{}",
+          updated_at: 1,
+        })
+        .execute();
+      await sourceService.saveAccount(user.id, "nextcloud", "anna", { appPassword: "x" });
     });
     const rowsOf = async () => {
       const counts: Record<string, number> = {};
