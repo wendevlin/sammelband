@@ -192,10 +192,39 @@ label[for] {
 .pswp-caption {
   position: absolute;
   inset: auto 0 0 0;
-  padding: 0.75rem 1.5rem;
+  padding: 1rem 1.5rem 1.25rem;
   text-align: center;
-  font-size: 0.875rem;
+  font-size: 1rem;
+  line-height: 1.5;
   color: #fff;
-  background: linear-gradient(to top, rgb(0 0 0 / 0.6), transparent);
+  text-shadow: 0 1px 3px rgb(0 0 0 / 0.5);
+  background: linear-gradient(to top, rgb(0 0 0 / 0.7), transparent);
   pointer-events: none;
+}
+@media (min-width: 40rem) {
+  .pswp-caption {
+    font-size: 1.125rem;
+  }
+}
+
+/* Section title in PhotoSwipe's top bar, after the counter. Only the title
+   shrinks (to an ellipsis) when space runs out. */
+.pswp__top-bar > * {
+  flex-shrink: 0;
+}
+.pswp__top-bar > .pswp__sb-section-title {
+  flex-shrink: 1;
+  min-width: 0;
+  margin-inline-start: 20px;
+  overflow: hidden;
+  font-family: var(--font-heading);
+  font-size: 1.125rem;
+  line-height: 60px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--pswp-icon-color);
+  text-shadow: 1px 1px 3px rgb(0 0 0 / 0.6);
+}
+.pswp__top-bar > .pswp__sb-section-title:empty {
+  display: none;
 }

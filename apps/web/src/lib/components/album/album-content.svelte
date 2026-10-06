@@ -3,6 +3,7 @@ import PhotoSwipeLightbox from "photoswipe/lightbox";
 import { m } from "$lib/paraglide/messages.js";
 import "photoswipe/style.css";
 import type { Photo, Section } from "@sammelband/shared";
+import * as Dialog from "$lib/components/ui/dialog";
 import { imageUrls } from "$lib/images";
 import { cn } from "$lib/utils";
 import MarkdownText from "./markdown-text.svelte";
@@ -39,16 +40,73 @@ const sequence = $derived.by(() => {
 
 let lightbox: PhotoSwipeLightbox | null = null;
 
+// The section of the current slide, for the title in the top bar and the
+// info button that opens its text in a dialog on top of the lightbox.
+type Slide = { alt: string; sectionId: string };
+const sectionOf = (data: unknown) =>
+  shown.find((s) => s.id === (data as Slide | undefined)?.sectionId);
+let pswpRoot = $state<HTMLElement | null>(null);
+let infoSection = $state<Section | null>(null);
+let infoOpen = $state(false);
+
+// Filled circle with a cut-out "i", in PhotoSwipe's 32px icon style.
+const INFO_ICON = {
+  isCustomSVG: true,
+  inner:
+    '<path fill-rule="evenodd" id="sb-icn-info" d="M16 6a10 10 0 1 0 0 20a10 10 0 1 0 0-20zM14.5 10h3v3h-3zM14.5 14.5h3V22h-3z"/>',
+  outlineID: "sb-icn-info",
+};
+
 function open(index: number) {
   if (!lightbox) {
     lightbox = new PhotoSwipeLightbox({
       loop: false,
       // Solid backdrop: the page behind would otherwise show through at 0.8.
       bgOpacity: 1,
+      closeTitle: m.lightbox_close(),
+      zoomTitle: m.lightbox_zoom(),
+      arrowPrevTitle: m.lightbox_previous(),
+      arrowNextTitle: m.lightbox_next(),
       pswpModule: () => import("photoswipe"),
     });
     lightbox.on("uiRegister", () => {
-      lightbox?.pswp?.ui?.registerElement({
+      const ui = lightbox?.pswp?.ui;
+      ui?.registerElement({
+        name: "sb-section-title",
+        order: 6,
+        isButton: false,
+        onInit: (el, pswp) => {
+          const update = () => {
+            const title = sectionOf(pswp.currSlide?.data)?.title.trim() ?? "";
+            el.textContent = title;
+            el.title = title;
+          };
+          pswp.on("change", update);
+          update();
+        },
+      });
+      ui?.registerElement({
+        name: "sb-section-info",
+        title: m.lightbox_section_text(),
+        ariaLabel: m.lightbox_section_text(),
+        // After the title, before PhotoSwipe's loading indicator (7), which
+        // pushes the remaining buttons to the right.
+        order: 6.5,
+        isButton: true,
+        html: INFO_ICON,
+        onClick: (_e, _el, pswp) => {
+          infoSection = sectionOf(pswp.currSlide?.data) ?? null;
+          infoOpen = !!infoSection;
+        },
+        onInit: (el, pswp) => {
+          const update = () => {
+            el.style.display = sectionOf(pswp.currSlide?.data)?.text.trim() ? "" : "none";
+          };
+          pswp.on("change", update);
+          update();
+        },
+      });
+      ui?.registerElement({
         name: "sb-caption",
         order: 9,
         isButton: false,
@@ -56,7 +114,7 @@ function open(index: number) {
         onInit: (el, pswp) => {
           el.className = "pswp-caption";
           const update = () => {
-            const caption = (pswp.currSlide?.data as { alt?: string })?.alt ?? "";
+            const caption = (pswp.currSlide?.data as Slide | undefined)?.alt ?? "";
             el.textContent = caption;
             el.style.display = caption ? "" : "none";
           };
@@ -64,6 +122,18 @@ function open(index: number) {
           update();
         },
       });
+    });
+    // The text dialog lives inside PhotoSwipe's root, so its focus trap keeps
+    // working; while it is open, keys and the wheel belong to the dialog.
+    lightbox.on("afterInit", () => {
+      pswpRoot = lightbox?.pswp?.element ?? null;
+    });
+    lightbox.on("keydown", (e) => {
+      if (infoOpen) e.preventDefault();
+    });
+    lightbox.on("destroy", () => {
+      infoOpen = false;
+      pswpRoot = null;
     });
     lightbox.init();
   }
@@ -75,6 +145,7 @@ function open(index: number) {
       width: p.width,
       height: p.height,
       alt: p.caption ?? "",
+      sectionId: p.section_id,
     })),
   );
 }
@@ -113,3 +184,29 @@ $effect(() => () => {
     </section>
   {/each}
 {/if}
+
+<Dialog.Root bind:open={infoOpen}>
+  {#if pswpRoot && infoSection}
+    <Dialog.Content
+      portalProps={{ to: pswpRoot }}
+      class="flex max-h-[85dvh] flex-col gap-4 sm:max-w-xl"
+      onwheel={(e) => e.stopPropagation()}
+    >
+      <Dialog.Header>
+        <!-- Like the section heading on the album page, clear of the close button. -->
+        <Dialog.Title
+          class={cn(
+            'pr-10 text-2xl leading-tight font-normal tracking-normal normal-case',
+            !infoSection.title.trim() && 'sr-only'
+          )}
+        >
+          {infoSection.title.trim() || m.lightbox_section_text()}
+        </Dialog.Title>
+      </Dialog.Header>
+      <MarkdownText
+        text={infoSection.text}
+        class="-mx-1 overflow-y-auto px-1 prose prose-stone dark:prose-invert"
+      />
+    </Dialog.Content>
+  {/if}
+</Dialog.Root>
