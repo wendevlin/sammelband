@@ -207,15 +207,18 @@ label[for] {
   }
 }
 
-/* Section title in PhotoSwipe's top bar, after the counter. Only the title
-   shrinks (to an ellipsis) when space runs out. */
+/* Section title in PhotoSwipe's top bar, after the counter: a button that
+   opens the full title and text. Only it shrinks (to an ellipsis) when space
+   runs out. */
 .pswp__top-bar > * {
   flex-shrink: 0;
 }
 .pswp__top-bar > .pswp__sb-section-title {
   flex-shrink: 1;
   min-width: 0;
-  margin-inline-start: 20px;
+  height: 60px;
+  margin-inline-start: 12px;
+  padding: 0 8px;
   overflow: hidden;
   font-family: var(--font-heading);
   font-size: 1.125rem;
@@ -224,7 +227,20 @@ label[for] {
   text-overflow: ellipsis;
   color: var(--pswp-icon-color);
   text-shadow: 1px 1px 3px rgb(0 0 0 / 0.6);
+  cursor: pointer;
 }
 .pswp__top-bar > .pswp__sb-section-title:empty {
   display: none;
+}
+/* PhotoSwipe's loading indicator stays the spacer that pushes the buttons to
+   the right, but takes no width from the title: its icon spins in the middle
+   of the screen instead. */
+.pswp__top-bar > .pswp__preloader {
+  width: 0;
+  overflow: visible;
+}
+.pswp__preloader .pswp__icn {
+  position: fixed;
+  top: calc(50% - 16px);
+  left: calc(50% - 16px);
 }
