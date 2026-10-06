@@ -15,7 +15,7 @@
     "fast-xml-parser": "5.11.2",
     "hono": "4.13.9",
     "kysely": "0.29.6",
-    "nodemailer": "10.0.12",
+    "nodemailer": "10.0.14",
     "pg": "8.23.0",
     "zod": "4.6.5"
   },
