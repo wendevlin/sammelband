@@ -1,5 +1,11 @@
 import { describe, expect, test } from "bun:test";
-import { justifyBalanced, PAGE_FORMATS } from "@sammelband/shared";
+import {
+  EXPORT_FORMATS,
+  EXPORT_PURPOSES,
+  justifyBalanced,
+  PAGE_FORMATS,
+  PURPOSES,
+} from "@sammelband/shared";
 import {
   type Box,
   type LayoutInput,
@@ -28,6 +34,7 @@ function album(sections: LayoutSection[], extra: Partial<LayoutInput> = {}): Lay
     cover: null,
     sections,
     format: PAGE_FORMATS.a4,
+    purpose: PURPOSES.home,
     captions: false,
     ...extra,
   };
@@ -56,32 +63,101 @@ describe("PDF layout", () => {
     { title: "Goodbye", text: words(20), highlight: false, photos: photos(14) },
   ];
 
-  for (const format of ["a4", "a4-landscape", "a5", "square-21", "letter"] as const) {
-    test(`every photo once, in order, inside the page (${format})`, () => {
-      const input = album(sections, { format: PAGE_FORMATS[format], captions: true });
-      const layout = layoutAlbum(input, measure);
-      const g = layout.geometry;
-      const placed: string[] = [];
-      for (const page of layout.pages) {
-        if (page.kind !== "content") continue;
-        const boxes = page.boxes.filter((b) => b.kind !== "rect");
-        for (const box of boxes) {
-          const h = box.kind === "text" ? box.line.height : box.h;
-          const w = box.kind === "text" ? box.line.width : box.w;
-          expect(box.x).toBeGreaterThanOrEqual(g.x - 0.01);
-          expect(box.y).toBeGreaterThanOrEqual(g.y - 0.01);
-          expect(box.x + w).toBeLessThanOrEqual(g.x + g.w + 0.5);
-          expect(box.y + h).toBeLessThanOrEqual(g.y + g.h + 0.5);
-          if (box.kind === "photo") placed.push(box.id);
+  for (const format of EXPORT_FORMATS) {
+    for (const purpose of EXPORT_PURPOSES) {
+      test(`every photo once, in order, inside the page (${format}, ${purpose})`, () => {
+        const input = album(sections, {
+          format: PAGE_FORMATS[format],
+          purpose: PURPOSES[purpose],
+          captions: true,
+        });
+        const layout = layoutAlbum(input, measure);
+        const g = layout.geometry;
+        // Photos and tints may run into the bleed edge to edge; text never leaves the margins.
+        const outer = g.edgeToEdge
+          ? { x: -g.bleed, y: -g.bleed, w: g.width + 2 * g.bleed, h: g.height + 2 * g.bleed }
+          : { x: g.x, y: g.y, w: g.w, h: g.h };
+        const placed: string[] = [];
+        for (const page of layout.pages) {
+          if (page.kind !== "content") continue;
+          for (const box of page.boxes) {
+            const area = box.kind === "text" ? { x: g.x, y: g.y, w: g.w, h: g.h } : outer;
+            const h = box.kind === "text" ? box.line.height : box.h;
+            const w = box.kind === "text" ? box.line.width : box.w;
+            expect(box.x).toBeGreaterThanOrEqual(area.x - 0.01);
+            expect(box.y).toBeGreaterThanOrEqual(area.y - 0.01);
+            expect(box.x + w).toBeLessThanOrEqual(area.x + area.w + 0.5);
+            expect(box.y + h).toBeLessThanOrEqual(area.y + area.h + 0.5);
+            if (box.kind === "photo") {
+              placed.push(box.id);
+              for (const line of box.caption?.lines ?? []) {
+                expect(box.caption?.x ?? 0).toBeGreaterThanOrEqual(g.safe - 0.01);
+                expect((box.caption?.x ?? 0) + line.width).toBeLessThanOrEqual(
+                  g.width - g.safe + 0.5,
+                );
+              }
+            }
+          }
+          const photosOnPage = page.boxes.filter((b) => b.kind === "photo");
+          for (const [i, a] of photosOnPage.entries()) {
+            for (const b of photosOnPage.slice(i + 1)) expect(overlaps(a, b)).toBe(false);
+          }
         }
-        const photosOnPage = boxes.filter((b) => b.kind === "photo");
-        for (const [i, a] of photosOnPage.entries()) {
-          for (const b of photosOnPage.slice(i + 1)) expect(overlaps(a, b)).toBe(false);
-        }
-      }
-      expect(placed).toEqual(sections.flatMap((s) => s.photos.map((p) => p.id)));
-    });
+        expect(placed).toEqual(sections.flatMap((s) => s.photos.map((p) => p.id)));
+      });
+    }
   }
+
+  test("edge to edge, galleries reach both edges and photo pages fill the page", () => {
+    const layout = layoutAlbum(
+      album([{ title: "Many", text: words(30), highlight: false, photos: photos(30) }], {
+        purpose: PURPOSES.print,
+        format: PAGE_FORMATS["a5-landscape"],
+      }),
+      measure,
+    );
+    const g = layout.geometry;
+    const content = layout.pages.flatMap((p) => (p.kind === "content" ? [p] : []));
+    const full = content.filter((p) => p.number === null);
+    expect(full.length).toBeGreaterThan(0);
+    for (const page of content) {
+      const ph = page.boxes.filter((b) => b.kind === "photo");
+      expect(Math.min(...ph.map((b) => b.x))).toBeCloseTo(-g.bleed, 1);
+      expect(Math.max(...ph.map((b) => b.x + b.w))).toBeCloseTo(g.width + g.bleed, 1);
+    }
+    const page = full[0];
+    if (!page) throw new Error("no full page");
+    const ph = page.boxes.filter((b) => b.kind === "photo");
+    expect(Math.min(...ph.map((b) => b.y))).toBeLessThan(1);
+    expect(Math.max(...ph.map((b) => b.y + b.h))).toBeGreaterThan(g.height - 1);
+  });
+
+  test("text stays legible on small pages: at least 9.5 pt, at most ~68 characters a line", () => {
+    const layout = layoutAlbum(
+      album([{ title: "Long", text: words(400), highlight: false, photos: [] }], {
+        format: PAGE_FORMATS["a5-landscape"],
+      }),
+      measure,
+    );
+    const lines = layout.pages.flatMap((p) =>
+      p.kind === "content" ? p.boxes.flatMap((b) => (b.kind === "text" ? [b.line] : [])) : [],
+    );
+    const body = lines.filter((l) => l.size < 15);
+    expect(body.length).toBeGreaterThan(20);
+    for (const line of body) {
+      expect(line.size).toBeGreaterThanOrEqual(9.5);
+      expect(line.width).toBeLessThanOrEqual(line.size * 34 + 0.01);
+    }
+  });
+
+  test("only printed books get blank pages before the back", () => {
+    const input = album([{ title: "", text: "", highlight: false, photos: photos(2) }]);
+    const count = (purpose: (typeof EXPORT_PURPOSES)[number]) =>
+      layoutAlbum({ ...input, purpose: PURPOSES[purpose] }, measure).pages.length;
+    expect(count("home") % 2).toBe(0);
+    expect(count("print") % 2).toBe(0);
+    expect(count("screen")).toBe(3);
+  });
 
   test("a section title never ends a page", () => {
     for (const page of contentPages(album(sections))) {

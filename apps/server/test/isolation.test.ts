@@ -139,7 +139,7 @@ describe("tenant isolation", () => {
       await tenantService.updateCurrentTenant({ pdfExportEnabled: true });
       const created = await exportService.createExport(album.id, user.id, {
         format: "a5",
-        quality: "screen",
+        purpose: "screen",
         captions: false,
       });
       await exportService.exportsIdle();
@@ -151,7 +151,7 @@ describe("tenant isolation", () => {
       await expect(
         exportService.createExport(album.id, user.id, {
           format: "a4",
-          quality: "print",
+          purpose: "print",
           captions: true,
         }),
       ).rejects.toThrow("not found");

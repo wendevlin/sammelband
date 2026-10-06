@@ -494,11 +494,6 @@
   "export_format_a5": "A5",
   "export_format_square_21": "Square 21 cm",
   "export_format_letter": "US Letter",
-  "export_quality": "Quality",
-  "export_quality_print": "Print",
-  "export_quality_print_hint": "300 dpi, for paper. Large file.",
-  "export_quality_screen": "Screen",
-  "export_quality_screen_hint": "150 dpi, smaller file for sharing.",
   "export_captions": "Show photo captions",
   "export_start": "Export",
   "export_waiting": "Waiting for other exports to finish…",
@@ -528,5 +523,13 @@
   "general_pdf_export_on": "PDF export switched on",
   "general_pdf_export_off": "PDF export switched off",
   "storage_exports": "PDF exports",
-  "common_close": "Close"
+  "common_close": "Close",
+  "export_purpose": "What is it for?",
+  "export_purpose_print": "Print shop or photo book service",
+  "export_purpose_print_hint": "Photos run to the edge of the page, with 3 mm bleed for trimming. 300 dpi.",
+  "export_purpose_home": "Print at home",
+  "export_purpose_home_hint": "With margins, since home printers can't print to the edge. 300 dpi.",
+  "export_purpose_screen": "Screen and sharing",
+  "export_purpose_screen_hint": "Photos to the edge, smaller file, no blank pages. 150 dpi.",
+  "export_format_a5_landscape": "A5 landscape"
 }

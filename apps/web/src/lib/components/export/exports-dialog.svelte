@@ -14,7 +14,7 @@ import * as Dialog from "$lib/components/ui/dialog";
 import { errorCodeText, getLocale } from "$lib/i18n";
 import { formatBytes } from "$lib/images";
 import { m } from "$lib/paraglide/messages.js";
-import { formatLabel } from "./format-label";
+import { formatLabel, purposeLabel } from "./format-label";
 
 /** An album's PDF exports: download, rename, delete. */
 let { open = $bindable(false), exports }: { open?: boolean; exports: AlbumExports } = $props();
@@ -28,7 +28,7 @@ const date = (ms: number) =>
   new Intl.DateTimeFormat(getLocale(), { dateStyle: "medium", timeStyle: "short" }).format(ms);
 
 function details(x: AlbumExport): string {
-  const parts = [formatLabel(x.format), date(x.created_at)];
+  const parts = [formatLabel(x.format), purposeLabel(x.options.purpose), date(x.created_at)];
   if (x.status === "done") {
     if (x.page_count) {
       parts.push(

@@ -108,8 +108,9 @@ where `.env`, the dev SQLite file, `uploads/` and `dist/` live.
   breaker (`text.ts`), lays out photos with `justifyBalanced` (complete rows) and fills
   pages. `render.ts` draws it with pdfkit and embeds Noto Sans and Playfair Display from the
   `@expo-google-fonts` packages. Finished files live under `exports/` and count toward the
-  quota. Page formats are data (`PAGE_FORMATS` in shared, with bleed and page multiple),
-  ready for a print service later. Progress reaches the web app as `album-exports:<id>`
+  quota. Page formats and purposes are data (`PAGE_FORMATS`, `PURPOSES` in shared: home
+  print with margins, print shop edge to edge with bleed and TrimBox, screen), ready for a
+  print service later. Progress reaches the web app as `album-exports:<id>`
   events carrying the full row.
 - Deleting a tenant (`tenant.service.deleteTenant`) removes rows table by table; a new
   tenant table needs a line there (the "no row behind" test in `test/tenants.test.ts`

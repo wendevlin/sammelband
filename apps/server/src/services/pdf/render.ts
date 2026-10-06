@@ -1,7 +1,6 @@
 import { createWriteStream, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { ExportQuality } from "@sammelband/shared";
 import PDFDocument from "pdfkit";
 import {
   type Geometry,
@@ -10,20 +9,19 @@ import {
   type LayoutInput,
   layoutAlbum,
   type Page,
+  type PhotoBox,
 } from "./layout";
 import type { Line } from "./text";
 import { COLORS, FONT_FILES, type FontKey } from "./theme";
 
 // Draws a layout (layout.ts) with pdfkit. Images are resized with Bun.Image to
-// the size they're printed at (300 dpi, 150 for the screen), never enlarged,
-// and embedded as JPEG. The cover and the interior are drawn by separate
+// the size they're printed at (the purpose's dpi: 300 for paper, 150 for the
+// screen), never enlarged, and embedded as JPEG. With a bleed, every page is
+// that much larger and says where it will be trimmed (TrimBox, BleedBox), as
+// print shops expect. The cover and the interior are drawn by separate
 // functions, so that a print service can later get them as two files.
 
-const DPI: Record<ExportQuality, number> = { print: 300, screen: 150 };
-const JPEG_QUALITY: Record<ExportQuality, number> = { print: 88, screen: 80 };
-
 export type RenderInput = LayoutInput & {
-  quality: ExportQuality;
   /** Path of a photo's original, by photo id. */
   original: (photoId: string) => string;
   /** 0–1. Preparing images is most of the work. */
@@ -56,7 +54,7 @@ function measurer(doc: Doc) {
 
 /** Lay out and write the album as one PDF: cover, interior, back. */
 export async function renderAlbumPdf(input: RenderInput, outPath: string): Promise<RenderResult> {
-  const doc = newDocument(geometry(input.format), input.title);
+  const doc = newDocument(geometry(input.format, input.purpose), input.title);
   const layout = layoutAlbum(input, measurer(doc));
   const tmp = mkdtempSync(join(tmpdir(), "sammelband-pdf-"));
   try {
@@ -89,13 +87,14 @@ async function prepareImages(
   dir: string,
 ): Promise<Map<string, string>> {
   const paths = new Map<string, string>();
-  const dpi = DPI[input.quality];
+  const { dpi } = input.purpose;
+  const quality = dpi >= 300 ? 88 : 80;
   const entries = [...layout.photoSizes];
   for (const [i, [id, size]] of entries.entries()) {
     const width = Math.max(1, Math.ceil((size.w / 72) * dpi));
     const bytes = await new Bun.Image(input.original(id))
       .resize(width, undefined, { withoutEnlargement: true })
-      .jpeg({ quality: JPEG_QUALITY[input.quality] })
+      .jpeg({ quality })
       .bytes();
     const path = join(dir, `${i}.jpg`);
     await Bun.write(path, bytes);
@@ -112,7 +111,7 @@ export function renderCover(
   page: Extract<Page, { kind: "cover" }>,
   images: Map<string, string>,
 ): void {
-  doc.addPage();
+  addPage(doc, g);
   const pw = g.width + 2 * g.bleed;
   const ph = g.height + 2 * g.bleed;
   const image = page.photo && images.get(page.photo.id);
@@ -153,7 +152,7 @@ export function renderInterior(
   page: Exclude<Page, { kind: "cover" }>,
   images: Map<string, string>,
 ): void {
-  doc.addPage();
+  addPage(doc, g);
   if (page.kind === "blank") return;
   if (page.kind === "back") {
     const logo = 22 * g.scale;
@@ -174,35 +173,79 @@ export function renderInterior(
 
   for (const box of page.boxes) {
     if (box.kind === "rect") {
-      doc
-        .roundedRect(g.bleed + box.x, g.bleed + box.y, box.w, box.h, box.radius)
-        .lineWidth(0.75)
-        .fillAndStroke(box.fill, box.stroke);
+      if (box.radius > 0) {
+        doc
+          .roundedRect(g.bleed + box.x, g.bleed + box.y, box.w, box.h, box.radius)
+          .lineWidth(0.75)
+          .fillAndStroke(box.fill, box.stroke);
+      } else {
+        doc.rect(g.bleed + box.x, g.bleed + box.y, box.w, box.h).fill(box.fill);
+      }
     } else if (box.kind === "text") {
       drawLine(doc, g.bleed + box.x, g.bleed + box.y, box.line, g.w - (box.x - g.x) * 2);
     } else {
-      const image = images.get(box.id);
-      if (image) {
-        doc.image(image, g.bleed + box.x, g.bleed + box.y, { width: box.w, height: box.h });
-      }
-      let y = g.bleed + box.y + box.h + 3 * g.scale;
-      for (const line of box.caption) {
-        drawLine(doc, g.bleed + box.x, y, line, box.w);
-        y += line.height;
-      }
+      drawPhoto(doc, g, box, images.get(box.id));
     }
   }
 
-  // Page number, small, at the bottom centre.
+  // Page number, small, at the bottom centre (not on pages of only photos).
+  if (page.number === null) return;
   const label = String(page.number);
   doc
     .font("body")
-    .fontSize(8 * g.scale)
+    .fontSize(Math.max(7, 8 * g.scale))
     .fillColor(COLORS.muted);
   const width = doc.widthOfString(label);
   doc.text(label, g.bleed + (g.width - width) / 2, g.bleed + g.height - g.margin * 0.6, {
     lineBreak: false,
   });
+}
+
+/** A page of the trimmed size plus the bleed, marked for the print shop. */
+function addPage(doc: Doc, g: Geometry): void {
+  doc.addPage();
+  if (g.bleed <= 0) return;
+  // PDF boxes are [left, bottom, right, top] from the bottom left.
+  const w = g.width + 2 * g.bleed;
+  const h = g.height + 2 * g.bleed;
+  const data = doc.page.dictionary.data as Record<string, unknown>;
+  data.TrimBox = [g.bleed, g.bleed, w - g.bleed, h - g.bleed];
+  data.BleedBox = [0, 0, w, h];
+}
+
+/** A photo in its box (cropped at the centre when `cover`), with its caption. */
+function drawPhoto(doc: Doc, g: Geometry, box: PhotoBox, image: string | undefined): void {
+  const x = g.bleed + box.x;
+  const y = g.bleed + box.y;
+  if (image) {
+    if (box.cover) {
+      doc.save();
+      doc.rect(x, y, box.w, box.h).clip();
+      doc.image(image, x, y, { cover: [box.w, box.h], align: "center", valign: "center" });
+      doc.restore();
+    } else {
+      doc.image(image, x, y, { width: box.w, height: box.h });
+    }
+  }
+  const caption = box.caption;
+  if (!caption) return;
+  const lineH = caption.lines.reduce((sum, l) => sum + l.height, 0);
+  if (caption.overlay) {
+    // A soft shade from the caption down to the photo's bottom, so white text reads.
+    const top = g.bleed + caption.y - lineH * 1.2;
+    const bottom = y + box.h;
+    doc.save();
+    doc.rect(x, y, box.w, box.h).clip();
+    const shade = doc.linearGradient(0, top, 0, bottom);
+    shade.stop(0, "#000000", 0).stop(0.6, "#000000", 0.4).stop(1, "#000000", 0.55);
+    doc.rect(x, top, box.w, bottom - top).fill(shade);
+    doc.restore();
+  }
+  let ly = g.bleed + caption.y;
+  for (const line of caption.lines) {
+    drawLine(doc, g.bleed + caption.x, ly, line, line.width);
+    ly += line.height;
+  }
 }
 
 /** One line of text at (x, y), its top; `width` is the space for centred lines and rules. */

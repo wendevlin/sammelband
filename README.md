@@ -156,9 +156,19 @@ Nextcloud's large JPEG preview.
 ## PDF export
 
 An admin can switch on PDF export under Admin settings → General. After that,
-the "…" menu on an album page offers "Export as PDF". Choose a page format (A4,
-A4 landscape, A5, square 21 cm or US Letter), print (300 dpi) or screen (150 dpi)
-quality, and whether to show captions.
+the "…" menu on an album page offers "Export as PDF". Choose what the PDF is for,
+a page format (A4, A5, each upright or landscape, square 21 cm, US Letter), and
+whether to show captions:
+
+- **Print shop or photo book service**: photos run to the edge of the page, with
+  3 mm bleed on every side for trimming (the PDF marks the trim with TrimBox and
+  BleedBox), 300 dpi.
+- **Print at home**: with margins, since home printers can't print to the edge,
+  300 dpi. Print at actual size, not "fit to page".
+- **Screen and sharing**: photos to the edge, 150 dpi, no blank pages.
+
+Text always keeps its margins, is at least 9.5 pt and at most about 68
+characters per line.
 
 The PDF is a photo book:
 

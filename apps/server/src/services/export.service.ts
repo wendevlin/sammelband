@@ -3,8 +3,9 @@ import {
   type AlbumExport,
   type ExportFormat,
   type ExportOptions,
-  type ExportQuality,
+  type ExportPurpose,
   PAGE_FORMATS,
+  PURPOSES,
 } from "@sammelband/shared";
 import { z } from "zod";
 import { db } from "../db/client";
@@ -26,17 +27,27 @@ import { releaseStorage, reserveStorage } from "./tenant.service";
 // deletes it, or the album. Progress goes out as change events, so the
 // export dialog and the list of exports follow along.
 
-const optionsSchema = z.object({
-  quality: z.enum(["print", "screen"]).catch("print"),
-  captions: z.boolean().catch(true),
-});
+// `options` JSON. Exports made before the purposes had a `quality` instead:
+// "print" meant a PDF with margins (now "home"), "screen" the same as now.
+const optionsSchema = z
+  .object({
+    purpose: z.enum(["home", "print", "screen"]).optional(),
+    quality: z.enum(["print", "screen"]).optional(),
+    captions: z.boolean().catch(true),
+  })
+  .transform(
+    ({ purpose, quality, captions }): ExportOptions => ({
+      purpose: purpose ?? (quality === "screen" ? "screen" : "home"),
+      captions,
+    }),
+  );
 
 function toExport(row: AlbumExportRow): AlbumExport {
   let options: ExportOptions;
   try {
     options = optionsSchema.parse(JSON.parse(row.options));
   } catch {
-    options = { quality: "print", captions: true };
+    options = { purpose: "home", captions: true };
   }
   return {
     id: row.id,
@@ -117,7 +128,7 @@ async function exportEnabled(): Promise<boolean> {
 export async function createExport(
   albumId: string,
   userId: string,
-  input: { format: ExportFormat; quality: ExportQuality; captions: boolean },
+  input: { format: ExportFormat; purpose: ExportPurpose; captions: boolean },
 ): Promise<AlbumExport> {
   if (!(await exportEnabled())) throw fail("export_disabled");
   const album = await requireAlbum(albumId);
@@ -136,7 +147,7 @@ export async function createExport(
     album_id: albumId,
     name: album.title,
     format: input.format,
-    options: JSON.stringify({ quality: input.quality, captions: input.captions }),
+    options: JSON.stringify({ purpose: input.purpose, captions: input.captions }),
     status: "queued",
     progress: 0,
     error_code: null,
@@ -271,7 +282,7 @@ async function runExport(id: string): Promise<void> {
         })),
         format,
         captions: options.captions,
-        quality: options.quality,
+        purpose: PURPOSES[options.purpose],
         original: (photoId) => originalPath(must(filenames.get(photoId), "Photo")),
         onProgress: async (share) => {
           const now = Date.now();

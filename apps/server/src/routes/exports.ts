@@ -1,4 +1,4 @@
-import { EXPORT_FORMATS, EXPORT_QUALITIES } from "@sammelband/shared";
+import { EXPORT_FORMATS, EXPORT_PURPOSES } from "@sammelband/shared";
 import { Hono } from "hono";
 import { z } from "zod";
 import { validate } from "../lib/validate";
@@ -17,7 +17,7 @@ export const albumExportRoutes = new Hono<AuthEnv>()
       "json",
       z.object({
         format: z.enum(EXPORT_FORMATS),
-        quality: z.enum(EXPORT_QUALITIES),
+        purpose: z.enum(EXPORT_PURPOSES),
         captions: z.boolean(),
       }),
     ),

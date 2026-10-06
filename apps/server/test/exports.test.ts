@@ -26,7 +26,7 @@ async function gallery({ enabled = true } = {}) {
   return { user, album, section };
 }
 
-const options = { format: "a4", quality: "screen", captions: true } as const;
+const options = { format: "a4", purpose: "print", captions: true } as const;
 
 async function exportRow(id: string) {
   return db.selectFrom("album_exports").selectAll().where("id", "=", id).executeTakeFirstOrThrow();
@@ -68,7 +68,7 @@ describe("PDF export", () => {
       const before = await used();
       const queued = await exportService.createExport(album.id, user.id, options);
       expect(queued).toMatchObject({ status: "queued", name: "Summer", format: "a4" });
-      expect(queued.options).toEqual({ quality: "screen", captions: true });
+      expect(queued.options).toEqual({ purpose: "print", captions: true });
       await exportService.exportsIdle();
 
       const [done] = await exportService.listExports(album.id);
@@ -77,12 +77,60 @@ describe("PDF export", () => {
       expect((done?.page_count ?? 0) % 2).toBe(0);
       const row = await exportRow(queued.id);
       const path = exportPath(row.filename ?? "");
-      expect(readFileSync(path).subarray(0, 5).toString()).toBe("%PDF-");
+      const pdf = readFileSync(path);
+      expect(pdf.subarray(0, 5).toString()).toBe("%PDF-");
+      // For the print shop: A4 plus 3 mm bleed on every side, and where to trim.
+      const mm = 72 / 25.4;
+      const media = pdf.toString("latin1").match(/\/MediaBox \[0 0 ([\d.]+) ([\d.]+)\]/);
+      expect(Number(media?.[1])).toBeCloseTo((210 + 6) * mm, 1);
+      expect(Number(media?.[2])).toBeCloseTo((297 + 6) * mm, 1);
+      expect(pdf.toString("latin1")).toContain("/TrimBox [");
       expect(await used()).toBe(before + Number(row.file_size));
 
       const response = await exportService.downloadExport(queued.id);
       expect(response.headers.get("Content-Type")).toBe("application/pdf");
       expect(response.headers.get("Content-Disposition")).toContain("Summer.pdf");
+    }),
+  );
+
+  test(
+    "exports from before the purposes keep a sensible one",
+    inTenant(async () => {
+      const { user, album } = await gallery();
+      const { id } = await exportService.createExport(album.id, user.id, options);
+      await exportService.exportsIdle();
+      for (const [old, purpose] of [
+        [{ quality: "screen", captions: false }, "screen"],
+        [{ quality: "print", captions: true }, "home"],
+      ] as const) {
+        await db
+          .updateTable("album_exports")
+          .set({ options: JSON.stringify(old) })
+          .where("id", "=", id)
+          .execute();
+        const [listed] = await exportService.listExports(album.id);
+        expect(listed?.options).toEqual({ purpose, captions: old.captions });
+      }
+    }),
+  );
+
+  test(
+    "a PDF for the screen has no blank pages and no bleed",
+    inTenant(async () => {
+      const { user, album } = await gallery();
+      const { id } = await exportService.createExport(album.id, user.id, {
+        format: "a5-landscape",
+        purpose: "screen",
+        captions: true,
+      });
+      await exportService.exportsIdle();
+      const row = await exportRow(id);
+      const pdf = readFileSync(exportPath(row.filename ?? "")).toString("latin1");
+      expect(pdf).not.toContain("/TrimBox");
+      const mm = 72 / 25.4;
+      const media = pdf.match(/\/MediaBox \[0 0 ([\d.]+) ([\d.]+)\]/);
+      expect(Number(media?.[1])).toBeCloseTo(210 * mm, 1);
+      expect(Number(media?.[2])).toBeCloseTo(148 * mm, 1);
     }),
   );
 

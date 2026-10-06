@@ -255,7 +255,7 @@ describe("superadmin", () => {
       await tenantService.updateCurrentTenant({ pdfExportEnabled: true });
       await exportService.createExport(album.id, user.id, {
         format: "a5",
-        quality: "screen",
+        purpose: "screen",
         captions: false,
       });
       await exportService.exportsIdle();

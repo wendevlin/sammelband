@@ -1,4 +1,4 @@
-import { justify, justifyBalanced, type PageFormat } from "@sammelband/shared";
+import { justify, justifyBalanced, type PageFormat, type PurposeSpec } from "@sammelband/shared";
 import { markdownParagraphs, plainParagraphs } from "./markdown";
 import { breakLines, type Line, type Measure, type Paragraph } from "./text";
 import { COLORS } from "./theme";
@@ -12,12 +12,17 @@ import { COLORS } from "./theme";
 //  1. Cover: the cover photo edge to edge with the title on it.
 //  2. The album description, if there is one.
 //  3. The sections: title, text, then the photos in justified rows (like the
-//     album page, but balanced so that rows are complete: shared/justify.ts). A section starts on a page
-//     only if its title, the start of its text and a row of photos fit there.
-//     Before a page is closed, its photos grow to fill the space left (up to
-//     1.6×); a few photos that would spill onto a new page are shrunk a bit
-//     to stay instead.
-//  4. Blank pages up to the format's page multiple, then the back.
+//     album page, but balanced so that rows are complete: shared/justify.ts).
+//     A section starts on a page only if its title, the start of its text and
+//     a row of photos fit there. Before a page is closed, its photos grow to
+//     fill the space left (up to 1.6×); a few photos that would spill onto a
+//     new page are shrunk a bit to stay instead.
+//  4. Blank pages up to the format's page multiple (for print), then the back.
+//
+// Edge to edge (print shop, screen): galleries span the whole page width into
+// the bleed, a page of only photos fills the page on all sides, and captions
+// sit on the photos. Text always keeps its margins, and lines stay short
+// enough to read (about 68 characters).
 
 export const MM = 72 / 25.4;
 
@@ -37,6 +42,7 @@ export type LayoutInput = {
   cover: LayoutPhoto | null;
   sections: LayoutSection[];
   format: PageFormat;
+  purpose: PurposeSpec;
   captions: boolean;
 };
 
@@ -48,8 +54,10 @@ export type PhotoBox = {
   y: number;
   w: number;
   h: number;
-  /** Caption lines, starting at `y + h` plus the caption gap. */
-  caption: Line[];
+  /** The photo fills the box, cropped at the centre (its ratio differs a little). */
+  cover: boolean;
+  /** Caption lines at (x, y): under the photo, or on it (`overlay`, white on a shade). */
+  caption: { x: number; y: number; lines: Line[]; overlay: boolean } | null;
 };
 export type RectBox = {
   kind: "rect";
@@ -65,7 +73,8 @@ export type Box = TextBox | PhotoBox | RectBox;
 
 export type Page =
   | { kind: "cover"; photo: LayoutPhoto | null; title: Line[] }
-  | { kind: "content"; boxes: Box[]; number: number }
+  /** `number` is null on pages of only photos, edge to edge. */
+  | { kind: "content"; boxes: Box[]; number: number | null }
   | { kind: "blank" }
   | { kind: "back" };
 
@@ -74,6 +83,10 @@ export type Geometry = {
   width: number;
   height: number;
   bleed: number;
+  /** Photos may run into the bleed; see the header. */
+  edgeToEdge: boolean;
+  /** Distance from the trim edge that text and captions keep at least. */
+  safe: number;
   /** Content area. */
   x: number;
   y: number;
@@ -99,10 +112,13 @@ const MIN_SHRINK = 0.75;
 const MIN_SHRINK_LONE = 0.55;
 /** A lone photo takes at most this share of the content height. */
 const LONE_PHOTO_SHARE = 0.72;
+/** Edge to edge, rows may stretch this much (cropping their photos) to reach the page edges. */
+const MAX_STRETCH = 1.3;
+const MAX_STRETCH_MARGINS = 1.15;
 /** Lines of a section's text that must fit next to its title. */
 const MIN_TEXT_LINES = 4;
 
-export function geometry(format: PageFormat): Geometry {
+export function geometry(format: PageFormat, purpose: PurposeSpec): Geometry {
   const width = format.width * MM;
   const height = format.height * MM;
   const short = Math.min(width, height);
@@ -110,7 +126,9 @@ export function geometry(format: PageFormat): Geometry {
   return {
     width,
     height,
-    bleed: format.bleed * MM,
+    bleed: purpose.bleedMm * MM,
+    edgeToEdge: purpose.edgeToEdge,
+    safe: Math.max(5 * MM, margin * 0.5),
     x: margin,
     y: margin,
     w: width - 2 * margin,
@@ -121,17 +139,31 @@ export function geometry(format: PageFormat): Geometry {
   };
 }
 
+/**
+ * A type size: scaled with the page, but never below what reads well on paper
+ * at arm's length (body text 9.5 pt, captions 7 pt).
+ */
+function sized(size: number, min: number, s: number, leading: number) {
+  const pt = Math.max(size * s, min);
+  return { size: pt, lineHeight: pt * leading };
+}
+
+/** Body text lines are at most this many ems wide (~68 characters). */
+const MEASURE_EM = 34;
+
 /** Font sizes and spacing for a page geometry. */
 function typeStyles(g: Geometry) {
   const s = g.scale;
-  const body = { size: 10 * s, lineHeight: 15 * s, color: COLORS.text };
+  const body = { ...sized(10, 9.5, s, 1.5), color: COLORS.text };
   return {
     body,
-    description: { size: 12 * s, lineHeight: 18.5 * s, color: COLORS.text },
-    caption: { size: 7.5 * s, lineHeight: 10 * s, color: COLORS.muted },
-    sectionTitle: { size: 21 * s, lineHeight: 26 * s },
-    albumTitle: { size: 32 * s, lineHeight: 38 * s },
-    coverTitle: { size: 38 * s, lineHeight: 44 * s },
+    description: { ...sized(12, 11, s, 1.55), color: COLORS.text },
+    caption: { ...sized(7.5, 7, s, 1.35), color: COLORS.muted },
+    sectionTitle: sized(21, 16, s, 1.24),
+    albumTitle: sized(32, 22, s, 1.2),
+    coverTitle: sized(38, 26, s, 1.16),
+    /** The widest a column of body text gets. */
+    measure: body.size * MEASURE_EM,
     sectionGap: 26 * s,
     titleGap: 10 * s,
     photoGap: 12 * s,
@@ -154,17 +186,22 @@ type PhotosItem = {
   target: number;
   width: number;
   section: number;
-  inset: number;
+  /** Left edge of the rows, in page coordinates (negative: into the bleed). */
+  x: number;
+  /** Spans the page into the bleed on both sides (edge to edge). */
+  bleed: boolean;
 };
 type Item = Space | LineItem | PhotosItem;
 
 /** How a gallery is drawn on its page: its scale, and balanced or greedy rows. */
 type Fit = { f: number; greedy: boolean };
 
+type PlacedPage = { boxes: Box[]; numbered: boolean };
+
 type Rows = { rows: ReturnType<typeof justifyBalanced>; captions: Line[][][]; heights: number[] };
 
 export function layoutAlbum(input: LayoutInput, measure: Measure): Layout {
-  const g = geometry(input.format);
+  const g = geometry(input.format, input.purpose);
   const st = typeStyles(g);
   const photoSizes = new Map<string, { w: number; h: number }>();
 
@@ -192,9 +229,10 @@ export function layoutAlbum(input: LayoutInput, measure: Measure): Layout {
       photos.map((p) => p.ratio),
       { width, targetHeight: target, gap: g.gap },
     );
+    // Edge to edge, captions sit on the photos (see place()), not under them.
     const captions = rows.map((row) =>
       row.items.map((item) => {
-        const caption = input.captions ? photos[item.index]?.caption?.trim() : "";
+        const caption = input.captions && !g.edgeToEdge ? photos[item.index]?.caption?.trim() : "";
         return caption ? breakLines(captionPara(caption), item.width, measure, 2) : [];
       }),
     );
@@ -353,7 +391,11 @@ export function layoutAlbum(input: LayoutInput, measure: Measure): Layout {
       { kind: "line", line: ruleLine(st), inset: 0 },
       { kind: "space", h: st.sectionGap * 0.6, keep: true },
     ];
-    const body = textItems(plainParagraphs(input.description, st.description), g.w * 0.9, 0);
+    const body = textItems(
+      plainParagraphs(input.description, st.description),
+      Math.min(g.w, st.description.size * MEASURE_EM),
+      0,
+    );
     // A short description sits a little above the middle of its page.
     const blockH = sum([...head, ...body].map(itemHeight));
     add({ kind: "space", h: Math.max(g.h * 0.12, (g.h - blockH) * 0.4), keep: true });
@@ -383,11 +425,15 @@ export function layoutAlbum(input: LayoutInput, measure: Measure): Layout {
         )
       : [];
     const text = section.text.trim()
-      ? textItems(markdownParagraphs(section.text, st.body), width, pad, si)
+      ? textItems(markdownParagraphs(section.text, st.body), Math.min(width, st.measure), pad, si)
       : [];
     const photos = section.photos;
     if (title.length === 0 && text.length === 0 && photos.length === 0) return;
-    const target = photos.length > 0 ? targetFor(photos, width) : 0;
+    // Edge to edge, a gallery spans the page into the bleed (not in a highlight's box).
+    const bleed = g.edgeToEdge && !section.highlight;
+    const rowsWidth = bleed ? g.width + 2 * g.bleed : width;
+    const rowsX = bleed ? -g.bleed : g.x + pad;
+    const target = photos.length > 0 ? targetFor(photos, rowsWidth) : 0;
 
     // Keep together: the title, the start of the text and a row of photos.
     const titleH =
@@ -403,7 +449,7 @@ export function layoutAlbum(input: LayoutInput, measure: Measure): Layout {
     const allText = lines < MIN_TEXT_LINES || textHead >= sum(text.map(itemHeight));
     const minShrink = photos.length === 1 ? MIN_SHRINK_LONE : MIN_SHRINK;
     const firstRow = photos.length
-      ? (rowsOf(photos, width, target * minShrink).heights[0] ?? 0)
+      ? (rowsOf(photos, rowsWidth, target * minShrink).heights[0] ?? 0)
       : 0;
     const gapAbove = hasContent() ? st.sectionGap : 0;
     const need =
@@ -440,11 +486,12 @@ export function layoutAlbum(input: LayoutInput, measure: Measure): Layout {
         kind: "photos",
         photos: rest,
         target,
-        width,
+        width: rowsWidth,
         section: si,
-        inset: pad,
+        x: rowsX,
+        bleed,
       };
-      const rows = rowsOf(rest, width, target);
+      const rows = rowsOf(rest, rowsWidth, target);
       const fit = rowsThatFit(rows, room);
       if (fit === rows.rows.length) {
         add(item);
@@ -475,7 +522,7 @@ export function layoutAlbum(input: LayoutInput, measure: Measure): Layout {
         const shrunk = shrinkToFit(item, (r) => rowsThatFit(r, room) > 0);
         if (shrunk !== undefined) {
           f = shrunk;
-          const small = rowsOf(rest, width, target * f);
+          const small = rowsOf(rest, rowsWidth, target * f);
           count = sum(small.rows.slice(0, rowsThatFit(small, room)).map((r) => r.items.length));
         } else if (!hasContent()) {
           // An empty page: take a row anyway, the page scales it down.
@@ -505,7 +552,7 @@ export function layoutAlbum(input: LayoutInput, measure: Measure): Layout {
     }),
   );
 
-  function place(list: Item[], opts: { fill: boolean; last: boolean }): Box[] {
+  function place(list: Item[], opts: { fill: boolean; last: boolean }): PlacedPage {
     // No spacing at the top or bottom of a page, except a highlight's padding.
     const loose = (i: Item | undefined) =>
       i?.kind === "space" && i.section === undefined && !i.keep;
@@ -514,25 +561,57 @@ export function layoutAlbum(input: LayoutInput, measure: Measure): Layout {
     while (loose(trimmed.at(-1))) trimmed.pop();
 
     const groups = trimmed.filter((i): i is PhotosItem => i.kind === "photos");
+    // A page of only photos, edge to edge: they fill it on all sides.
+    const fullPage =
+      g.edgeToEdge &&
+      groups.length > 0 &&
+      trimmed.every((i) => (i.kind === "photos" && i.bleed) || i.kind === "space");
+    if (fullPage) {
+      // Between galleries just the photo gap, no section spacing.
+      for (const [i, item] of trimmed.entries()) {
+        if (item.kind === "space") trimmed[i] = { kind: "space", h: g.gap };
+      }
+    }
+    const top = fullPage ? -g.bleed : g.y;
+    const height = fullPage ? g.height + 2 * g.bleed : g.h;
+
     const fixed = sum(trimmed.filter((i) => i.kind !== "photos").map(itemHeight));
-    const scales = chooseScales(groups, g.h - fixed, opts);
+    const scales = chooseScales(groups, height - fixed, { ...opts, complete: fullPage });
     const photosTotal = sum(
       groups.map((gr, i) => photosHeight(gr, scales[i]?.f ?? 1, scales[i]?.greedy)),
     );
+    // Rows grow taller into space still left (their photos cropped a little to
+    // fit): edge to edge up to 1.3×, so a page of photos reaches the edges;
+    // with margins only gently.
+    const photoRows = sum(
+      groups.map((gr, i) =>
+        sum(
+          rowsOf(gr.photos, gr.width, gr.target * (scales[i]?.f ?? 1), scales[i]?.greedy).rows.map(
+            (r) => r.height,
+          ),
+        ),
+      ),
+    );
+    const maxStretch = g.edgeToEdge ? MAX_STRETCH : MAX_STRETCH_MARGINS;
+    const stretch =
+      opts.fill && photoRows > 0
+        ? Math.min(maxStretch, Math.max(1, 1 + (height - fixed - photosTotal) / photoRows))
+        : 1;
 
-    // Space still left goes between the sections, so the page looks set, not cut off.
+    // Space still left goes between the sections, so the page looks set, not
+    // cut off; on a full page it centres the photos.
     const flex = trimmed.filter((i): i is Space => i.kind === "space" && !!i.flex);
-    const left = g.h - fixed - photosTotal;
+    const left = height - fixed - photosTotal - photoRows * (stretch - 1);
     const extra =
-      opts.fill && !opts.last && flex.length > 0 && left > 0
+      !fullPage && opts.fill && !opts.last && flex.length > 0 && left > 0
         ? Math.min(left / flex.length, st.sectionGap * 2)
         : 0;
 
     const boxes: Box[] = [];
     const sectionSpan = new Map<number, { top: number; bottom: number }>();
-    let y = g.y;
+    let y = top + (fullPage ? Math.max(0, left) / 2 : 0);
     for (const item of trimmed) {
-      const top = y;
+      const itemTop = y;
       if (item.kind === "space") {
         y += item.h + (item.flex ? extra : 0);
       } else if (item.kind === "line") {
@@ -542,49 +621,110 @@ export function layoutAlbum(input: LayoutInput, measure: Measure): Layout {
         const fit = scales[groups.indexOf(item)] ?? { f: 1, greedy: false };
         const rows = rowsOf(item.photos, item.width, item.target * fit.f, fit.greedy);
         rows.rows.forEach((row, r) => {
-          let x = g.x + item.inset;
+          const gaps = g.gap * (row.items.length - 1);
+          const photosWidth = sum(row.items.map((c) => c.width));
+          // Edge to edge, a row short of the edges stretches to them (or is centred).
+          const widen = item.bleed
+            ? Math.min(MAX_STRETCH, Math.max(1, (item.width - gaps) / photosWidth))
+            : 1;
+          let x = item.x + (item.bleed ? (item.width - photosWidth * widen - gaps) / 2 : 0);
+          const rowH = row.height * stretch;
           row.items.forEach((cell, c) => {
             const photo = item.photos[cell.index];
             if (!photo) return;
-            boxes.push({
+            const w = cell.width * widen;
+            const box: PhotoBox = {
               kind: "photo",
               id: photo.id,
               x,
               y,
-              w: cell.width,
-              h: cell.height,
-              caption: rows.captions[r]?.[c] ?? [],
-            });
+              w,
+              h: rowH,
+              cover: widen > 1.001 || stretch > 1.001,
+              caption: null,
+            };
+            const below = rows.captions[r]?.[c] ?? [];
+            if (below.length > 0) {
+              box.caption = { x, y: y + rowH + st.captionGap, lines: below, overlay: false };
+            } else if (g.edgeToEdge && input.captions && photo.caption?.trim()) {
+              box.caption = overlayCaption(box, photo.caption.trim());
+            }
+            boxes.push(box);
+            // The size the image is drawn at: the box, or more when cropped to it.
+            const drawnW = Math.max(w, rowH * photo.ratio);
             const size = photoSizes.get(photo.id);
-            if (!size || size.w < cell.width)
-              photoSizes.set(photo.id, { w: cell.width, h: cell.height });
-            x += cell.width + g.gap;
+            if (!size || size.w < drawnW) {
+              photoSizes.set(photo.id, { w: drawnW, h: drawnW / photo.ratio });
+            }
+            x += w + g.gap;
           });
-          y += (rows.heights[r] ?? 0) + (r < rows.rows.length - 1 ? g.gap : 0);
+          y += (rows.heights[r] ?? 0) - row.height + rowH;
+          if (r < rows.rows.length - 1) y += g.gap;
         });
       }
       if (item.section !== undefined) {
         const span = sectionSpan.get(item.section);
-        sectionSpan.set(item.section, { top: span ? span.top : top, bottom: y });
+        sectionSpan.set(item.section, { top: span ? span.top : itemTop, bottom: y });
       }
     }
 
-    // Highlighted sections: a tinted box behind their part of the page.
+    // Highlighted sections: a tinted box behind their part of the page; edge
+    // to edge, a band across the whole width.
     const backgrounds: Box[] = [];
     for (const [si, span] of sectionSpan) {
       if (!input.sections[si]?.highlight) continue;
-      backgrounds.push({
-        kind: "rect",
-        x: g.x,
-        y: span.top,
-        w: g.w,
-        h: span.bottom - span.top,
-        fill: COLORS.highlight,
-        stroke: COLORS.highlightBorder,
-        radius: 8 * g.scale,
-      });
+      backgrounds.push(
+        g.edgeToEdge
+          ? {
+              kind: "rect",
+              x: -g.bleed,
+              y: span.top,
+              w: g.width + 2 * g.bleed,
+              h: span.bottom - span.top,
+              fill: COLORS.highlight,
+              stroke: COLORS.highlight,
+              radius: 0,
+            }
+          : {
+              kind: "rect",
+              x: g.x,
+              y: span.top,
+              w: g.w,
+              h: span.bottom - span.top,
+              fill: COLORS.highlight,
+              stroke: COLORS.highlightBorder,
+              radius: 8 * g.scale,
+            },
+      );
     }
-    return [...backgrounds, ...boxes];
+    return { boxes: [...backgrounds, ...boxes], numbered: !fullPage };
+  }
+
+  /**
+   * A caption on its photo, at the bottom left of the part of it that is
+   * safely on the page (away from the trim), in white on a shade.
+   */
+  function overlayCaption(box: PhotoBox, text: string): PhotoBox["caption"] {
+    const pad = 6 * g.scale;
+    const left = Math.max(box.x, g.safe) + pad;
+    const right = Math.min(box.x + box.w, g.width - g.safe) - pad;
+    const bottom = Math.min(box.y + box.h, g.height - g.safe) - pad;
+    if (right - left < 48) return null;
+    const lines = breakLines(
+      {
+        spans: [{ text, font: "bodyItalic" }],
+        size: st.caption.size,
+        lineHeight: st.caption.lineHeight,
+        color: COLORS.white,
+        spaceBefore: 0,
+      },
+      right - left,
+      measure,
+      2,
+    );
+    const y = bottom - lines.length * st.caption.lineHeight;
+    if (y < box.y + pad) return null;
+    return { x: left, y, lines, overlay: true };
   }
 
   /**
@@ -594,7 +734,11 @@ export function layoutAlbum(input: LayoutInput, measure: Measure): Layout {
    * ones. Rows are complete, so a gallery's height changes in steps: each
    * gets a few candidates, and the best combination wins.
    */
-  function chooseScales(groups: PhotosItem[], room: number, opts: { fill: boolean }): Fit[] {
+  function chooseScales(
+    groups: PhotosItem[],
+    room: number,
+    opts: { fill: boolean; complete: boolean },
+  ): Fit[] {
     if (groups.length === 0) return [];
     type Candidate = Fit & { h: number; open: boolean };
     const candidates = groups.map((gr) => {
@@ -602,7 +746,8 @@ export function layoutAlbum(input: LayoutInput, measure: Measure): Layout {
       if (gr.photos.length === 1) max = Math.min(max, (g.h * LONE_PHOTO_SHARE) / gr.target);
       const list: Candidate[] = [];
       const seen = new Set<string>();
-      for (const greedy of [false, true]) {
+      // A full page edge to edge takes complete rows only (no gap at the edge).
+      for (const greedy of opts.complete ? [false] : [false, true]) {
         for (let f = Math.max(max, 1); f >= 0.3; f -= 0.02) {
           const h = photosHeight(gr, f, greedy);
           const open = openLastRow(gr, f, greedy);
@@ -682,10 +827,12 @@ export function layoutAlbum(input: LayoutInput, measure: Measure): Layout {
   }
 
   const out: Page[] = [{ kind: "cover", photo: input.cover, title: coverTitle }];
-  for (const boxes of contentPages) {
-    out.push({ kind: "content", boxes, number: out.length + 1 });
+  for (const { boxes, numbered } of contentPages) {
+    out.push({ kind: "content", boxes, number: numbered ? out.length + 1 : null });
   }
-  while ((out.length + 1) % input.format.pageMultiple !== 0) out.push({ kind: "blank" });
+  if (input.purpose.padPages) {
+    while ((out.length + 1) % input.format.pageMultiple !== 0) out.push({ kind: "blank" });
+  }
   out.push({ kind: "back" });
   return { geometry: g, pages: out, photoSizes };
 }

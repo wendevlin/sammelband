@@ -494,11 +494,6 @@
   "export_format_a5": "A5",
   "export_format_square_21": "Quadratisch 21 cm",
   "export_format_letter": "US Letter",
-  "export_quality": "Qualität",
-  "export_quality_print": "Druck",
-  "export_quality_print_hint": "300 dpi, für Papier. Große Datei.",
-  "export_quality_screen": "Bildschirm",
-  "export_quality_screen_hint": "150 dpi, kleinere Datei zum Teilen.",
   "export_captions": "Bildunterschriften zeigen",
   "export_start": "Exportieren",
   "export_waiting": "Wartet, bis andere Exporte fertig sind …",
@@ -528,5 +523,13 @@
   "general_pdf_export_on": "PDF-Export eingeschaltet",
   "general_pdf_export_off": "PDF-Export ausgeschaltet",
   "storage_exports": "PDF-Exporte",
-  "common_close": "Schließen"
+  "common_close": "Schließen",
+  "export_purpose": "Wofür ist es?",
+  "export_purpose_print": "Druckerei oder Fotobuch-Dienst",
+  "export_purpose_print_hint": "Fotos bis zum Seitenrand, mit 3 mm Beschnitt zum Zuschneiden. 300 dpi.",
+  "export_purpose_home": "Zuhause drucken",
+  "export_purpose_home_hint": "Mit Rand, denn Drucker zuhause drucken nicht bis zum Rand. 300 dpi.",
+  "export_purpose_screen": "Bildschirm und Teilen",
+  "export_purpose_screen_hint": "Fotos bis zum Rand, kleinere Datei, keine leeren Seiten. 150 dpi.",
+  "export_format_a5_landscape": "A5 quer"
 }

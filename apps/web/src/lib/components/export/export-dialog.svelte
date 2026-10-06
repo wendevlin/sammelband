@@ -1,11 +1,13 @@
 <script lang="ts">
-import Check from "@lucide/svelte/icons/check";
+import BookOpen from "@lucide/svelte/icons/book-open";
 import Download from "@lucide/svelte/icons/download";
+import Monitor from "@lucide/svelte/icons/monitor";
+import Printer from "@lucide/svelte/icons/printer";
 import {
   type AlbumExport,
   EXPORT_FORMATS,
   type ExportFormat,
-  type ExportQuality,
+  type ExportPurpose,
   PAGE_FORMATS,
 } from "@sammelband/shared";
 import { type AlbumExports, exportUrl } from "$lib/album-exports.svelte";
@@ -18,10 +20,10 @@ import { Switch } from "$lib/components/ui/switch";
 import { errorCodeText } from "$lib/i18n";
 import { m } from "$lib/paraglide/messages.js";
 import { cn } from "$lib/utils";
-import { formatLabel } from "./format-label";
+import { formatLabel, purposeLabel } from "./format-label";
 
 /**
- * Export an album as PDF: pick the page format, quality and captions, then
+ * Export an album as PDF: pick what it's for, the page format and captions, then
  * follow the progress. The PDF is made in the background, so the dialog can
  * be closed at any time; the export stays in the album's list of exports.
  */
@@ -38,7 +40,7 @@ let {
 } = $props();
 
 let format = $state<ExportFormat>("a4");
-let quality = $state<ExportQuality>("print");
+let purpose = $state<ExportPurpose>("print");
 let captions = $state(true);
 let busy = $state(false);
 /** The export started from this dialog; the dialog then shows its progress. */
@@ -53,13 +55,20 @@ $effect(() => {
 async function start() {
   busy = true;
   const created = await attempt(() =>
-    post<AlbumExport>(`/albums/${albumId}/exports`, { format, quality, captions }),
+    post<AlbumExport>(`/albums/${albumId}/exports`, { format, purpose, captions }),
   );
   busy = false;
   if (!created) return;
   exports.upsert(created);
   startedId = created.id;
 }
+
+/** What the PDF is for: decides margins or edge to edge, bleed and resolution. */
+const PURPOSE_CHOICES = [
+  { id: "print", icon: BookOpen, hint: m.export_purpose_print_hint },
+  { id: "home", icon: Printer, hint: m.export_purpose_home_hint },
+  { id: "screen", icon: Monitor, hint: m.export_purpose_screen_hint },
+] as const;
 
 /** Page previews: the formats' proportions, at most 40 px high or 48 px wide. */
 function preview(f: ExportFormat) {
@@ -81,8 +90,36 @@ function preview(f: ExportFormat) {
     {#if !started}
       <div class="grid gap-5">
         <fieldset class="grid gap-2">
+          <legend class="mb-2 text-sm font-medium">{m.export_purpose()}</legend>
+          <div class="grid gap-2">
+            {#each PURPOSE_CHOICES as p (p.id)}
+              <button
+                type="button"
+                aria-pressed={purpose === p.id}
+                onclick={() => (purpose = p.id)}
+                class={cn(
+                  'flex items-start gap-3 rounded-lg border p-3 text-left text-sm transition-colors',
+                  purpose === p.id ? 'border-primary bg-accent' : 'hover:bg-muted',
+                )}
+              >
+                <p.icon
+                  class={cn(
+                    'mt-0.5 size-5 shrink-0',
+                    purpose === p.id ? 'text-primary' : 'text-muted-foreground',
+                  )}
+                />
+                <span>
+                  <span class="block font-medium">{purposeLabel(p.id)}</span>
+                  <span class="block text-xs text-muted-foreground">{p.hint()}</span>
+                </span>
+              </button>
+            {/each}
+          </div>
+        </fieldset>
+
+        <fieldset class="grid gap-2">
           <legend class="mb-2 text-sm font-medium">{m.export_format()}</legend>
-          <div class="grid grid-cols-3 gap-2 sm:grid-cols-5">
+          <div class="grid grid-cols-3 gap-2 sm:grid-cols-6">
             {#each EXPORT_FORMATS as f (f)}
               <button
                 type="button"
@@ -105,31 +142,6 @@ function preview(f: ExportFormat) {
                   ></span>
                 </span>
                 <span class="text-center leading-tight">{formatLabel(f)}</span>
-              </button>
-            {/each}
-          </div>
-        </fieldset>
-
-        <fieldset class="grid gap-2">
-          <legend class="mb-2 text-sm font-medium">{m.export_quality()}</legend>
-          <div class="grid gap-2 sm:grid-cols-2">
-            {#each [{ id: 'print', label: m.export_quality_print(), hint: m.export_quality_print_hint() }, { id: 'screen', label: m.export_quality_screen(), hint: m.export_quality_screen_hint() }] as q (q.id)}
-              <button
-                type="button"
-                aria-pressed={quality === q.id}
-                onclick={() => (quality = q.id as ExportQuality)}
-                class={cn(
-                  'flex items-start gap-2 rounded-lg border p-3 text-left text-sm transition-colors',
-                  quality === q.id ? 'border-primary bg-accent' : 'hover:bg-muted',
-                )}
-              >
-                <Check
-                  class={cn('mt-0.5 size-4 shrink-0 text-primary', quality !== q.id && 'invisible')}
-                />
-                <span>
-                  <span class="block font-medium">{q.label}</span>
-                  <span class="block text-xs text-muted-foreground">{q.hint}</span>
-                </span>
               </button>
             {/each}
           </div>
