@@ -41,7 +41,8 @@ const sequence = $derived.by(() => {
 let lightbox: PhotoSwipeLightbox | null = null;
 
 // The section of the current slide, for the title in the top bar and the
-// info button that opens its text in a dialog on top of the lightbox.
+// dialog on top of the lightbox that shows the full title and the text. The
+// title opens it (it may be cut off), and so does an info button when there is text.
 type Slide = { alt: string; sectionId: string };
 const sectionOf = (data: unknown) =>
   shown.find((s) => s.id === (data as Slide | undefined)?.sectionId);
@@ -56,6 +57,11 @@ const INFO_ICON = {
     '<path fill-rule="evenodd" id="sb-icn-info" d="M16 6a10 10 0 1 0 0 20a10 10 0 1 0 0-20zM14.5 10h3v3h-3zM14.5 14.5h3V22h-3z"/>',
   outlineID: "sb-icn-info",
 };
+
+function showSection(data: unknown) {
+  infoSection = sectionOf(data) ?? null;
+  infoOpen = !!infoSection;
+}
 
 function open(index: number) {
   if (!lightbox) {
@@ -74,8 +80,12 @@ function open(index: number) {
       ui?.registerElement({
         name: "sb-section-title",
         order: 6,
+        // A plain button: PhotoSwipe's button class would size it like an icon.
         isButton: false,
+        tagName: "button",
+        onClick: (_e, _el, pswp) => showSection(pswp.currSlide?.data),
         onInit: (el, pswp) => {
+          (el as HTMLButtonElement).type = "button";
           const update = () => {
             const title = sectionOf(pswp.currSlide?.data)?.title.trim() ?? "";
             el.textContent = title;
@@ -89,15 +99,11 @@ function open(index: number) {
         name: "sb-section-info",
         title: m.lightbox_section_text(),
         ariaLabel: m.lightbox_section_text(),
-        // After the title, before PhotoSwipe's loading indicator (7), which
-        // pushes the remaining buttons to the right.
+        // After the title, before PhotoSwipe's loading indicator (7).
         order: 6.5,
         isButton: true,
         html: INFO_ICON,
-        onClick: (_e, _el, pswp) => {
-          infoSection = sectionOf(pswp.currSlide?.data) ?? null;
-          infoOpen = !!infoSection;
-        },
+        onClick: (_e, _el, pswp) => showSection(pswp.currSlide?.data),
         onInit: (el, pswp) => {
           const update = () => {
             el.style.display = sectionOf(pswp.currSlide?.data)?.text.trim() ? "" : "none";
@@ -203,10 +209,12 @@ $effect(() => () => {
           {infoSection.title.trim() || m.lightbox_section_text()}
         </Dialog.Title>
       </Dialog.Header>
-      <MarkdownText
-        text={infoSection.text}
-        class="-mx-1 overflow-y-auto px-1 prose prose-stone dark:prose-invert"
-      />
+      {#if infoSection.text.trim()}
+        <MarkdownText
+          text={infoSection.text}
+          class="-mx-1 overflow-y-auto px-1 prose prose-stone dark:prose-invert"
+        />
+      {/if}
     </Dialog.Content>
   {/if}
 </Dialog.Root>
