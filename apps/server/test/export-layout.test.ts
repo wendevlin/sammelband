@@ -1,11 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import {
-  EXPORT_FORMATS,
-  EXPORT_PURPOSES,
-  justifyBalanced,
-  PAGE_FORMATS,
-  PURPOSES,
-} from "@sammelband/shared";
+import { EXPORT_FORMATS, EXPORT_PURPOSES, PAGE_FORMATS, PURPOSES } from "@sammelband/shared";
+import { placeTree, solveFor, treesOf } from "../src/services/pdf/collage";
 import {
   type Box,
   type LayoutInput,
@@ -65,7 +60,7 @@ describe("PDF layout", () => {
 
   for (const format of EXPORT_FORMATS) {
     for (const purpose of EXPORT_PURPOSES) {
-      test(`every photo once, in order, inside the page (${format}, ${purpose})`, () => {
+      test(`every photo once, in order, on the page, nothing overlapping (${format}, ${purpose})`, () => {
         const input = album(sections, {
           format: PAGE_FORMATS[format],
           purpose: PURPOSES[purpose],
@@ -73,34 +68,40 @@ describe("PDF layout", () => {
         });
         const layout = layoutAlbum(input, measure);
         const g = layout.geometry;
-        // Photos and tints may run into the bleed edge to edge; text never leaves the margins.
+        // Photos and tinted tiles may run into the bleed edge to edge; text
+        // and captions always keep their distance from the trim.
         const outer = g.edgeToEdge
           ? { x: -g.bleed, y: -g.bleed, w: g.width + 2 * g.bleed, h: g.height + 2 * g.bleed }
           : { x: g.x, y: g.y, w: g.w, h: g.h };
+        const inside = (x: number, y: number, w: number, h: number, area: typeof outer) => {
+          expect(x).toBeGreaterThanOrEqual(area.x - 0.01);
+          expect(y).toBeGreaterThanOrEqual(area.y - 0.01);
+          expect(x + w).toBeLessThanOrEqual(area.x + area.w + 0.5);
+          expect(y + h).toBeLessThanOrEqual(area.y + area.h + 0.5);
+        };
+        const safe = g.edgeToEdge
+          ? { x: g.safe, y: g.safe, w: g.width - 2 * g.safe, h: g.height - 2 * g.safe }
+          : outer;
         const placed: string[] = [];
         for (const page of layout.pages) {
           if (page.kind !== "content") continue;
           for (const box of page.boxes) {
-            const area = box.kind === "text" ? { x: g.x, y: g.y, w: g.w, h: g.h } : outer;
-            const h = box.kind === "text" ? box.line.height : box.h;
-            const w = box.kind === "text" ? box.line.width : box.w;
-            expect(box.x).toBeGreaterThanOrEqual(area.x - 0.01);
-            expect(box.y).toBeGreaterThanOrEqual(area.y - 0.01);
-            expect(box.x + w).toBeLessThanOrEqual(area.x + area.w + 0.5);
-            expect(box.y + h).toBeLessThanOrEqual(area.y + area.h + 0.5);
-            if (box.kind === "photo") {
-              placed.push(box.id);
-              for (const line of box.caption?.lines ?? []) {
-                expect(box.caption?.x ?? 0).toBeGreaterThanOrEqual(g.safe - 0.01);
-                expect((box.caption?.x ?? 0) + line.width).toBeLessThanOrEqual(
-                  g.width - g.safe + 0.5,
-                );
-              }
+            if (box.kind === "text") {
+              inside(box.x, box.y, box.line.width, box.line.height, safe);
+              continue;
+            }
+            inside(box.x, box.y, box.w, box.h, outer);
+            if (box.kind !== "photo") continue;
+            placed.push(box.id);
+            let y = box.caption?.y ?? 0;
+            for (const line of box.caption?.lines ?? []) {
+              inside(box.caption?.x ?? 0, y, line.width, line.height, safe);
+              y += line.height;
             }
           }
-          const photosOnPage = page.boxes.filter((b) => b.kind === "photo");
-          for (const [i, a] of photosOnPage.entries()) {
-            for (const b of photosOnPage.slice(i + 1)) expect(overlaps(a, b)).toBe(false);
+          const tiles = page.boxes.filter((b) => b.kind !== "text");
+          for (const [i, a] of tiles.entries()) {
+            for (const b of tiles.slice(i + 1)) expect(overlaps(a, b)).toBe(false);
           }
         }
         expect(placed).toEqual(sections.flatMap((s) => s.photos.map((p) => p.id)));
@@ -108,33 +109,36 @@ describe("PDF layout", () => {
     }
   }
 
-  test("edge to edge, galleries reach both edges and photo pages fill the page", () => {
-    const layout = layoutAlbum(
-      album([{ title: "Many", text: words(30), highlight: false, photos: photos(30) }], {
-        purpose: PURPOSES.print,
-        format: PAGE_FORMATS["a5-landscape"],
-      }),
-      measure,
-    );
-    const g = layout.geometry;
-    const content = layout.pages.flatMap((p) => (p.kind === "content" ? [p] : []));
-    const full = content.filter((p) => p.number === null);
-    expect(full.length).toBeGreaterThan(0);
-    for (const page of content) {
-      const ph = page.boxes.filter((b) => b.kind === "photo");
-      expect(Math.min(...ph.map((b) => b.x))).toBeCloseTo(-g.bleed, 1);
-      expect(Math.max(...ph.map((b) => b.x + b.w))).toBeCloseTo(g.width + g.bleed, 1);
+  test("pages of only photos are filled to the edges", () => {
+    for (const purpose of EXPORT_PURPOSES) {
+      const layout = layoutAlbum(
+        album([{ title: "", text: "", highlight: false, photos: photos(12) }], {
+          purpose: PURPOSES[purpose],
+          format: PAGE_FORMATS["a5-landscape"],
+        }),
+        measure,
+      );
+      const g = layout.geometry;
+      const frame = g.edgeToEdge
+        ? { x: -g.bleed, y: -g.bleed, w: g.width + 2 * g.bleed, h: g.height + 2 * g.bleed }
+        : { x: g.x, y: g.y, w: g.w, h: g.h };
+      for (const page of layout.pages) {
+        if (page.kind !== "content") continue;
+        const ph = page.boxes.filter((b) => b.kind === "photo");
+        expect(Math.min(...ph.map((b) => b.x))).toBeCloseTo(frame.x, 1);
+        expect(Math.min(...ph.map((b) => b.y))).toBeCloseTo(frame.y, 1);
+        expect(Math.max(...ph.map((b) => b.x + b.w))).toBeCloseTo(frame.x + frame.w, 1);
+        expect(Math.max(...ph.map((b) => b.y + b.h))).toBeCloseTo(frame.y + frame.h, 1);
+        // Everything but the gaps is photo.
+        const area = ph.reduce((s, b) => s + b.w * b.h, 0);
+        expect(area / (frame.w * frame.h)).toBeGreaterThan(0.9);
+      }
     }
-    const page = full[0];
-    if (!page) throw new Error("no full page");
-    const ph = page.boxes.filter((b) => b.kind === "photo");
-    expect(Math.min(...ph.map((b) => b.y))).toBeLessThan(1);
-    expect(Math.max(...ph.map((b) => b.y + b.h))).toBeGreaterThan(g.height - 1);
   });
 
   test("text stays legible on small pages: at least 9.5 pt, at most ~68 characters a line", () => {
     const layout = layoutAlbum(
-      album([{ title: "Long", text: words(400), highlight: false, photos: [] }], {
+      album([{ title: "Long", text: words(400), highlight: false, photos: photos(4) }], {
         format: PAGE_FORMATS["a5-landscape"],
       }),
       measure,
@@ -148,41 +152,44 @@ describe("PDF layout", () => {
       expect(line.size).toBeGreaterThanOrEqual(9.5);
       expect(line.width).toBeLessThanOrEqual(line.size * 34 + 0.01);
     }
+    // The whole text is there, word by word.
+    const text = body.map((l) => l.spans.map((s) => s.text).join("")).join(" ");
+    expect(text.split(/\s+/)).toEqual(words(400).split(" "));
   });
 
-  test("only printed books get blank pages before the back", () => {
-    const input = album([{ title: "", text: "", highlight: false, photos: photos(2) }]);
-    const count = (purpose: (typeof EXPORT_PURPOSES)[number]) =>
-      layoutAlbum({ ...input, purpose: PURPOSES[purpose] }, measure).pages.length;
-    expect(count("home") % 2).toBe(0);
-    expect(count("print") % 2).toBe(0);
-    expect(count("screen")).toBe(3);
-  });
-
-  test("a section title never ends a page", () => {
-    for (const page of contentPages(album(sections))) {
-      const last = page.boxes.filter((b) => b.kind !== "rect").at(-1);
-      expect(last?.kind === "text" && last.line.size > 15).toBe(false);
+  test("a printed book needs no blank pages; the photos take the room", () => {
+    for (const count of [3, 4, 5, 6, 7, 8, 9, 10]) {
+      const layout = layoutAlbum(
+        album([{ title: "Trip", text: words(30), highlight: false, photos: photos(count) }], {
+          purpose: PURPOSES.print,
+          format: PAGE_FORMATS["a5-landscape"],
+        }),
+        measure,
+      );
+      expect(layout.pages.length % 2).toBe(0);
+      expect(layout.pages.filter((p) => p.kind === "blank")).toHaveLength(0);
     }
   });
 
-  test("photos grow to fill a page that is closed early", () => {
-    const input = album([
-      { title: "First", text: words(30), highlight: false, photos: photos(6) },
-      { title: "Second", text: words(300), highlight: false, photos: [] },
-    ]);
-    const layout = layoutAlbum(input, measure);
-    const first = layout.pages.find((p) => p.kind === "content");
-    if (first?.kind !== "content") throw new Error("no content page");
-    const g = layout.geometry;
-    const bottom = Math.max(
-      ...first.boxes.map((b) => (b.kind === "text" ? b.y + b.line.height : b.y + b.h)),
-    );
-    // Without growing, six photos in rows of ~27% of the page end far above.
-    expect(bottom).toBeGreaterThan(g.y + g.h * 0.75);
+  test("a section's title is on a page with its first photo (unless its text goes on)", () => {
+    const layout = layoutAlbum(album(sections), measure);
+    // "The hike" has a long text that continues on the next page; "Notes" has no photos.
+    for (const section of sections.filter((s) => s.title !== "Notes" && s.title !== "The hike")) {
+      const page = layout.pages.find(
+        (p) =>
+          p.kind === "content" &&
+          p.boxes.some(
+            (b) => b.kind === "text" && b.line.spans.some((s) => s.text === section.title),
+          ),
+      );
+      expect(
+        page?.kind === "content" &&
+          page.boxes.some((b) => b.kind === "photo" && b.id === section.photos[0]?.id),
+      ).toBe(true);
+    }
   });
 
-  test("cover, description page, even page count, back", () => {
+  test("cover, description page, back", () => {
     const withDescription = layoutAlbum(
       album([{ title: "", text: "", highlight: false, photos: photos(3) }], {
         description: "For grandma.",
@@ -205,15 +212,13 @@ describe("PDF layout", () => {
     );
     const second = without.pages[1];
     expect(second?.kind === "content" && second.boxes.some((b) => b.kind === "photo")).toBe(true);
-    expect(without.pages.length % 2).toBe(0);
   });
 
-  test("a highlighted section gets a box around its part of every page", () => {
+  test("a highlighted section's text gets a tinted tile", () => {
     const pages = contentPages(
-      album([{ title: "Highlight", text: words(600), highlight: true, photos: photos(4) }]),
+      album([{ title: "Highlight", text: words(60), highlight: true, photos: photos(3) }]),
     );
-    expect(pages.length).toBeGreaterThan(1);
-    for (const page of pages) expect(page.boxes[0]?.kind).toBe("rect");
+    expect(pages[0]?.boxes[0]?.kind).toBe("rect");
   });
 
   test("the photos to resize are known, at their largest size", () => {
@@ -225,22 +230,34 @@ describe("PDF layout", () => {
   });
 });
 
-describe("balanced rows", () => {
-  test("every row fills the width when possible", () => {
-    const rows = justifyBalanced([1.5, 0.67, 1.5, 1.33, 1], {
-      width: 500,
-      targetHeight: 180,
-      gap: 6,
-    });
-    for (const row of rows) {
-      const w = row.items.reduce((s, i) => s + i.width, 0) + 6 * (row.items.length - 1);
-      expect(w).toBeCloseTo(500, 3);
+describe("collages", () => {
+  test("a solved tree fills its rectangle exactly", () => {
+    const ratios = [1.5, 0.67, 1.33, 1, 0.75];
+    const frame = { x: 10, y: 20, w: 500, h: 360 };
+    let solved = 0;
+    for (const tree of treesOf(ratios.length)) {
+      const at = (x: number) => ratios.map((r) => r * x);
+      const x = solveFor(tree, at, 4, frame.w, frame.h, 0.5, 2);
+      if (x === null) continue;
+      solved++;
+      const rects = placeTree(tree, at(x), 4, frame);
+      expect(rects).toHaveLength(ratios.length);
+      for (const [i, r] of rects.entries()) {
+        expect(r.w / r.h).toBeCloseTo((ratios[i] ?? 1) * x, 4);
+      }
+      expect(Math.min(...rects.map((r) => r.x))).toBeCloseTo(frame.x, 4);
+      expect(Math.max(...rects.map((r) => r.x + r.w))).toBeCloseTo(frame.x + frame.w, 4);
+      expect(Math.max(...rects.map((r) => r.y + r.h))).toBeCloseTo(frame.y + frame.h, 4);
     }
+    expect(solved).toBeGreaterThan(5);
   });
 
-  test("a single portrait photo isn't stretched to the full width", () => {
-    const [row] = justifyBalanced([0.67], { width: 500, targetHeight: 200, gap: 6 });
-    expect(row?.height).toBe(200);
+  test("trees keep the tiles in order and come in every shape", () => {
+    expect(treesOf(1)).toHaveLength(1);
+    expect(treesOf(3)).toHaveLength(6);
+    const leaves = (t: ReturnType<typeof treesOf>[number]): number[] =>
+      "leaf" in t ? [t.leaf] : t.children.flatMap(leaves);
+    for (const tree of treesOf(5)) expect(leaves(tree)).toEqual([0, 1, 2, 3, 4]);
   });
 });
 

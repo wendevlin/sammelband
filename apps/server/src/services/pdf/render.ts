@@ -173,16 +173,9 @@ export function renderInterior(
 
   for (const box of page.boxes) {
     if (box.kind === "rect") {
-      if (box.radius > 0) {
-        doc
-          .roundedRect(g.bleed + box.x, g.bleed + box.y, box.w, box.h, box.radius)
-          .lineWidth(0.75)
-          .fillAndStroke(box.fill, box.stroke);
-      } else {
-        doc.rect(g.bleed + box.x, g.bleed + box.y, box.w, box.h).fill(box.fill);
-      }
+      doc.roundedRect(g.bleed + box.x, g.bleed + box.y, box.w, box.h, box.radius).fill(box.fill);
     } else if (box.kind === "text") {
-      drawLine(doc, g.bleed + box.x, g.bleed + box.y, box.line, g.w - (box.x - g.x) * 2);
+      drawLine(doc, g.bleed + box.x, g.bleed + box.y, box.line, box.width);
     } else {
       drawPhoto(doc, g, box, images.get(box.id));
     }
@@ -229,18 +222,16 @@ function drawPhoto(doc: Doc, g: Geometry, box: PhotoBox, image: string | undefin
   }
   const caption = box.caption;
   if (!caption) return;
+  // A soft shade from above the caption down to the photo's bottom, so white text reads.
   const lineH = caption.lines.reduce((sum, l) => sum + l.height, 0);
-  if (caption.overlay) {
-    // A soft shade from the caption down to the photo's bottom, so white text reads.
-    const top = g.bleed + caption.y - lineH * 1.2;
-    const bottom = y + box.h;
-    doc.save();
-    doc.rect(x, y, box.w, box.h).clip();
-    const shade = doc.linearGradient(0, top, 0, bottom);
-    shade.stop(0, "#000000", 0).stop(0.6, "#000000", 0.4).stop(1, "#000000", 0.55);
-    doc.rect(x, top, box.w, bottom - top).fill(shade);
-    doc.restore();
-  }
+  const top = g.bleed + caption.y - lineH * 1.2;
+  const bottom = y + box.h;
+  doc.save();
+  doc.rect(x, y, box.w, box.h).clip();
+  const shade = doc.linearGradient(0, top, 0, bottom);
+  shade.stop(0, "#000000", 0).stop(0.6, "#000000", 0.4).stop(1, "#000000", 0.55);
+  doc.rect(x, top, box.w, bottom - top).fill(shade);
+  doc.restore();
   let ly = g.bleed + caption.y;
   for (const line of caption.lines) {
     drawLine(doc, g.bleed + caption.x, ly, line, line.width);

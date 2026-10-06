@@ -67,7 +67,7 @@ async function remove() {
       <Dialog.Title>{m.exports_title()}</Dialog.Title>
       <Dialog.Description>{m.exports_description()}</Dialog.Description>
     </Dialog.Header>
-    <ul class="-mx-2 grid max-h-[60vh] gap-1 overflow-y-auto">
+    <ul class="-mx-2 grid max-h-[60vh] grid-cols-1 gap-1 overflow-y-auto">
       {#each exports.list as x (x.id)}
         <li class="flex items-center gap-3 rounded-lg px-2 py-2 hover:bg-muted/60">
           <FileText class="size-5 shrink-0 text-muted-foreground" />
