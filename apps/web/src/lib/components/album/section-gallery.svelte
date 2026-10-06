@@ -38,6 +38,7 @@ let loaded = $state<Record<string, boolean>>({});
         {#if p}
           <a
             href={images.src(p.filename, 1920)}
+            data-photo-id={p.id}
             class="relative block min-w-0 shrink overflow-hidden rounded-md bg-muted"
             style:flex="0 1 {item.width}px"
             onclick={(e) => {
