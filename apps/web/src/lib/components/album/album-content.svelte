@@ -43,7 +43,7 @@ let lightbox: PhotoSwipeLightbox | null = null;
 // The section of the current slide, for the title in the top bar and the
 // dialog on top of the lightbox that shows the full title and the text. The
 // title opens it (it may be cut off), and so does an info button when there is text.
-type Slide = { alt: string; sectionId: string };
+type Slide = { alt: string; sectionId: string; photoId: string };
 const sectionOf = (data: unknown) =>
   shown.find((s) => s.id === (data as Slide | undefined)?.sectionId);
 let pswpRoot = $state<HTMLElement | null>(null);
@@ -61,6 +61,18 @@ const INFO_ICON = {
 function showSection(data: unknown) {
   infoSection = sectionOf(data) ?? null;
   infoOpen = !!infoSection;
+}
+
+// The page behind follows the lightbox: the current photo's thumbnail is
+// scrolled into view, so closing lands where the viewer left off.
+function followSlide(data: unknown) {
+  const id = (data as Slide | undefined)?.photoId;
+  const thumb = id && document.querySelector(`[data-photo-id="${CSS.escape(id)}"]`);
+  if (!thumb) return;
+  const { top, bottom } = thumb.getBoundingClientRect();
+  if (top >= 0 && bottom <= window.innerHeight) return;
+  // Hidden behind the solid backdrop, so no smooth scrolling.
+  thumb.scrollIntoView({ block: "center", behavior: "instant" });
 }
 
 function open(index: number) {
@@ -134,6 +146,7 @@ function open(index: number) {
     lightbox.on("afterInit", () => {
       pswpRoot = lightbox?.pswp?.element ?? null;
     });
+    lightbox.on("change", () => followSlide(lightbox?.pswp?.currSlide?.data));
     lightbox.on("keydown", (e) => {
       if (infoOpen) e.preventDefault();
     });
@@ -152,6 +165,7 @@ function open(index: number) {
       height: p.height,
       alt: p.caption ?? "",
       sectionId: p.section_id,
+      photoId: p.id,
     })),
   );
 }
