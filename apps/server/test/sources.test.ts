@@ -35,12 +35,19 @@ let granted = false;
 const revoked: string[] = [];
 
 function propResponse(base: string, f: FakeFile) {
+  const inside = files.filter((x) => x.path.startsWith(`${f.path === "/" ? "" : f.path}/`));
+  const direct = inside.filter((x) => !x.path.slice(f.path.length + 1).includes("/"));
+  const folderProps = f.type
+    ? ""
+    : `<oc:size>${inside.reduce((n, x) => n + (x.bytes?.byteLength ?? 0), 0)}</oc:size>
+    <nc:contained-file-count>${direct.filter((x) => x.type).length}</nc:contained-file-count>
+    <nc:contained-folder-count>${direct.filter((x) => !x.type).length}</nc:contained-folder-count>`;
   const href = `${base}${f.path.split("/").map(encodeURIComponent).join("/")}${f.type ? "" : "/"}`;
   return `<d:response><d:href>${href}</d:href><d:propstat><d:prop>
     <d:resourcetype>${f.type ? "" : "<d:collection/>"}</d:resourcetype>
     ${f.type ? `<d:getcontenttype>${f.type}</d:getcontenttype><d:getcontentlength>${f.bytes?.byteLength ?? 0}</d:getcontentlength>` : ""}
     <d:getlastmodified>Fri, 02 Oct 2026 06:43:20 GMT</d:getlastmodified>
-    <oc:fileid>${f.id}</oc:fileid><nc:has-preview>${f.preview ? "true" : "false"}</nc:has-preview>
+    <oc:fileid>${f.id}</oc:fileid>${folderProps}<nc:has-preview>${f.preview ? "true" : "false"}</nc:has-preview>
     </d:prop><d:status>HTTP/1.1 200 OK</d:status></d:propstat></d:response>`;
 }
 
@@ -253,15 +260,17 @@ describe("photo sources", () => {
         account.id,
         work.id,
       ]);
-      // Both work, each with its own remembered folder.
-      await sourceService.browse(user.id, work.id, "/Photos");
+      // Both work, each with its own start folder.
+      expect(
+        (await sourceService.updateAccount(user.id, work.id, { start_location: "/Photos/" }))
+          .start_location,
+      ).toBe("/Photos");
       expect((await sourceService.browse(user.id, account.id, null)).location).toBe("/");
       expect((await sourceService.browse(user.id, work.id, null)).location).toBe("/Photos");
 
-      expect((await sourceService.renameAccount(user.id, account.id, "Family")).name).toBe(
-        "Family",
-      );
-      expect((await sourceService.renameAccount(user.id, account.id, " ")).name).toBeNull();
+      const renamed = await sourceService.updateAccount(user.id, work.id, { name: "Family" });
+      expect(renamed).toMatchObject({ name: "Family", start_location: "/Photos" });
+      expect((await sourceService.updateAccount(user.id, work.id, { name: " " })).name).toBeNull();
       // Changing the default server leaves existing accounts alone.
       await sourceService.saveSettings("nextcloud", { enabled: true, config: { url: otherUrl } });
       expect((await sourceService.listForUser(user.id))[0]?.accounts).toHaveLength(2);
@@ -277,12 +286,21 @@ describe("photo sources", () => {
   );
 
   test(
-    "browsing lists folders and importable images, and remembers where it was",
+    "browsing lists folders and importable images, and starts in the start folder",
     inTenant(async () => {
       const { user, account } = await connected();
       const top = await sourceService.browse(user.id, account.id, null);
       expect(top.location).toBe("/");
-      expect(top.folders).toEqual([{ ref: "/Photos", name: "Photos" }]);
+      expect(top.folders).toEqual([
+        {
+          ref: "/Photos",
+          name: "Photos",
+          files: 0,
+          folders: 1,
+          size: expect.any(Number),
+          modified: Date.parse("Fri, 02 Oct 2026 06:43:20 GMT"),
+        },
+      ]);
 
       const lisbon = await sourceService.browse(user.id, account.id, "/Photos/Lisbon");
       expect(lisbon.crumbs.map((c) => c.ref)).toEqual(["/", "/Photos", "/Photos/Lisbon"]);
@@ -290,11 +308,13 @@ describe("photo sources", () => {
       expect(lisbon.images.map((i) => i.name)).toEqual(["IMG_2.jpg", "IMG_10.jpg", "live.heic"]);
       expect(lisbon.images[0]).toMatchObject({ ref: "/Photos/Lisbon/IMG_2.jpg", thumb: "10" });
 
-      // Opening the picker again starts in the last folder…
+      // Browsing doesn't move where the picker opens…
+      expect((await sourceService.browse(user.id, account.id, null)).location).toBe("/");
+      // …the start folder does, unless it's gone.
+      await sourceService.updateAccount(user.id, account.id, { start_location: "/Photos/Lisbon" });
       expect((await sourceService.browse(user.id, account.id, null)).location).toBe(
         "/Photos/Lisbon",
       );
-      // …unless it's gone.
       files = files.map((f) =>
         f.path === "/Photos/Lisbon" ? { ...f, path: "/Photos/Lissabon" } : f,
       );
@@ -302,6 +322,14 @@ describe("photo sources", () => {
       files = files.map((f) =>
         f.path === "/Photos/Lissabon" ? { ...f, path: "/Photos/Lisbon" } : f,
       );
+      // A start folder has to exist; the top is stored as none.
+      await expect(
+        sourceService.updateAccount(user.id, account.id, { start_location: "/Photos/Missing" }),
+      ).rejects.toThrow("Not found");
+      expect(
+        (await sourceService.updateAccount(user.id, account.id, { start_location: "/" }))
+          .start_location,
+      ).toBeNull();
       await expect(sourceService.browse(user.id, account.id, "/Photos/Missing")).rejects.toThrow(
         "Not found",
       );

@@ -19,7 +19,7 @@ const USER_AGENT = "Sammelband";
 const DIRECT_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif", "image/avif"]);
 const LARGE_PREVIEW = 4096;
 const MAX_LISTING_BYTES = 8 * 1024 * 1024;
-const MAX_THUMBNAIL_BYTES = 2 * 1024 * 1024;
+const MAX_THUMBNAIL_BYTES = 4 * 1024 * 1024;
 
 const auth = (c: NextcloudCredentials) =>
   `Basic ${Buffer.from(`${c.loginName}:${c.appPassword}`).toString("base64")}`;
@@ -138,7 +138,8 @@ const PROPFIND = `<?xml version="1.0"?>
 <d:propfind xmlns:d="DAV:" xmlns:oc="http://owncloud.org/ns" xmlns:nc="http://nextcloud.org/ns">
   <d:prop>
     <d:resourcetype/><d:getcontenttype/><d:getcontentlength/><d:getlastmodified/>
-    <oc:fileid/><nc:has-preview/>
+    <oc:fileid/><oc:size/><nc:has-preview/>
+    <nc:contained-file-count/><nc:contained-folder-count/>
   </d:prop>
 </d:propfind>`;
 
@@ -155,7 +156,10 @@ type Prop = {
   getcontentlength?: string;
   getlastmodified?: string;
   fileid?: string;
+  size?: string;
   "has-preview"?: string;
+  "contained-file-count"?: string;
+  "contained-folder-count"?: string;
 };
 type Entry = { path: string; folder: boolean; prop: Prop };
 
@@ -193,6 +197,16 @@ async function propfind(
   });
 }
 
+/** A number property, or null when the server didn't send one. */
+const count = (value: string | undefined) => {
+  const n = value === undefined || value === "" ? Number.NaN : Number(value);
+  return Number.isFinite(n) && n >= 0 ? n : null;
+};
+const date = (value: string | undefined) => {
+  const t = value ? Date.parse(value) : Number.NaN;
+  return Number.isFinite(t) ? t : null;
+};
+
 const baseName = (path: string) => path.split("/").filter(Boolean).at(-1) ?? "";
 const byName = (a: { name: string }, b: { name: string }) =>
   a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" });
@@ -211,19 +225,26 @@ async function browse(
     const name = baseName(e.path);
     if (name.startsWith(".")) continue;
     if (e.folder) {
-      folders.push({ ref: e.path, name });
+      // Counts need Nextcloud 28 or newer; older ones send the size only.
+      folders.push({
+        ref: e.path,
+        name,
+        files: count(e.prop["contained-file-count"]),
+        folders: count(e.prop["contained-folder-count"]),
+        size: count(e.prop.size),
+        modified: date(e.prop.getlastmodified),
+      });
       continue;
     }
     const type = e.prop.getcontenttype ?? "";
     const preview = e.prop["has-preview"] === "true";
     if (!type.startsWith("image/") || (!DIRECT_TYPES.has(type) && !preview)) continue;
-    const modified = e.prop.getlastmodified ? Date.parse(e.prop.getlastmodified) : Number.NaN;
     images.push({
       ref: e.path,
       name,
       thumb: preview && e.prop.fileid ? e.prop.fileid : null,
-      size: e.prop.getcontentlength ? Number(e.prop.getcontentlength) : null,
-      modified: Number.isFinite(modified) ? modified : null,
+      size: count(e.prop.getcontentlength),
+      modified: date(e.prop.getlastmodified),
     });
   }
   const segments = path.split("/").filter(Boolean);
