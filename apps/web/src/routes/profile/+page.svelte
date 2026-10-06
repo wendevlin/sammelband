@@ -6,6 +6,7 @@ import { attempt } from "$lib/attempt";
 import { avatarForm } from "$lib/avatar";
 import BackupCodes from "$lib/components/app/backup-codes.svelte";
 import SimpleSelect from "$lib/components/app/simple-select.svelte";
+import SourceAccounts from "$lib/components/app/source-accounts.svelte";
 import TwoFactorSetup from "$lib/components/app/two-factor-setup.svelte";
 import UserAvatar from "$lib/components/app/user-avatar.svelte";
 import PasswordDialog from "$lib/components/dialogs/password-dialog.svelte";
@@ -193,6 +194,8 @@ async function removeAvatar() {
       >
     </Card.Content>
   </Card.Root>
+
+  <SourceAccounts />
 
   <Card.Root>
     <Card.Header>

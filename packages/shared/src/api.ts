@@ -201,3 +201,60 @@ export type SharedView =
       /** Folders from the shared folder down to this one. */
       trail: Crumb[];
     };
+
+// --- Photo sources (/api/sources): places to import photos from besides uploads.
+
+export type SourceId = "nextcloud";
+
+/** One of the user's accounts at a source; a user can connect several. */
+export type SourceAccount = {
+  id: string;
+  source: SourceId;
+  /** What the user called it ("Family", "Work"), or null. */
+  name: string | null;
+  /** The account at the source, e.g. the Nextcloud login name. */
+  label: string;
+  /** The server it's on. */
+  server: string;
+};
+
+/** A source switched on for the user's Sammelband, with the user's accounts there. */
+export type SourceInfo = {
+  id: SourceId;
+  name: string;
+  /** The server the admins suggest (Nextcloud: its address), or null. */
+  default_server: string | null;
+  accounts: SourceAccount[];
+};
+
+export type SourceFolder = { ref: string; name: string };
+
+export type SourceImage = {
+  /** What to import: pass it to POST /api/sections/:id/import with the account. */
+  ref: string;
+  name: string;
+  /** For GET /api/sources/accounts/:id/thumbnail?id=…, or null without a preview. */
+  thumb: string | null;
+  size: number | null;
+  modified: number | null;
+};
+
+/** One folder of a source: where it is, what's inside. */
+export type SourceListing = {
+  location: string;
+  /** From the top down to this folder, which is the last one. */
+  crumbs: SourceFolder[];
+  folders: SourceFolder[];
+  images: SourceImage[];
+};
+
+/** A source as the Sammelband's admins configure it. */
+export type SourceSettingsInfo = {
+  id: SourceId;
+  name: string;
+  enabled: boolean;
+  /** Per source; Nextcloud: { url }, the default server people can change. */
+  config: Record<string, string>;
+  /** Accounts connected in this Sammelband. */
+  accounts: number;
+};
