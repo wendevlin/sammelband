@@ -1,4 +1,4 @@
-import { justifyBalanced, type PageFormat } from "@sammelband/shared";
+import { justify, justifyBalanced, type PageFormat } from "@sammelband/shared";
 import { markdownParagraphs, plainParagraphs } from "./markdown";
 import { breakLines, type Line, type Measure, type Paragraph } from "./text";
 import { COLORS } from "./theme";
@@ -94,7 +94,6 @@ export type Layout = {
 
 /** How much photos may grow to fill a page, and shrink to avoid a new one. */
 const MAX_GROW = 1.6;
-const MAX_GROW_LAST_PAGE = 1.25;
 const MIN_SHRINK = 0.75;
 /** A section's only photo may shrink further to stay with its title. */
 const MIN_SHRINK_LONE = 0.55;
@@ -159,6 +158,9 @@ type PhotosItem = {
 };
 type Item = Space | LineItem | PhotosItem;
 
+/** How a gallery is drawn on its page: its scale, and balanced or greedy rows. */
+type Fit = { f: number; greedy: boolean };
+
 type Rows = { rows: ReturnType<typeof justifyBalanced>; captions: Line[][][]; heights: number[] };
 
 export function layoutAlbum(input: LayoutInput, measure: Measure): Layout {
@@ -177,12 +179,16 @@ export function layoutAlbum(input: LayoutInput, measure: Measure): Layout {
   });
 
   const rowsCache = new Map<string, Rows>();
-  /** Justified rows of photos at a row height, with caption lines under each photo. */
-  const rowsOf = (photos: LayoutPhoto[], width: number, target: number): Rows => {
-    const key = `${photos.map((p) => p.id).join(",")}|${width.toFixed(2)}|${target.toFixed(2)}`;
+  /**
+   * Justified rows of photos at a row height, with caption lines under each
+   * photo. Balanced (complete rows) by default; `greedy` is the album page's
+   * layout, whose last row may stop short: it fills heights balanced rows can't.
+   */
+  const rowsOf = (photos: LayoutPhoto[], width: number, target: number, greedy = false): Rows => {
+    const key = `${photos.map((p) => p.id).join(",")}|${width.toFixed(2)}|${target.toFixed(2)}|${greedy}`;
     const cached = rowsCache.get(key);
     if (cached) return cached;
-    const rows = justifyBalanced(
+    const rows = (greedy ? justify : justifyBalanced)(
       photos.map((p) => p.ratio),
       { width, targetHeight: target, gap: g.gap },
     );
@@ -203,8 +209,8 @@ export function layoutAlbum(input: LayoutInput, measure: Measure): Layout {
   const sum = (xs: number[]) => xs.reduce((a, b) => a + b, 0);
   const rowsHeight = (rows: Rows) =>
     sum(rows.heights) + g.gap * Math.max(0, rows.heights.length - 1);
-  const photosHeight = (item: PhotosItem, scale: number) =>
-    rowsHeight(rowsOf(item.photos, item.width, item.target * scale));
+  const photosHeight = (item: PhotosItem, scale: number, greedy = false) =>
+    rowsHeight(rowsOf(item.photos, item.width, item.target * scale, greedy));
 
   /** How many rows, from the top, fit into `room`. */
   const rowsThatFit = (rows: Rows, room: number) => {
@@ -253,8 +259,8 @@ export function layoutAlbum(input: LayoutInput, measure: Measure): Layout {
   };
 
   /** Several rows of photos whose last row doesn't reach the right edge. */
-  const openLastRow = (item: PhotosItem, scale: number) => {
-    const { rows } = rowsOf(item.photos, item.width, item.target * scale);
+  const openLastRow = (item: PhotosItem, scale: number, greedy = false) => {
+    const { rows } = rowsOf(item.photos, item.width, item.target * scale, greedy);
     const last = rows.at(-1);
     if (rows.length < 2 || !last) return false;
     const width = sum(last.items.map((i) => i.width)) + g.gap * (last.items.length - 1);
@@ -510,7 +516,9 @@ export function layoutAlbum(input: LayoutInput, measure: Measure): Layout {
     const groups = trimmed.filter((i): i is PhotosItem => i.kind === "photos");
     const fixed = sum(trimmed.filter((i) => i.kind !== "photos").map(itemHeight));
     const scales = chooseScales(groups, g.h - fixed, opts);
-    const photosTotal = sum(groups.map((gr, i) => photosHeight(gr, scales[i] ?? 1)));
+    const photosTotal = sum(
+      groups.map((gr, i) => photosHeight(gr, scales[i]?.f ?? 1, scales[i]?.greedy)),
+    );
 
     // Space still left goes between the sections, so the page looks set, not cut off.
     const flex = trimmed.filter((i): i is Space => i.kind === "space" && !!i.flex);
@@ -531,8 +539,8 @@ export function layoutAlbum(input: LayoutInput, measure: Measure): Layout {
         boxes.push({ kind: "text", x: g.x + item.inset, y, line: item.line });
         y += item.line.height;
       } else {
-        const scale = scales[groups.indexOf(item)] ?? 1;
-        const rows = rowsOf(item.photos, item.width, item.target * scale);
+        const fit = scales[groups.indexOf(item)] ?? { f: 1, greedy: false };
+        const rows = rowsOf(item.photos, item.width, item.target * fit.f, fit.greedy);
         rows.rows.forEach((row, r) => {
           let x = g.x + item.inset;
           row.items.forEach((cell, c) => {
@@ -586,25 +594,23 @@ export function layoutAlbum(input: LayoutInput, measure: Measure): Layout {
    * ones. Rows are complete, so a gallery's height changes in steps: each
    * gets a few candidates, and the best combination wins.
    */
-  function chooseScales(
-    groups: PhotosItem[],
-    room: number,
-    opts: { fill: boolean; last: boolean },
-  ): number[] {
+  function chooseScales(groups: PhotosItem[], room: number, opts: { fill: boolean }): Fit[] {
     if (groups.length === 0) return [];
-    type Candidate = { f: number; h: number; open: boolean };
+    type Candidate = Fit & { h: number; open: boolean };
     const candidates = groups.map((gr) => {
-      let max = opts.fill ? (opts.last ? MAX_GROW_LAST_PAGE : MAX_GROW) : 1;
+      let max = opts.fill ? MAX_GROW : 1;
       if (gr.photos.length === 1) max = Math.min(max, (g.h * LONE_PHOTO_SHARE) / gr.target);
       const list: Candidate[] = [];
       const seen = new Set<string>();
-      for (let f = Math.max(max, 1); f >= 0.3; f -= 0.02) {
-        const h = photosHeight(gr, f);
-        const open = openLastRow(gr, f);
-        const key = `${h.toFixed(1)}|${open}`;
-        if (seen.has(key)) continue;
-        seen.add(key);
-        list.push({ f, h, open });
+      for (const greedy of [false, true]) {
+        for (let f = Math.max(max, 1); f >= 0.3; f -= 0.02) {
+          const h = photosHeight(gr, f, greedy);
+          const open = openLastRow(gr, f, greedy);
+          const key = `${h.toFixed(1)}|${open}`;
+          if (seen.has(key)) continue;
+          seen.add(key);
+          list.push({ f, greedy, h, open });
+        }
       }
       return list;
     });
@@ -639,17 +645,21 @@ export function layoutAlbum(input: LayoutInput, measure: Measure): Layout {
         }
       };
       walk(0, 0);
-      return best?.map((c) => c.f);
+      return best?.map(({ f, greedy }) => ({ f, greedy }));
     };
 
     // Shrink below MIN_SHRINK only when nothing else fits.
     const uniform = (min: number) => {
       for (let f = 1; f >= min; f -= 0.02) {
-        if (sum(groups.map((gr) => photosHeight(gr, f))) <= room + 0.01) return groups.map(() => f);
+        if (sum(groups.map((gr) => photosHeight(gr, f))) <= room + 0.01) {
+          return groups.map(() => ({ f, greedy: false }));
+        }
       }
       return undefined;
     };
-    return pick(MIN_SHRINK) ?? pick(0.3) ?? uniform(0.3) ?? groups.map(() => 0.3);
+    return (
+      pick(MIN_SHRINK) ?? pick(0.3) ?? uniform(0.3) ?? groups.map(() => ({ f: 0.3, greedy: false }))
+    );
   }
 
   // --- Assembling --------------------------------------------------------------
