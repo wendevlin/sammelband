@@ -216,6 +216,8 @@ export type SourceAccount = {
   label: string;
   /** The server it's on. */
   server: string;
+  /** Where the picker opens (a folder ref), or null for the top. */
+  start_location: string | null;
 };
 
 /** A source switched on for the user's Sammelband, with the user's accounts there. */
@@ -227,7 +229,18 @@ export type SourceInfo = {
   accounts: SourceAccount[];
 };
 
-export type SourceFolder = { ref: string; name: string };
+/** A folder on the way to the current one (breadcrumbs). */
+export type SourceCrumb = { ref: string; name: string };
+
+/** A folder to open. The rest is what the source tells about it, null if nothing. */
+export type SourceFolder = SourceCrumb & {
+  /** Files and folders directly inside. */
+  files: number | null;
+  folders: number | null;
+  /** Bytes, everything inside. */
+  size: number | null;
+  modified: number | null;
+};
 
 export type SourceImage = {
   /** What to import: pass it to POST /api/sections/:id/import with the account. */
@@ -243,7 +256,7 @@ export type SourceImage = {
 export type SourceListing = {
   location: string;
   /** From the top down to this folder, which is the last one. */
-  crumbs: SourceFolder[];
+  crumbs: SourceCrumb[];
   folders: SourceFolder[];
   images: SourceImage[];
 };
