@@ -30,6 +30,8 @@ export type TenantInfo = {
   two_factor_required: boolean;
   /** The instance owner requires it of every user on the instance. */
   two_factor_required_by_instance: boolean;
+  /** Its admins allow exporting albums as PDF. */
+  pdf_export_enabled: boolean;
 };
 
 /** A Sammelband as the instance owner sees it: metadata, never content. */
@@ -152,6 +154,8 @@ export type StorageStats = {
   quota: { used_bytes: number; limit_bytes: number | null };
   originals: { file_count: number; size_bytes: number };
   variants: { file_count: number; size_bytes: number };
+  /** PDF exports of albums; they count against the quota like originals. */
+  exports: { file_count: number; size_bytes: number };
   orphans: { missing_on_disk: number; unknown_on_disk: number };
 };
 

@@ -73,13 +73,34 @@ export type Tenant = {
   id: string;
   name: string;
   quota_bytes: number | null; // null = unlimited
-  storage_used_bytes: number; // originals only
+  storage_used_bytes: number; // originals and PDF exports
   suspended_at: number | null;
   created_at: number;
   /** IANA zone, e.g. "Europe/Vienna": share links expire at the end of a day here. */
   timezone: string;
   /** 0/1: every user must set up two-factor authentication. */
   two_factor_required: number;
+  /** 0/1: users may export albums as PDF. */
+  pdf_export_enabled: number;
+};
+
+/** A PDF of an album; `options` is JSON (ExportOptions), the file lives under exports/. */
+export type AlbumExportRow = {
+  id: string;
+  tenant_id: string;
+  album_id: string;
+  name: string;
+  format: string;
+  options: string;
+  status: string;
+  progress: number;
+  error_code: string | null;
+  page_count: number | null;
+  file_size: number | null;
+  filename: string | null;
+  created_by: string | null;
+  created_at: number;
+  finished_at: number | null;
 };
 
 /** A photo source switched on for a Sammelband; `config` is JSON (per source). */
@@ -213,6 +234,7 @@ export type Database = {
   folders: Folder;
   albums: Album;
   sections: Section;
+  album_exports: AlbumExportRow;
   image_files: ImageFile;
   photos: Photo;
   folder_sort: FolderSort;

@@ -110,6 +110,13 @@ export const ERRORS = {
     message: "The neighbouring section no longer exists",
   },
 
+  // PDF export
+  export_disabled: { status: 403, message: "PDF export isn't switched on in this Sammelband" },
+  export_not_found: { status: 404, message: "This PDF doesn't exist any more" },
+  export_not_ready: { status: 409, message: "This PDF isn't ready yet" },
+  album_empty: { status: 400, message: "This album has nothing to export yet" },
+  export_failed: { status: 500, message: "The PDF couldn't be created" },
+
   // Photo sources (Nextcloud)
   source_not_found: { status: 404, message: "Unknown photo source" },
   source_disabled: { status: 404, message: "This photo source isn't switched on here" },

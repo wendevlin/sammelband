@@ -28,6 +28,15 @@ export function variantPath(filename: string, width: number, format: string): st
   return join(variantsDir(currentTenantId()), `${filename}_${width}.${format}`);
 }
 
+export function exportsDir(tenantId: string): string {
+  return join(tenantDir(tenantId), "exports");
+}
+
+/** An album's PDF export in the current tenant. */
+export function exportPath(filename: string): string {
+  return join(exportsDir(currentTenantId()), filename);
+}
+
 /** A user's avatar in the current tenant. */
 export function avatarPath(userId: string): string {
   return join(tenantDir(currentTenantId()), "avatars", `${userId}.webp`);

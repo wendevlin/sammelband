@@ -3,10 +3,12 @@ import { existsSync } from "node:fs";
 import { subscribe } from "../src/lib/events";
 import { runInTenant } from "../src/lib/tenant-context";
 import * as albumService from "../src/services/album.service";
+import * as exportService from "../src/services/export.service";
 import * as folderService from "../src/services/folder.service";
 import * as imageService from "../src/services/image.service";
 import * as imageDelivery from "../src/services/image-delivery.service";
 import * as sectionService from "../src/services/section.service";
+import * as tenantService from "../src/services/tenant.service";
 import * as userService from "../src/services/user.service";
 import { createTenant, createUser, originalFile, png } from "./helpers";
 
@@ -129,6 +131,36 @@ describe("tenant isolation", () => {
       imageService.photosWithImage({ sectionId: section.id }),
     );
     expect(photos.map((p) => p.sort_order)).toEqual([1]);
+  });
+
+  test("PDF exports", async () => {
+    const { a, asB, album, user } = await setup();
+    const exported = await runInTenant(a.id, async () => {
+      await tenantService.updateCurrentTenant({ pdfExportEnabled: true });
+      const created = await exportService.createExport(album.id, user.id, {
+        format: "a5",
+        quality: "screen",
+        captions: false,
+      });
+      await exportService.exportsIdle();
+      return created;
+    });
+    await asB(async () => {
+      await tenantService.updateCurrentTenant({ pdfExportEnabled: true });
+      await expect(exportService.listExports(album.id)).rejects.toThrow("not found");
+      await expect(
+        exportService.createExport(album.id, user.id, {
+          format: "a4",
+          quality: "print",
+          captions: true,
+        }),
+      ).rejects.toThrow("not found");
+      await expect(exportService.downloadExport(exported.id)).rejects.toThrow("doesn't exist");
+      await expect(exportService.renameExport(exported.id, "x")).rejects.toThrow("doesn't exist");
+      await expect(exportService.deleteExport(exported.id)).rejects.toThrow("doesn't exist");
+    });
+    const [still] = await runInTenant(a.id, () => exportService.listExports(album.id));
+    expect(still).toMatchObject({ id: exported.id, status: "done", name: "Secret" });
   });
 
   test("the same image is stored separately per tenant", async () => {

@@ -36,6 +36,7 @@ export const TENANT_COLUMNS: Record<string, string> = {
   sections: "tenant_id",
   image_files: "tenant_id",
   photos: "tenant_id",
+  album_exports: "tenant_id",
   tenant_invites: "tenant_id",
   folder_sort: "tenant_id",
   album_positions: "tenant_id",

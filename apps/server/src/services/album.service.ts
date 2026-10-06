@@ -4,6 +4,7 @@ import { fail, must } from "../lib/errors";
 import { emit, emitAlbumPatch, type PhotoWithImage, topics } from "../lib/events";
 import { shortId } from "../lib/short-id";
 import { currentTenantId, tdb } from "../lib/tenant-context";
+import * as exportService from "./export.service";
 import * as imageService from "./image.service";
 import * as sectionService from "./section.service";
 import * as sortService from "./sort.service";
@@ -210,6 +211,7 @@ export async function deleteAlbum(id: string): Promise<void> {
   // Remove all photos from disk + variant cache first (dedup-aware); sections then
   // cascade via FK ON DELETE CASCADE when the album row is gone.
   await imageService.deletePhotosByAlbum(id);
+  await exportService.deleteExportsByAlbum(id);
   await tdb().deleteFrom("albums").where("id", "=", id).execute();
   emit({ topic: topics.album(id), kind: "deleted", id });
   emit({ topic: topics.albumList(), kind: "deleted", id });

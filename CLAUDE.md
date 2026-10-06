@@ -102,6 +102,15 @@ where `.env`, the dev SQLite file, `uploads/` and `dist/` live.
 - Every change to an album's sections, photos or chosen cover calls
   `imageService.albumChanged(albumId)`: it bumps `updated_at` and recomputes the stored
   `albums.cover_filename` that library pages read.
+- PDF export (`services/export.service.ts`, admins switch it on per tenant): creating one
+  queues a job (`lib/job-queue.ts`, one at a time, re-queued at startup) that runs
+  `services/pdf/`. `layout.ts` is the pure page layout: it breaks text with its own line
+  breaker (`text.ts`), lays out photos with `justifyBalanced` (complete rows) and fills
+  pages. `render.ts` draws it with pdfkit and embeds Noto Sans and Playfair Display from the
+  `@expo-google-fonts` packages. Finished files live under `exports/` and count toward the
+  quota. Page formats are data (`PAGE_FORMATS` in shared, with bleed and page multiple),
+  ready for a print service later. Progress reaches the web app as `album-exports:<id>`
+  events carrying the full row.
 - Deleting a tenant (`tenant.service.deleteTenant`) removes rows table by table; a new
   tenant table needs a line there (the "no row behind" test in `test/tenants.test.ts`
   catches a forgotten one).

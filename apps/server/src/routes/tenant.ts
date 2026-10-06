@@ -19,6 +19,7 @@ export const tenantRoutes = new Hono<AuthEnv>()
         name: z.string().trim().min(1).max(100).optional(),
         timezone: z.string().max(64).optional(),
         twoFactorRequired: z.boolean().optional(),
+        pdfExportEnabled: z.boolean().optional(),
       }),
     ),
     async (c) => {

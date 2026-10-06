@@ -32,13 +32,18 @@ const errorMessages: Record<string, Message> = Object.assign(
  */
 export function errorText(e: unknown): string {
   if (e instanceof ApiError) {
-    const key = e.code ? `error_${e.code.toLowerCase()}` : null;
-    const message = key ? errorMessages[key] : undefined;
+    const message = e.code ? errorMessages[`error_${e.code.toLowerCase()}`] : undefined;
     if (message) return message(e.params ?? {});
     return e.message;
   }
   if (e instanceof Error && e.message) return e.message;
   return m.error_unknown();
+}
+
+/** The text for an error code stored with a record (e.g. a failed export). */
+export function errorCodeText(code: string | null): string {
+  const message = code ? errorMessages[`error_${code.toLowerCase()}`] : undefined;
+  return message ? message({}) : m.error_unknown();
 }
 
 /** Switch the UI language (reloads the page so every text updates). */
