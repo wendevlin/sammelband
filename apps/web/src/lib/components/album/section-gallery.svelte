@@ -1,4 +1,5 @@
 <script lang="ts">
+import MessageSquareText from "@lucide/svelte/icons/message-square-text";
 import { justify, type Photo } from "@sammelband/shared";
 import { imageUrls } from "$lib/images";
 import { cn } from "$lib/utils";
@@ -64,6 +65,15 @@ let loaded = $state<Record<string, boolean>>({});
               class="relative block size-full object-cover"
               onload={() => (loaded[p.id] = true)}
             >
+            {#if p.caption?.trim()}
+              <!-- The caption is shown in the lightbox; the image's alt text carries it here. -->
+              <span
+                class="absolute right-1.5 bottom-1.5 rounded-full bg-black/55 p-1 text-white"
+                aria-hidden="true"
+              >
+                <MessageSquareText class="size-3.5" />
+              </span>
+            {/if}
           </a>
         {/if}
       {/each}
