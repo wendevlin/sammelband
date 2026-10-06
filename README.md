@@ -174,8 +174,9 @@ The PDF is a photo book:
 
 - the cover photo edge to edge, with the title on it
 - the description on its own page
-- the sections, laid out so that text and photos fill the pages
-- a back page
+- the sections: every page a collage of the photos and the section's text that fills
+  it completely, with rounded corners like in the app
+- a back page with all photos as a small gallery, like the album page
 
 The PDF is made in the background, one export at a time, so you can close the
 dialog and download it later from "Exports" in the same menu. Exports there can

@@ -10,6 +10,7 @@ import {
   layoutAlbum,
   type Page,
   type PhotoBox,
+  type Radii,
 } from "./layout";
 import type { Line } from "./text";
 import { COLORS, FONT_FILES, type FontKey } from "./theme";
@@ -155,9 +156,11 @@ export function renderInterior(
   addPage(doc, g);
   if (page.kind === "blank") return;
   if (page.kind === "back") {
+    // All the photos as a gallery, then the mark.
+    for (const box of page.boxes) drawPhoto(doc, g, box, images.get(box.id));
     const logo = 22 * g.scale;
     const x = g.bleed + (g.width - logo) / 2;
-    const y = g.bleed + g.height - g.margin - logo * 2.4;
+    const y = g.bleed + page.markY;
     drawLogo(doc, x, y, logo, COLORS.primary, COLORS.white);
     doc
       .font("heading")
@@ -173,7 +176,7 @@ export function renderInterior(
 
   for (const box of page.boxes) {
     if (box.kind === "rect") {
-      doc.roundedRect(g.bleed + box.x, g.bleed + box.y, box.w, box.h, box.radius).fill(box.fill);
+      roundedPath(doc, g.bleed + box.x, g.bleed + box.y, box.w, box.h, box.radii).fill(box.fill);
     } else if (box.kind === "text") {
       drawLine(doc, g.bleed + box.x, g.bleed + box.y, box.line, box.width);
     } else {
@@ -210,37 +213,60 @@ function addPage(doc: Doc, g: Geometry): void {
 function drawPhoto(doc: Doc, g: Geometry, box: PhotoBox, image: string | undefined): void {
   const x = g.bleed + box.x;
   const y = g.bleed + box.y;
+  // Everything of the photo stays inside its rounded corners.
+  doc.save();
+  roundedPath(doc, x, y, box.w, box.h, box.radii).clip();
   if (image) {
     if (box.cover) {
-      doc.save();
-      doc.rect(x, y, box.w, box.h).clip();
       doc.image(image, x, y, { cover: [box.w, box.h], align: "center", valign: "center" });
-      doc.restore();
     } else {
       doc.image(image, x, y, { width: box.w, height: box.h });
     }
   }
   const caption = box.caption;
-  if (!caption) return;
-  // A soft shade from above the caption down to the photo's bottom, so white text reads.
-  const lineH = caption.lines.reduce((sum, l) => sum + l.height, 0);
-  const top = g.bleed + caption.y - lineH * 1.2;
-  const bottom = y + box.h;
-  doc.save();
-  doc.rect(x, y, box.w, box.h).clip();
-  const shade = doc.linearGradient(0, top, 0, bottom);
-  shade.stop(0, "#000000", 0).stop(0.6, "#000000", 0.4).stop(1, "#000000", 0.55);
-  doc.rect(x, top, box.w, bottom - top).fill(shade);
+  if (caption) {
+    // A shade from above the caption down to the photo's bottom, so white text
+    // reads on light photos too.
+    const lineH = caption.lines.reduce((sum, l) => sum + l.height, 0);
+    const top = g.bleed + caption.y - lineH * 1.6;
+    const bottom = y + box.h;
+    const shade = doc.linearGradient(0, top, 0, bottom);
+    shade.stop(0, "#000000", 0).stop(0.45, "#000000", 0.45).stop(1, "#000000", 0.65);
+    doc.rect(x, top, box.w, bottom - top).fill(shade);
+  }
   doc.restore();
+  if (!caption) return;
   let ly = g.bleed + caption.y;
   for (const line of caption.lines) {
-    drawLine(doc, g.bleed + caption.x, ly, line, line.width);
+    drawLine(doc, g.bleed + caption.x, ly, line, line.width, true);
     ly += line.height;
   }
 }
 
-/** One line of text at (x, y), its top; `width` is the space for centred lines and rules. */
-function drawLine(doc: Doc, x: number, y: number, line: Line, width: number): void {
+/** A rectangle with its own radius at each corner (top left, top right, bottom right, bottom left). */
+function roundedPath(doc: Doc, x: number, y: number, w: number, h: number, radii: Radii): Doc {
+  const max = Math.min(w, h) / 2;
+  const [tl, tr, br, bl] = radii.map((r) => Math.min(r, max)) as Radii;
+  // Bézier handles for a quarter circle.
+  const k = 0.5523;
+  return doc
+    .moveTo(x + tl, y)
+    .lineTo(x + w - tr, y)
+    .bezierCurveTo(x + w - tr + tr * k, y, x + w, y + tr - tr * k, x + w, y + tr)
+    .lineTo(x + w, y + h - br)
+    .bezierCurveTo(x + w, y + h - br + br * k, x + w - br + br * k, y + h, x + w - br, y + h)
+    .lineTo(x + bl, y + h)
+    .bezierCurveTo(x + bl - bl * k, y + h, x, y + h - bl + bl * k, x, y + h - bl)
+    .lineTo(x, y + tl)
+    .bezierCurveTo(x, y + tl - tl * k, x + tl - tl * k, y, x + tl, y)
+    .closePath();
+}
+
+/**
+ * One line of text at (x, y), its top; `width` is the space for centred lines
+ * and rules. `halo` puts a thin dark outline under light text on photos.
+ */
+function drawLine(doc: Doc, x: number, y: number, line: Line, width: number, halo = false): void {
   if (line.rule) {
     const w = line.width || width - line.indent;
     doc
@@ -260,6 +286,16 @@ function drawLine(doc: Doc, x: number, y: number, line: Line, width: number): vo
     doc.font(span.font).fontSize(line.size);
     // Centre the font's line box in the layout's line height.
     const top = y + (line.height - doc.currentLineHeight(true)) / 2;
+    if (halo) {
+      doc.save();
+      doc
+        .lineWidth(line.size * 0.18)
+        .strokeColor("#000000")
+        .strokeOpacity(0.35)
+        .lineJoin("round");
+      doc.text(span.text, left + span.x, top, { lineBreak: false, stroke: true, fill: false });
+      doc.restore();
+    }
     doc.fillColor(span.link ? COLORS.primary : line.color);
     doc.text(span.text, left + span.x, top, {
       lineBreak: false,

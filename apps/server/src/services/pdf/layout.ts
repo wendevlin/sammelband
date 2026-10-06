@@ -1,4 +1,4 @@
-import type { PageFormat, PurposeSpec } from "@sammelband/shared";
+import { justify, type PageFormat, type PurposeSpec } from "@sammelband/shared";
 import { placeTree, type Rect, solveFor, type Tree, treesOf } from "./collage";
 import { markdownParagraphs, plainParagraphs } from "./markdown";
 import { breakLines, type Line, type Measure, type Paragraph, type Span } from "./text";
@@ -19,7 +19,12 @@ import { COLORS } from "./theme";
 //     exactly, and pages of only photos crop them a little. How many tiles go
 //     on each page is decided for the whole book at once (fewer, larger
 //     photos are better), and so that a printed book needs no blank pages.
-//  4. The back.
+//  4. The back: every photo of the album as a small gallery, like the album
+//     page in the app, above Sammelband's mark.
+//
+// Like the app, photos have rounded corners: the four outer corners of a
+// page's collage clearly, the corners between tiles just a little. Edge to
+// edge, corners at the edge of the page stay square (they are trimmed off).
 //
 // Print at home keeps margins around the collage. Edge to edge (print shop,
 // screen), the collage covers the whole page into the bleed; text and
@@ -49,6 +54,9 @@ export type LayoutInput = {
   captions: boolean;
 };
 
+/** Corner radii in pt: top left, top right, bottom right, bottom left. */
+export type Radii = [number, number, number, number];
+
 /** A line of text; `width` is its column (for rules and centred lines). */
 export type TextBox = { kind: "text"; x: number; y: number; width: number; line: Line };
 export type PhotoBox = {
@@ -60,6 +68,7 @@ export type PhotoBox = {
   h: number;
   /** The photo fills the box, cropped at the centre (its ratio differs a little). */
   cover: boolean;
+  radii: Radii;
   /** Caption lines at (x, y), on the photo in white on a shade. */
   caption: { x: number; y: number; lines: Line[] } | null;
 };
@@ -70,7 +79,7 @@ export type RectBox = {
   w: number;
   h: number;
   fill: string;
-  radius: number;
+  radii: Radii;
 };
 export type Box = TextBox | PhotoBox | RectBox;
 
@@ -79,7 +88,8 @@ export type Page =
   /** `number` is null edge to edge, where photos reach the bottom of the page. */
   | { kind: "content"; boxes: Box[]; number: number | null }
   | { kind: "blank" }
-  | { kind: "back" };
+  /** The back: all photos small, above the mark (at `markY`). */
+  | { kind: "back"; boxes: PhotoBox[]; markY: number };
 
 export type Geometry = {
   /** Trimmed page size. */
@@ -311,6 +321,26 @@ export function layoutAlbum(input: LayoutInput, measure: Measure): Layout {
     };
   };
 
+  const outerRadius = 12 * g.scale;
+  const innerRadius = 3 * g.scale;
+  /**
+   * Corners of a tile: round like the app's photos. A corner on the outside
+   * of the collage is rounded clearly (with margins, at the collage's
+   * corners) or not at all (edge to edge, at the edge of the page).
+   */
+  const radiiOf = (r: Rect): Radii => {
+    const near = (a: number, b: number) => Math.abs(a - b) < 0.5;
+    const left = near(r.x, frame.x);
+    const right = near(r.x + r.w, frame.x + frame.w);
+    const top = near(r.y, frame.y);
+    const bottom = near(r.y + r.h, frame.y + frame.h);
+    const corner = (vertical: boolean, horizontal: boolean) => {
+      if (g.edgeToEdge) return vertical || horizontal ? 0 : innerRadius;
+      return vertical && horizontal ? outerRadius : innerRadius;
+    };
+    return [corner(top, left), corner(top, right), corner(bottom, right), corner(bottom, left)];
+  };
+
   const shortSide = Math.min(frame.w, frame.h);
   const pageArea = frame.w * frame.h;
 
@@ -461,6 +491,7 @@ export function layoutAlbum(input: LayoutInput, measure: Measure): Layout {
           w: r.w,
           h: r.h,
           cover: Math.abs(placed.crop - 1) > 0.002,
+          radii: radiiOf(r),
           caption: null,
         };
         const caption = input.captions ? t.photo.caption?.trim() : "";
@@ -475,12 +506,7 @@ export function layoutAlbum(input: LayoutInput, measure: Measure): Layout {
         return;
       }
       if (t.highlight) {
-        boxes.push({
-          kind: "rect",
-          ...r,
-          fill: COLORS.highlight,
-          radius: g.edgeToEdge ? 0 : 8 * g.scale,
-        });
+        boxes.push({ kind: "rect", ...r, fill: COLORS.highlight, radii: radiiOf(r) });
       }
       const pad = paddingOf(r, t);
       const width = Math.min(r.w - pad.l - pad.r, st.measure);
@@ -598,8 +624,56 @@ export function layoutAlbum(input: LayoutInput, measure: Measure): Layout {
   if (input.purpose.padPages) {
     while ((out.length + 1) % input.format.pageMultiple !== 0) out.push({ kind: "blank" });
   }
-  out.push({ kind: "back" });
+  out.push(back());
   return { geometry: g, pages: out, photoSizes };
+
+  /**
+   * The back: every photo in justified rows, like the album page, as large as
+   * they fit above the mark. A last row that doesn't fill the width stays as
+   * it is, as in the app.
+   */
+  function back(): Page {
+    const mark = 22 * g.scale;
+    const markY = g.y + g.h - mark * 1.6;
+    const all = input.sections.flatMap((s) => s.photos);
+    if (all.length === 0) return { kind: "back", boxes: [], markY };
+    const gap = Math.max(2.5, g.gap * 0.6);
+    const room = markY - g.y - mark;
+    const ratios = all.map((p) => p.ratio);
+    const heightOf = (rows: ReturnType<typeof justify>) =>
+      sum(rows.map((r) => r.height)) + gap * (rows.length - 1);
+    let target = room;
+    let rows = justify(ratios, { width: g.w, targetHeight: target, gap });
+    while (heightOf(rows) > room && target > 4) {
+      target *= 0.96;
+      rows = justify(ratios, { width: g.w, targetHeight: target, gap });
+    }
+    const boxes: PhotoBox[] = [];
+    let y = g.y + Math.max(0, room - heightOf(rows)) / 2;
+    const radius = Math.min(innerRadius, target / 8);
+    for (const row of rows) {
+      let x = g.x;
+      for (const cell of row.items) {
+        const photo = all[cell.index];
+        if (!photo) continue;
+        boxes.push({
+          kind: "photo",
+          id: photo.id,
+          x,
+          y,
+          w: cell.width,
+          h: cell.height,
+          cover: false,
+          radii: [radius, radius, radius, radius],
+          caption: null,
+        });
+        if (!photoSizes.has(photo.id)) photoSizes.set(photo.id, { w: cell.width, h: cell.height });
+        x += cell.width + gap;
+      }
+      y += row.height + gap;
+    }
+    return { kind: "back", boxes, markY };
+  }
 }
 
 /** The spans of some lines as one run of text, for a paragraph split across tiles. */

@@ -221,6 +221,44 @@ describe("PDF layout", () => {
     expect(pages[0]?.boxes[0]?.kind).toBe("rect");
   });
 
+  test("the back shows every photo as a small gallery above the mark", () => {
+    const layout = layoutAlbum(album(sections), measure);
+    const g = layout.geometry;
+    const back = layout.pages.at(-1);
+    if (back?.kind !== "back") throw new Error("no back");
+    expect(back.boxes.map((b) => b.id)).toEqual(sections.flatMap((s) => s.photos.map((p) => p.id)));
+    for (const [i, box] of back.boxes.entries()) {
+      expect(box.x).toBeGreaterThanOrEqual(g.x - 0.01);
+      expect(box.x + box.w).toBeLessThanOrEqual(g.x + g.w + 0.5);
+      expect(box.y).toBeGreaterThanOrEqual(g.y - 0.01);
+      expect(box.y + box.h).toBeLessThanOrEqual(back.markY);
+      for (const other of back.boxes.slice(i + 1)) expect(overlaps(box, other)).toBe(false);
+    }
+  });
+
+  test("corners: round outside with margins, square at the trim edge to edge, a little inside", () => {
+    const only = [{ title: "", text: "", highlight: false, photos: photos(4) }];
+    for (const purpose of ["home", "print"] as const) {
+      const layout = layoutAlbum(album(only, { purpose: PURPOSES[purpose] }), measure);
+      const g = layout.geometry;
+      const page = layout.pages.find((p) => p.kind === "content");
+      if (page?.kind !== "content") throw new Error("no page");
+      const radii = page.boxes.flatMap((b) => (b.kind === "photo" ? b.radii : []));
+      const outer = Math.max(...radii);
+      const inner = Math.min(...radii.filter((r) => r > 0));
+      expect(inner).toBeLessThan(outer + 0.01);
+      if (g.edgeToEdge) {
+        // Corners on the page edge are trimmed: square. The rest a little round.
+        expect(radii.filter((r) => r === 0).length).toBeGreaterThanOrEqual(8);
+        expect(outer).toBeLessThan(5);
+      } else {
+        // Exactly the collage's four outer corners are clearly round.
+        expect(radii.filter((r) => r === outer)).toHaveLength(4);
+        expect(outer).toBeGreaterThan(inner * 2);
+      }
+    }
+  });
+
   test("the photos to resize are known, at their largest size", () => {
     const [cover] = photos(1);
     if (!cover) throw new Error("no photo");
