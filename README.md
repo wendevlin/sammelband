@@ -100,8 +100,14 @@ NAS user). Don't set `user:` in compose; the entrypoint can't fix the owner then
 
 Put a reverse proxy with TLS in front (Caddy, Traefik, nginx). Set
 `TRUST_PROXY=true` so rate limits see the real client IP, and configure HSTS
-there; the app doesn't send it.
+there; the app doesn't send it. If more than one proxy adds to
+`X-Forwarded-For` (e.g. a CDN in front of Caddy), set `TRUST_PROXY_HOPS` to
+their number.
 
+Run a single instance, also with PostgreSQL. Rate limits, live updates, the PDF
+export queue, Nextcloud sign-ins in progress and the setup state live in the
+server process. A second replica wouldn't share them: each would keep its own
+rate limits, live updates would get lost and exports could run twice.
 
 ## Configuration
 
@@ -117,6 +123,7 @@ there; the app doesn't send it.
 | `FRONTEND_DIST` | `./dist/frontend` | Built SPA served by the backend |
 | `TRUSTED_ORIGINS` | `http://localhost:5173` in dev | Extra origins allowed to make requests |
 | `TRUST_PROXY` | `false` | Use `X-Forwarded-For` for rate limiting. Only behind a proxy that sets it |
+| `TRUST_PROXY_HOPS` | `1` | Number of reverse proxies in front that append to `X-Forwarded-For`; the client address is read that many entries from the right |
 | `MAX_UPLOAD_MB` | `50` | Largest accepted photo |
 | `MULTI_TENANT` | `false` | Host several Sammelbände; the owner manages them under Admin settings |
 | `SOURCES_ALLOW_PRIVATE_HOSTS` | `false` | Let photo sources (Nextcloud) live on private addresses: home network, Tailscale, the same host |
@@ -130,6 +137,51 @@ With SMTP set up, users reset a forgotten password with a link by mail. It works
 once within an hour and signs them out everywhere. `BASE_URL` has to be the
 address people open, since the link points there. The server checks the SMTP
 connection at startup and logs the result.
+
+## Backups
+
+Back up three things:
+
+- `/data`: the SQLite database `sammelband.db` with its `-wal` and `-shm` files.
+  With PostgreSQL, use `pg_dump` instead.
+- `/uploads`: under `tenants/<id>/` the photos (`originals`), PDF exports
+  (`exports`) and avatars. `variants` holds resized copies that are made again
+  when needed, so you can leave it out.
+- `SECRET_KEY` from `.env`. Without it, everyone has to sign in again and every
+  connected Nextcloud account has to be connected again.
+
+The database keeps recent changes in the `-wal` file, so copying `sammelband.db`
+alone while the app runs gives a broken or outdated copy. Make a consistent copy
+in one of these ways:
+
+- With the `sqlite3` tool on the host, pointed at the file in the `/data`
+  volume: `sqlite3 /data/sammelband.db ".backup '/backup/sammelband.db'"`
+- From inside the container, which has no `sqlite3`. This writes
+  `/data/backup.db` (it must not exist yet); copy it out and delete it
+  afterwards:
+
+  ```sh
+  docker compose exec app bun -e 'new (require("bun:sqlite").Database)("/data/sammelband.db").run("VACUUM INTO ?", ["/data/backup.db"])'
+  docker compose cp app:/data/backup.db ./sammelband.db
+  docker compose exec app rm /data/backup.db
+  ```
+
+- Stop the container (`docker compose stop`), copy both volumes, and start it
+  again. Only this way do the database and the photos match exactly.
+
+To restore:
+
+1. `docker compose down`.
+2. Put the database back as `/data/sammelband.db`. For a copy made with
+   `.backup` or `VACUUM INTO`, delete any `sammelband.db-wal` and
+   `sammelband.db-shm` next to it; a copy of the stopped volume goes back with
+   its own. With PostgreSQL, restore the dump into an empty database.
+3. Put `/uploads` back. The restored files have to belong to the app user
+   (`PUID`/`PGID`, 1000 by default).
+4. Set the same `SECRET_KEY` in `.env`.
+5. `docker compose up -d` with the same image version or a newer one.
+   Migrations bring an older database up to date; an older version refuses to
+   start on a newer database.
 
 ## Photo sources (Nextcloud)
 
@@ -201,11 +253,32 @@ Use Kysely's schema builder and avoid dialect-specific SQL; if something can't
 be expressed portably, branch on the adapter as `0001_initial.ts` does for
 its trigger.
 
+## Privacy
+
+- Originals are stored as uploaded, with their metadata, including the GPS
+  location many cameras and phones record. Every member of the Sammelband can
+  download them.
+- Public links only ever serve resized copies, and those carry no metadata.
+- Deleting a user keeps the albums and photos they added.
+- Revoking a public link stops new access, but visitors' browsers may keep the
+  images they already loaded (they are cached for up to a year).
+
 ## Security
 
-See [SECURITY.md](SECURITY.md) for how to report vulnerabilities.
+See [SECURITY.md](SECURITY.md) for how to report vulnerabilities and for known
+limitations.
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md). Every commit needs a sign-off under the
+Developer Certificate of Origin (`git commit -s`).
 
 ## License
 
-The code is licensed under the [Apache License 2.0](LICENSE). The name
-"Sammelband" and the Sammelband logo are not covered by that license.
+The code is licensed under the [Apache License 2.0](LICENSE). [NOTICE](NOTICE)
+lists the required attributions, including those of the bundled fonts.
+
+The license doesn't grant permission to use the name "Sammelband" or the
+Sammelband logo (section 6 of the license). If you distribute a fork publicly,
+give it a different name and logo; saying that it is based on Sammelband is
+fine.

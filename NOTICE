@@ -1,0 +1,35 @@
+Sammelband
+Copyright 2026 The Sammelband authors
+
+Licensed under the Apache License, Version 2.0 (see LICENSE).
+
+-------------------------------------------------------------------------------
+Fonts
+-------------------------------------------------------------------------------
+
+Sammelband uses two typefaces licensed under the SIL Open Font License,
+Version 1.1 (https://openfontlicense.org). The web app serves them from the
+@fontsource-variable packages, and the PDF export embeds them in every PDF it
+creates, from the @expo-google-fonts packages. The full license text comes
+with each package.
+
+Noto Sans
+Copyright 2022 The Noto Project Authors
+(https://github.com/notofonts/latin-greek-cyrillic)
+
+Playfair Display
+Copyright 2017 The Playfair Display Project Authors
+(https://github.com/clauseggers/Playfair-Display), with Reserved Font Name
+"Playfair Display"
+
+-------------------------------------------------------------------------------
+NOTICE files of dependencies
+-------------------------------------------------------------------------------
+
+The Docker image contains the server's dependencies under /app/node_modules,
+each with its own license file. Of the Apache-2.0 licensed packages among
+them, only TypeScript by Microsoft Corp. (the typescript package and its
+@typescript/typescript-<platform> binary) comes with a NOTICE file. It lists
+the third-party material TypeScript incorporates and is included in the image
+unchanged, at
+/app/node_modules/.bun/typescript@<version>/node_modules/typescript/NOTICE.txt
