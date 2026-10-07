@@ -198,8 +198,10 @@ when files move there. The picker opens in the folder you used last in that acco
 Sammelband's server talks to Nextcloud itself, and anyone connecting an account
 chooses the server. So it only connects to public addresses unless you set
 `SOURCES_ALLOW_PRIVATE_HOSTS=true`; do that if your Nextcloud is at home, on
-Tailscale or on the same host, and you trust everyone with an account. Link-local
-and cloud metadata addresses stay blocked either way.
+Tailscale or on the same host, and you trust everyone with an account. Link-local,
+multicast, reserved and cloud metadata addresses stay blocked either way. IPv6
+addresses that carry an IPv4 address (IPv4-mapped, NAT64, 6to4) count as that IPv4
+address, and 198.18.0.0/15 counts as private.
 
 Login data is stored encrypted with `SECRET_KEY`; changing it means connecting the
 accounts again. Photo formats Sammelband can't read (HEIC, RAW) are imported as
