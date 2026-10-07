@@ -1,8 +1,11 @@
 import { describe, expect, test } from "bun:test";
-import { existsSync } from "node:fs";
+import { existsSync, readdirSync } from "node:fs";
+import { originalsDir } from "../src/lib/storage-paths";
+import { currentTenantId, tdb } from "../src/lib/tenant-context";
 import * as albumService from "../src/services/album.service";
 import * as imageService from "../src/services/image.service";
 import * as sectionService from "../src/services/section.service";
+import * as tenantService from "../src/services/tenant.service";
 import { createUser, inTenant, originalFile, png } from "./helpers";
 
 async function gallery() {
@@ -33,6 +36,25 @@ describe("photos", () => {
         [40, 30],
         [40, 30],
       ]);
+    }),
+  );
+
+  test(
+    "the same bytes uploaded at the same moment are stored once",
+    inTenant(async () => {
+      const { user, section } = await gallery();
+      const [a, b] = await Promise.all([
+        imageService.uploadPhoto(png([7, 7, 7]), section.id, user.id),
+        imageService.uploadPhoto(png([7, 7, 7]), section.id, user.id),
+      ]);
+      expect([a.deduplicated, b.deduplicated].sort()).toEqual([false, true]);
+      expect(a.imageFile.id).toBe(b.imageFile.id);
+
+      const files = await tdb().selectFrom("image_files").selectAll().execute();
+      expect(files.map((f) => f.id)).toEqual([a.imageFile.id]);
+      expect(readdirSync(originalsDir(currentTenantId()))).toEqual([a.imageFile.filename]);
+      expect((await tenantService.currentTenant()).storage_used_bytes).toBe(a.imageFile.file_size);
+      expect(await imageService.photosWithImage({ sectionId: section.id })).toHaveLength(2);
     }),
   );
 

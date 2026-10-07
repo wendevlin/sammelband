@@ -3,12 +3,16 @@ import { config, SRCSET_WIDTHS } from "../config";
 import type { Album, ImageFile, Photo } from "../db/schema";
 import { fail, must } from "../lib/errors";
 import { emit, emitAlbumPatch, type PhotoWithImage, topics } from "../lib/events";
+import { imageDecoding } from "../lib/semaphore";
 import { originalPath, originalsDir, variantPath } from "../lib/storage-paths";
 import { currentTenantId, tdb } from "../lib/tenant-context";
 import { releaseStorage, reserveStorage } from "./tenant.service";
 
-/** Largest accepted image, in pixels (e.g. 12,000 × 8,000). */
-const MAX_PIXELS = 100_000_000;
+/**
+ * Largest accepted image, in pixels (e.g. 12,000 × 8,000). Phones take 50 and
+ * even 200 megapixels; `imageDecoding` bounds how many decode at once.
+ */
+export const MAX_PIXELS = 100_000_000;
 
 export type UploadedPhoto = {
   photo: Photo;
@@ -112,18 +116,27 @@ export async function uploadPhoto(
   hasher.update(buf);
   const contentHash = hasher.digest("hex");
 
-  let imageFile = await tdb()
-    .selectFrom("image_files")
-    .selectAll()
-    .where("content_hash", "=", contentHash)
-    .executeTakeFirst();
+  const storedFile = () =>
+    tdb()
+      .selectFrom("image_files")
+      .selectAll()
+      .where("content_hash", "=", contentHash)
+      .executeTakeFirst();
 
-  let deduplicated = false;
+  let imageFile = await storedFile();
+  let deduplicated = imageFile !== undefined;
 
   if (!imageFile) {
-    imageFile = await storeImageFile(buf, contentHash);
-  } else {
-    deduplicated = true;
+    try {
+      imageFile = await storeImageFile(buf, contentHash);
+    } catch (err) {
+      // The same bytes uploaded at the same moment: the other upload stored
+      // them first, and the unique (tenant_id, content_hash) index refused
+      // this copy (storeImageFile already removed it and gave its storage back).
+      imageFile = await storedFile();
+      if (!imageFile) throw err;
+      deduplicated = true;
+    }
   }
 
   const { max } = await tdb()
@@ -159,16 +172,18 @@ export async function uploadPhoto(
 
 /** Write a new original to disk and record it; counts towards the tenant's quota. */
 async function storeImageFile(buf: Buffer, contentHash: string): Promise<ImageFile> {
-  const { width, height } = await new Bun.Image(buf, { autoOrient: true })
-    .metadata()
-    .catch(() => ({ width: 0, height: 0 }));
-  if (!width || !height) throw fail("unreadable_image");
-  // Checked before decoding the pixels: a small file can still decompress to
-  // gigabytes (a "decompression bomb").
-  if (width * height > MAX_PIXELS) {
-    throw fail("image_too_large", { maxMegapixels: MAX_PIXELS / 1e6 });
-  }
-  const placeholder = await new Bun.Image(buf).placeholder();
+  const { width, height, placeholder } = await imageDecoding.run(async () => {
+    const { width, height } = await new Bun.Image(buf, { autoOrient: true })
+      .metadata()
+      .catch(() => ({ width: 0, height: 0 }));
+    if (!width || !height) throw fail("unreadable_image");
+    // Checked before decoding the pixels: a small file can still decompress to
+    // gigabytes (a "decompression bomb").
+    if (width * height > MAX_PIXELS) {
+      throw fail("image_too_large", { maxMegapixels: MAX_PIXELS / 1e6 });
+    }
+    return { width, height, placeholder: await new Bun.Image(buf).placeholder() };
+  });
 
   await reserveStorage(buf.byteLength);
   const filename = `${Bun.randomUUIDv7()}.bin`;

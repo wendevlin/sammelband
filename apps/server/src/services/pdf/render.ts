@@ -2,6 +2,7 @@ import { createWriteStream, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import PDFDocument from "pdfkit";
+import { imageDecoding } from "../../lib/semaphore";
 import {
   type Geometry,
   geometry,
@@ -93,10 +94,13 @@ async function prepareImages(
   const entries = [...layout.photoSizes];
   for (const [i, [id, size]] of entries.entries()) {
     const width = Math.max(1, Math.ceil((size.w / 72) * dpi));
-    const bytes = await new Bun.Image(input.original(id))
-      .resize(width, undefined, { withoutEnlargement: true })
-      .jpeg({ quality })
-      .bytes();
+    const original = input.original(id);
+    const bytes = await imageDecoding.run(() =>
+      new Bun.Image(original)
+        .resize(width, undefined, { withoutEnlargement: true })
+        .jpeg({ quality })
+        .bytes(),
+    );
     const path = join(dir, `${i}.jpg`);
     await Bun.write(path, bytes);
     paths.set(id, path);
