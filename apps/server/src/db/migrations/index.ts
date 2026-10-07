@@ -4,6 +4,7 @@ import * as twoFactor from "./0002_two_factor";
 import * as sections from "./0003_sections";
 import * as photoSources from "./0004_photo_sources";
 import * as sourceStartLocation from "./0005_source_start_location";
+import * as albumExports from "./0006_album_exports";
 
 /**
  * All migrations, in order. Listed statically (instead of read from disk) so
@@ -16,4 +17,5 @@ export const migrations: Record<string, Migration> = {
   "0003_sections": sections,
   "0004_photo_sources": photoSources,
   "0005_source_start_location": sourceStartLocation,
+  "0006_album_exports": albumExports,
 };

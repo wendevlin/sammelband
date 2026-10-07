@@ -39,6 +39,11 @@ const tiles = $derived([
     value: formatBytes(data.stats.variants.size_bytes),
     hint: m.storage_files({ count: data.stats.variants.file_count }),
   },
+  {
+    label: m.storage_exports(),
+    value: formatBytes(data.stats.exports.size_bytes),
+    hint: m.storage_files({ count: data.stats.exports.file_count }),
+  },
 ]);
 const orphans = $derived(data.stats.orphans.missing_on_disk + data.stats.orphans.unknown_on_disk);
 </script>
@@ -50,7 +55,7 @@ const orphans = $derived(data.stats.orphans.missing_on_disk + data.stats.orphans
   {m.storage_description({ sammelband: auth.tenant?.name ?? 'Sammelband' })}
 </p>
 
-<div class="mb-8 grid gap-4 sm:grid-cols-3">
+<div class="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
   {#each tiles as t (t.label)}
     <Card.Root>
       <Card.Header>

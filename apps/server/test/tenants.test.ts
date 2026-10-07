@@ -7,6 +7,7 @@ import { TENANT_COLUMNS } from "../src/db/tenant-scope";
 import { tenantDir } from "../src/lib/storage-paths";
 import { runInTenant, tdb } from "../src/lib/tenant-context";
 import * as albumService from "../src/services/album.service";
+import * as exportService from "../src/services/export.service";
 import * as folderService from "../src/services/folder.service";
 import * as imageService from "../src/services/image.service";
 import * as inviteService from "../src/services/invite.service";
@@ -251,6 +252,13 @@ describe("superadmin", () => {
         beforeId: null,
       });
       await shareService.createShare({ folderId: folder.id }, { password: "secret" }, user.id);
+      await tenantService.updateCurrentTenant({ pdfExportEnabled: true });
+      await exportService.createExport(album.id, user.id, {
+        format: "a5",
+        purpose: "screen",
+        captions: false,
+      });
+      await exportService.exportsIdle();
       await inviteService.createTenantInvite("user");
       // A photo source and an account (without contacting a server).
       await tdb()

@@ -153,6 +153,36 @@ Login data is stored encrypted with `SECRET_KEY`; changing it means connecting t
 accounts again. Photo formats Sammelband can't read (HEIC, RAW) are imported as
 Nextcloud's large JPEG preview.
 
+## PDF export
+
+An admin can switch on PDF export under Admin settings → General. After that,
+the "…" menu on an album page offers "Export as PDF". Choose what the PDF is for,
+a page format (A4, A5, each upright or landscape, square 21 cm, US Letter), and
+whether to show captions:
+
+- **Print shop or photo book service**: photos run to the edge of the page, with
+  3 mm bleed on every side for trimming (the PDF marks the trim with TrimBox and
+  BleedBox), 300 dpi.
+- **Print at home**: with margins, since home printers can't print to the edge,
+  300 dpi. Print at actual size, not "fit to page".
+- **Screen and sharing**: photos to the edge, 150 dpi, no blank pages.
+
+Text always keeps its margins, is at least 9.5 pt and at most about 68
+characters per line.
+
+The PDF is a photo book:
+
+- the cover photo edge to edge, with the title on it
+- the description on its own page
+- the sections: every page a collage of the photos and the section's text that fills
+  it completely, with rounded corners like in the app
+- a back page with all photos as a small gallery, like the album page
+
+The PDF is made in the background, one export at a time, so you can close the
+dialog and download it later from "Exports" in the same menu. Exports there can
+be renamed and deleted. They stay until someone deletes them or the album, and
+they count toward the storage limit. Public links never offer exports.
+
 ## Database
 
 SQLite is the default; set `DATABASE_URL` to use PostgreSQL. Queries go through

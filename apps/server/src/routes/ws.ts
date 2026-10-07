@@ -36,6 +36,7 @@ const TOPIC_PATTERNS: RegExp[] = [
   /^folder:[A-Za-z0-9_-]{1,64}$/,
   /^album:[A-Za-z0-9_-]{1,64}$/,
   /^photo-pool:[A-Za-z0-9_-]{1,64}$/,
+  /^album-exports:[A-Za-z0-9_-]{1,64}$/,
 ];
 
 function isAllowedTopic(topic: string): boolean {

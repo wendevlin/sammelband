@@ -1,7 +1,8 @@
 // Justified gallery rows, like Google Photos or Immich: photos keep their
 // aspect ratio, every row has one height and fills the width exactly, except
 // the last one, which isn't stretched.
-// Shared so the album page and a later PDF export lay photos out the same way.
+// Shared because it is plain layout code; the PDF export composes its pages as
+// collages instead (apps/server/src/services/pdf/collage.ts).
 
 export type JustifiedItem = { index: number; width: number; height: number };
 export type JustifiedRow = { height: number; items: JustifiedItem[] };

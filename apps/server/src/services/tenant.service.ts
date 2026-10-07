@@ -47,13 +47,15 @@ function info(t: Tenant): Omit<TenantInfo, "two_factor_required_by_instance"> {
     storage_used_bytes,
     timezone,
     two_factor_required: Boolean(t.two_factor_required),
+    pdf_export_enabled: Boolean(t.pdf_export_enabled),
   };
 }
 
-/** Tenant admin: settings of the own Sammelband (name, time zone for share-link expiry). */
+/** Tenant admin: settings of the own Sammelband (name, time zone for share-link expiry, PDF export). */
 export async function updateCurrentTenant(patch: {
   name?: string;
   timezone?: string;
+  pdfExportEnabled?: boolean;
 }): Promise<TenantInfo> {
   if (patch.name !== undefined && !patch.name.trim()) throw fail("name_required");
   if (patch.timezone !== undefined && !isValidTimeZone(patch.timezone)) {
@@ -62,6 +64,9 @@ export async function updateCurrentTenant(patch: {
   const changes = {
     ...(patch.name !== undefined && { name: patch.name.trim() }),
     ...(patch.timezone !== undefined && { timezone: patch.timezone }),
+    ...(patch.pdfExportEnabled !== undefined && {
+      pdf_export_enabled: patch.pdfExportEnabled ? 1 : 0,
+    }),
   };
   // Nothing to set when the request only changed another setting (2FA).
   if (Object.keys(changes).length > 0) {
@@ -108,10 +113,18 @@ export async function releaseStorage(bytes: number): Promise<void> {
  */
 export async function reconcileStorage(tenantId?: string): Promise<void> {
   let q = db.updateTable("tenants").set((eb) => ({
-    storage_used_bytes: eb
-      .selectFrom("image_files")
-      .select((e) => e.fn.coalesce(e.fn.sum<number>("file_size"), e.lit(0)).as("used"))
-      .whereRef("image_files.tenant_id", "=", "tenants.id"),
+    storage_used_bytes: eb(
+      eb
+        .selectFrom("image_files")
+        .select((e) => e.fn.coalesce(e.fn.sum<number>("file_size"), e.lit(0)).as("used"))
+        .whereRef("image_files.tenant_id", "=", "tenants.id"),
+      "+",
+      eb
+        .selectFrom("album_exports")
+        .select((e) => e.fn.coalesce(e.fn.sum<number>("file_size"), e.lit(0)).as("used"))
+        .whereRef("album_exports.tenant_id", "=", "tenants.id")
+        .where("status", "=", "done"),
+    ).$castTo<number>(),
   }));
   if (tenantId) q = q.where("id", "=", tenantId);
   await q.execute();
@@ -134,6 +147,7 @@ async function insertTenant(
     created_at: Date.now(),
     timezone: zone,
     two_factor_required: 0,
+    pdf_export_enabled: 0,
   };
   await db.insertInto("tenants").values(tenant).execute();
   return tenant;
@@ -257,6 +271,7 @@ export async function deleteTenant(
   await db.transaction().execute(async (trx) => {
     const users = (eb: typeof trx) => eb.selectFrom("user").select("id").where("tenantId", "=", id);
     await trx.deleteFrom("share_links").where("tenant_id", "=", id).execute();
+    await trx.deleteFrom("album_exports").where("tenant_id", "=", id).execute();
     await trx.deleteFrom("source_accounts").where("tenant_id", "=", id).execute();
     await trx.deleteFrom("source_settings").where("tenant_id", "=", id).execute();
     await trx.deleteFrom("album_positions").where("tenant_id", "=", id).execute();

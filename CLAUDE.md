@@ -11,7 +11,7 @@ where `.env`, the dev SQLite file, `uploads/` and `dist/` live.
 
 - `packages/shared` (`@sammelband/shared`): the API types (`api.ts`: what `/api` and
   the `/ws` album patches send) and code both sides need, like the justified
-  gallery rows (`justify.ts`, for the album page and a later PDF export). Services
+  gallery rows (`justify.ts`) and the PDF export's formats and purposes (`export.ts`). Services
   return these types and the web app imports them; a new or changed response shape
   goes here. DB row types stay in the server's `db/schema.ts`.
 - `apps/server/src/` backend (Bun + Hono). `index.ts` wires everything; `routes/` are thin Hono
@@ -102,6 +102,18 @@ where `.env`, the dev SQLite file, `uploads/` and `dist/` live.
 - Every change to an album's sections, photos or chosen cover calls
   `imageService.albumChanged(albumId)`: it bumps `updated_at` and recomputes the stored
   `albums.cover_filename` that library pages read.
+- PDF export (`services/export.service.ts`, admins switch it on per tenant): creating one
+  queues a job (`lib/job-queue.ts`, one at a time, re-queued at startup) that runs
+  `services/pdf/`. `layout.ts` is the pure page layout: every page is a collage that fills
+  it exactly (`collage.ts`: trees of tiles side by side / stacked, tried in every shape),
+  with a section's title and text as a tile beside its photos; a dynamic program picks
+  the page breaks for the whole book (few large photos, no blank pages). Text is broken
+  with its own line breaker (`text.ts`). `render.ts` draws it with pdfkit and embeds Noto Sans and Playfair Display from the
+  `@expo-google-fonts` packages. Finished files live under `exports/` and count toward the
+  quota. Page formats and purposes are data (`PAGE_FORMATS`, `PURPOSES` in shared: home
+  print with margins, print shop edge to edge with bleed and TrimBox, screen), ready for a
+  print service later. Progress reaches the web app as `album-exports:<id>`
+  events carrying the full row.
 - Deleting a tenant (`tenant.service.deleteTenant`) removes rows table by table; a new
   tenant table needs a line there (the "no row behind" test in `test/tenants.test.ts`
   catches a forgotten one).

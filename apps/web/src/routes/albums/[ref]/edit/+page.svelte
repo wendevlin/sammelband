@@ -4,6 +4,7 @@ import Check from "@lucide/svelte/icons/check";
 import Trash from "@lucide/svelte/icons/trash-2";
 import type { Folder } from "@sammelband/shared";
 import { goto } from "$app/navigation";
+import { AlbumExports } from "$lib/album-exports.svelte";
 import { getAlbumState } from "$lib/album-state.svelte";
 import { del, patch, post } from "$lib/api";
 import { attempt } from "$lib/attempt";
@@ -34,6 +35,18 @@ let folderId = $state("");
 let dirty = $state(false);
 let saving = $state(false);
 let deleteOpen = $state(false);
+// Deleting the album deletes its PDF exports too: the confirmation names them.
+const exports = new AlbumExports(() => live.album.id);
+const deleteDescription = $derived.by(() => {
+  const names = exports.list.map((x) => x.name).join(", ");
+  const count = exports.list.length;
+  if (count === 0) return m.album_delete_description();
+  const also =
+    count === 1
+      ? m.album_delete_exports_one({ names })
+      : m.album_delete_exports_other({ count, names });
+  return `${m.album_delete_description()} ${also}`;
+});
 
 $effect(() => {
   const a = live.album;
@@ -190,6 +203,6 @@ async function deleteAlbum() {
 <ConfirmDialog
   bind:open={deleteOpen}
   title={m.folder_delete_confirm({ name: live.album.title })}
-  description={m.album_delete_description()}
+  description={deleteDescription}
   onconfirm={deleteAlbum}
 />
