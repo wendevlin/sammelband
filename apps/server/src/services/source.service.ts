@@ -44,6 +44,7 @@ function toAccount(row: AccountRow): SourceAccount {
     name: row.name,
     label: row.label,
     server: source.serverOf(JSON.parse(row.config)),
+    start_location: row.start_location,
   };
 }
 
@@ -163,7 +164,7 @@ export async function addAccount(
     label: input.label,
     config: JSON.stringify(input.config),
     credentials: await seal(input.credentials),
-    last_location: null,
+    start_location: null,
     created_at: now,
     updated_at: now,
   };
@@ -183,19 +184,28 @@ async function ownAccount(userId: string, accountId: string): Promise<AccountRow
   return row;
 }
 
-export async function renameAccount(
+/**
+ * Rename an account or choose the folder its picker opens in (checked, so it
+ * has to exist; the top is stored as null).
+ */
+export async function updateAccount(
   userId: string,
   accountId: string,
-  name: string | null,
+  input: { name?: string | null; start_location?: string | null },
 ): Promise<SourceAccount> {
   const row = await ownAccount(userId, accountId);
-  const renamed = { ...row, name: cleanName(name), updated_at: Date.now() };
-  await tdb()
-    .updateTable("source_accounts")
-    .set({ name: renamed.name, updated_at: renamed.updated_at })
-    .where("id", "=", row.id)
-    .execute();
-  return toAccount(renamed);
+  const changes: Partial<AccountRow> = { updated_at: Date.now() };
+  if (input.name !== undefined) changes.name = cleanName(input.name);
+  if (input.start_location !== undefined) {
+    let location: string | null = null;
+    if (input.start_location !== null) {
+      const { source, config, credentials } = await connection(userId, accountId);
+      location = (await source.browse(config, credentials, input.start_location)).location;
+    }
+    changes.start_location = location === "/" ? null : location;
+  }
+  await tdb().updateTable("source_accounts").set(changes).where("id", "=", row.id).execute();
+  return toAccount({ ...row, ...changes });
 }
 
 /** Remove an account here and, best effort, revoke its access at the source. */
@@ -220,8 +230,8 @@ async function connection(userId: string, accountId: string) {
 // --- Browsing and importing ----------------------------------------------------
 
 /**
- * A folder of the account. Without a location it opens where the user was
- * last (or the top, if that folder is gone).
+ * A folder of the account. Without a location it opens in the account's start
+ * folder (or the top, if that folder is gone).
  */
 export async function browse(
   userId: string,
@@ -229,22 +239,13 @@ export async function browse(
   location: string | null,
 ): Promise<SourceListing> {
   const { source, config, credentials, account } = await connection(userId, accountId);
-  const target = location ?? account.last_location;
-  let listing: SourceListing;
+  const target = location ?? account.start_location;
   try {
-    listing = await source.browse(config, credentials, target);
+    return await source.browse(config, credentials, target);
   } catch (err) {
     if (location !== null || target === null) throw err;
-    listing = await source.browse(config, credentials, null);
+    return source.browse(config, credentials, null);
   }
-  if (listing.location !== account.last_location) {
-    await tdb()
-      .updateTable("source_accounts")
-      .set({ last_location: listing.location })
-      .where("id", "=", account.id)
-      .execute();
-  }
-  return listing;
 }
 
 export async function thumbnail(

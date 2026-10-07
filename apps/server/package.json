@@ -13,14 +13,14 @@
     "@expo-google-fonts/playfair-display": "0.4.2",
     "@hono/zod-validator": "0.9.1",
     "@sammelband/shared": "workspace:*",
-    "better-auth": "1.7.6",
+    "better-auth": "1.7.7",
     "fast-xml-parser": "5.11.2",
-    "hono": "4.13.9",
+    "hono": "4.13.12",
     "kysely": "0.29.6",
     "marked": "17.0.6",
-    "nodemailer": "10.0.12",
+    "nodemailer": "10.0.14",
     "pdfkit": "0.20.2",
-    "pg": "8.23.0",
+    "pg": "8.23.1",
     "zod": "4.6.5"
   },
   "devDependencies": {

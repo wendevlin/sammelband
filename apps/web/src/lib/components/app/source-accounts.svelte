@@ -1,4 +1,5 @@
 <script lang="ts">
+import FolderOpen from "@lucide/svelte/icons/folder-open";
 import Pencil from "@lucide/svelte/icons/pencil";
 import Plus from "@lucide/svelte/icons/plus";
 import type { SourceAccount, SourceInfo } from "@sammelband/shared";
@@ -6,6 +7,7 @@ import { onDestroy, onMount } from "svelte";
 import { toast } from "svelte-sonner";
 import { del, patch, post } from "$lib/api";
 import { attempt } from "$lib/attempt";
+import SourceFolderDialog from "$lib/components/app/source-folder-dialog.svelte";
 import SourceIcon from "$lib/components/app/source-icon.svelte";
 import PromptDialog from "$lib/components/dialogs/prompt-dialog.svelte";
 import { Button } from "$lib/components/ui/button";
@@ -22,7 +24,7 @@ import { sources } from "$lib/stores/sources.svelte";
  * several per source, on the admins' default server or another one, each with
  * an optional name. Nextcloud: "Sign in" opens Nextcloud in a new tab to allow
  * access (Login Flow v2); this page polls until that's done. An app password
- * works too.
+ * works too. Each account can have a start folder, where the picker opens.
  */
 onMount(() => void sources.load(true));
 
@@ -41,6 +43,8 @@ let timer: ReturnType<typeof setInterval> | undefined;
 
 let renaming = $state<SourceAccount | null>(null);
 let renameOpen = $state(false);
+let startFolder = $state<{ account: SourceAccount; title: string } | null>(null);
+let startFolderOpen = $state(false);
 
 function stopWaiting() {
   clearInterval(timer);
@@ -134,6 +138,23 @@ async function rename(value: string): Promise<boolean | undefined> {
   await sources.load(true);
 }
 
+function chooseStartFolder(s: SourceInfo, account: SourceAccount) {
+  startFolder = { account, title: accountTitle(s, account) };
+  startFolderOpen = true;
+}
+
+async function saveStartFolder(location: string): Promise<boolean> {
+  const account = startFolder?.account;
+  if (!account) return false;
+  const ok = await attempt(
+    () => patch(`/sources/accounts/${account.id}`, { start_location: location }),
+    m.sources_start_folder_saved(),
+  );
+  if (ok === undefined) return false;
+  await sources.load(true);
+  return true;
+}
+
 async function disconnect(s: SourceInfo, account: SourceAccount) {
   const ok = await attempt(
     () => del(`/sources/accounts/${account.id}`),
@@ -160,7 +181,21 @@ async function disconnect(s: SourceInfo, account: SourceAccount) {
                 <p class="truncate text-sm text-muted-foreground">
                   {m.sources_account_at({ name: a.label, server: serverHost(a.server) })}
                 </p>
+                {#if a.start_location}
+                  <p class="truncate text-sm text-muted-foreground">
+                    {m.sources_start_folder_value({ folder: a.start_location })}
+                  </p>
+                {/if}
               </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label={m.sources_start_folder()}
+                title={m.sources_start_folder()}
+                onclick={() => chooseStartFolder(s, a)}
+              >
+                <FolderOpen />
+              </Button>
               <Button
                 variant="ghost"
                 size="icon"
@@ -207,6 +242,15 @@ async function disconnect(s: SourceInfo, account: SourceAccount) {
   value={renaming?.name ?? ''}
   onsubmit={rename}
 />
+
+{#if startFolder}
+  <SourceFolderDialog
+    bind:open={startFolderOpen}
+    account={startFolder.account}
+    title={startFolder.title}
+    onchoose={saveStartFolder}
+  />
+{/if}
 
 {#snippet addForm(s: SourceInfo)}
   <form class="grid gap-4 rounded-lg border p-4" onsubmit={(e) => saveAppPassword(e, s)}>

@@ -6,6 +6,7 @@ import { attempt } from "$lib/attempt";
 import ConfirmDialog from "$lib/components/dialogs/confirm-dialog.svelte";
 import { m } from "$lib/paraglide/messages.js";
 import { cn } from "$lib/utils";
+import { providePickerMemory } from "./picker-memory";
 import SectionCard from "./section-card.svelte";
 
 /**
@@ -14,6 +15,9 @@ import SectionCard from "./section-card.svelte";
  */
 let { albumId, sections, photos }: { albumId: string; sections: Section[]; photos: Photo[] } =
   $props();
+
+// Photo pickers reopen in the folder they were in, until the editor closes.
+providePickerMemory(() => albumId);
 
 const bySort = (a: { sort_order: number }, b: { sort_order: number }) =>
   a.sort_order - b.sort_order;

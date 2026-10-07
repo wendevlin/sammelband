@@ -7,7 +7,7 @@ import type { SourceAccount, SourceId, SourceInfo } from "@sammelband/shared";
 
 export const SOURCE_ICONS: Record<SourceId, typeof Cloud> = { nextcloud: Cloud };
 
-export const thumbnailUrl = (account: string, thumb: string, size: 128 | 256 | 512 = 256) =>
+export const thumbnailUrl = (account: string, thumb: string, size: 128 | 256 | 512 | 2048 = 256) =>
   `/api/sources/accounts/${account}/thumbnail?${new URLSearchParams({ id: thumb, size: String(size) })}`;
 
 /**

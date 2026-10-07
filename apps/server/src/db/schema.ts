@@ -123,7 +123,8 @@ export type SourceAccount = {
   /** JSON, this account's server etc. */
   config: string;
   credentials: string;
-  last_location: string | null;
+  /** Where the picker opens, chosen in the profile; null for the top. */
+  start_location: string | null;
   created_at: number;
   updated_at: number;
 };

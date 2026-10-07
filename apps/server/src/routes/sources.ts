@@ -14,7 +14,8 @@ import {
   verifyAccount,
 } from "../sources/nextcloud";
 
-const THUMB_SIZES = [128, 256, 512] as const;
+// 2048 for the picker's full screen view.
+const THUMB_SIZES = [128, 256, 512, 2048] as const;
 
 // Nextcloud login flows waiting for the user to grant access, by flow id. A
 // flow expires after 20 minutes in Nextcloud too.
@@ -103,13 +104,19 @@ export const sourceRoutes = new Hono<AuthEnv>()
   .get("/", async (c) => c.json(await sourceService.listForUser(c.get("user").id)))
   .patch(
     "/accounts/:accountId",
-    validate("json", z.object({ name: z.string().max(100).nullable() })),
+    validate(
+      "json",
+      z.object({
+        name: z.string().max(100).nullable().optional(),
+        start_location: z.string().max(2000).nullable().optional(),
+      }),
+    ),
     async (c) =>
       c.json(
-        await sourceService.renameAccount(
+        await sourceService.updateAccount(
           c.get("user").id,
           c.req.param("accountId"),
-          c.req.valid("json").name,
+          c.req.valid("json"),
         ),
       ),
   )
