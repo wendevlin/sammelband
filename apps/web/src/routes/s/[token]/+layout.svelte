@@ -1,7 +1,7 @@
 <script lang="ts">
+import Logo from "#lib/components/app/logo.svelte";
+import { setImageBase } from "#lib/images.ts";
 import { page } from "$app/state";
-import Logo from "$lib/components/app/logo.svelte";
-import { setImageBase } from "$lib/images";
 
 let { children } = $props();
 

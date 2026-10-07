@@ -1,4 +1,4 @@
-import { m } from "$lib/paraglide/messages.js";
+import { m } from "#lib/paraglide/messages.js";
 
 /**
  * Avatars are cropped to a centered square in the browser; the server only

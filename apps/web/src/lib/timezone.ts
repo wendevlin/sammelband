@@ -1,4 +1,4 @@
-import { getLocale } from "$lib/paraglide/runtime.js";
+import { getLocale } from "#lib/paraglide/runtime.js";
 
 // Time zone helpers (same math as src/lib/timezone.ts on the server).
 

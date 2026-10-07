@@ -1,16 +1,16 @@
 <script lang="ts">
+import { ApiError, safeNext } from "#lib/api.ts";
+import AuthShell from "#lib/components/app/auth-shell.svelte";
+import * as Alert from "#lib/components/ui/alert/index.ts";
+import { Button } from "#lib/components/ui/button/index.ts";
+import { Input } from "#lib/components/ui/input/index.ts";
+import { Label } from "#lib/components/ui/label/index.ts";
+import { Switch } from "#lib/components/ui/switch/index.ts";
+import { errorText } from "#lib/i18n.ts";
+import { m } from "#lib/paraglide/messages.js";
+import { auth } from "#lib/stores/auth.svelte.ts";
 import { goto } from "$app/navigation";
 import { page } from "$app/state";
-import { ApiError, safeNext } from "$lib/api";
-import AuthShell from "$lib/components/app/auth-shell.svelte";
-import * as Alert from "$lib/components/ui/alert";
-import { Button } from "$lib/components/ui/button";
-import { Input } from "$lib/components/ui/input";
-import { Label } from "$lib/components/ui/label";
-import { Switch } from "$lib/components/ui/switch";
-import { errorText } from "$lib/i18n";
-import { m } from "$lib/paraglide/messages.js";
-import { auth } from "$lib/stores/auth.svelte";
 
 let email = $state("");
 let password = $state("");
@@ -23,7 +23,7 @@ let code = $state("");
 let backup = $state(false);
 let trustDevice = $state(false);
 
-const finish = () => goto(safeNext(page.url), { invalidateAll: true, replaceState: true });
+const finish = () => goto(safeNext(page.url), { refreshAll: true, replace: true });
 
 async function submit(e: SubmitEvent) {
   e.preventDefault();
@@ -75,7 +75,7 @@ function back() {
 }
 </script>
 
-{#if step === 'password'}
+{#if step === "password"}
   <AuthShell title={m.login_title()} description={m.login_description()}>
     <form class="grid gap-4" onsubmit={submit}>
       {#if errorMessage}
@@ -92,7 +92,7 @@ function back() {
           <Label for="password">{m.common_password()}</Label>
           {#if auth.mail}
             <a
-              href="/forgot-password{email ? `?email=${encodeURIComponent(email)}` : ''}"
+              href="/forgot-password{email ? `?email=${encodeURIComponent(email)}` : ""}"
               class="text-sm text-muted-foreground underline-offset-4 hover:underline"
               >{m.login_forgot()}</a
             >
@@ -127,7 +127,7 @@ function back() {
           bind:value={code}
           required
           autocomplete="one-time-code"
-          inputmode={backup ? 'text' : 'numeric'}
+          inputmode={backup ? "text" : "numeric"}
           maxlength={backup ? 20 : 9}
           class="font-mono tracking-widest"
         />

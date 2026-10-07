@@ -10,16 +10,16 @@ import {
   type ExportPurpose,
   PAGE_FORMATS,
 } from "@sammelband/shared";
-import { type AlbumExports, exportUrl } from "$lib/album-exports.svelte";
-import { post } from "$lib/api";
-import { attempt } from "$lib/attempt";
-import { Button } from "$lib/components/ui/button";
-import * as Dialog from "$lib/components/ui/dialog";
-import { Label } from "$lib/components/ui/label";
-import { Switch } from "$lib/components/ui/switch";
-import { errorCodeText } from "$lib/i18n";
-import { m } from "$lib/paraglide/messages.js";
-import { cn } from "$lib/utils";
+import { type AlbumExports, exportUrl } from "#lib/album-exports.svelte.ts";
+import { post } from "#lib/api.ts";
+import { attempt } from "#lib/attempt.ts";
+import { Button } from "#lib/components/ui/button/index.ts";
+import * as Dialog from "#lib/components/ui/dialog/index.ts";
+import { Label } from "#lib/components/ui/label/index.ts";
+import { Switch } from "#lib/components/ui/switch/index.ts";
+import { errorCodeText } from "#lib/i18n.ts";
+import { m } from "#lib/paraglide/messages.js";
+import { cn } from "#lib/utils.ts";
 import { formatLabel, purposeLabel } from "./format-label";
 
 /**
@@ -98,14 +98,14 @@ function preview(f: ExportFormat) {
                 aria-pressed={purpose === p.id}
                 onclick={() => (purpose = p.id)}
                 class={cn(
-                  'flex items-start gap-3 rounded-lg border p-3 text-left text-sm transition-colors',
-                  purpose === p.id ? 'border-primary bg-accent' : 'hover:bg-muted',
+                  "flex items-start gap-3 rounded-lg border p-3 text-left text-sm transition-colors",
+                  purpose === p.id ? "border-primary bg-accent" : "hover:bg-muted",
                 )}
               >
                 <p.icon
                   class={cn(
-                    'mt-0.5 size-5 shrink-0',
-                    purpose === p.id ? 'text-primary' : 'text-muted-foreground',
+                    "mt-0.5 size-5 shrink-0",
+                    purpose === p.id ? "text-primary" : "text-muted-foreground",
                   )}
                 />
                 <span>
@@ -126,17 +126,17 @@ function preview(f: ExportFormat) {
                 aria-pressed={format === f}
                 onclick={() => (format = f)}
                 class={cn(
-                  'flex flex-col items-center gap-2 rounded-lg border p-2 pt-3 text-xs transition-colors',
+                  "flex flex-col items-center gap-2 rounded-lg border p-2 pt-3 text-xs transition-colors",
                   format === f
-                    ? 'border-primary bg-accent text-foreground'
-                    : 'text-muted-foreground hover:bg-muted',
+                    ? "border-primary bg-accent text-foreground"
+                    : "text-muted-foreground hover:bg-muted",
                 )}
               >
                 <span class="flex h-10 items-end">
                   <span
                     class={cn(
-                      'block rounded-[2px] border bg-card shadow-xs',
-                      format === f && 'border-primary',
+                      "block rounded-[2px] border bg-card shadow-xs",
+                      format === f && "border-primary",
                     )}
                     style={preview(f)}
                   ></span>
@@ -158,7 +158,7 @@ function preview(f: ExportFormat) {
       </Dialog.Footer>
     {:else}
       <div class="grid gap-4 py-2" aria-live="polite">
-        {#if started.status === 'done'}
+        {#if started.status === "done"}
           <p class="font-medium">{m.export_ready()}</p>
           <p class="text-sm text-muted-foreground">
             {formatLabel(started.format)}
@@ -169,12 +169,12 @@ function preview(f: ExportFormat) {
                 : m.export_pages_other({ count: started.page_count })}
             {/if}
           </p>
-        {:else if started.status === 'failed'}
+        {:else if started.status === "failed"}
           <p class="font-medium">{m.export_failed()}</p>
           <p class="text-sm text-muted-foreground">{errorCodeText(started.error_code)}</p>
         {:else}
           <p class="text-sm">
-            {started.status === 'queued' ? m.export_waiting() : m.export_working()}
+            {started.status === "queued" ? m.export_waiting() : m.export_working()}
           </p>
           <div
             class="h-2 overflow-hidden rounded-full bg-muted"
@@ -200,7 +200,7 @@ function preview(f: ExportFormat) {
           }}
           >{m.export_show_all()}</Button
         >
-        {#if started.status === 'done'}
+        {#if started.status === "done"}
           <Button href={exportUrl(started.id)} download onclick={() => (open = false)}
             ><Download /> {m.export_download()}</Button
           >

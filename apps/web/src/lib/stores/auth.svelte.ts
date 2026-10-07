@@ -1,6 +1,6 @@
 import type { Role, TenantInfo } from "@sammelband/shared";
-import { api, post } from "$lib/api";
-import { applyAccountLocale } from "$lib/i18n";
+import { api, post } from "#lib/api.ts";
+import { applyAccountLocale } from "#lib/i18n.ts";
 
 export type SessionUser = {
   id: string;

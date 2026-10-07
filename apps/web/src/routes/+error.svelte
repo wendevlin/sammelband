@@ -1,7 +1,7 @@
 <script lang="ts">
+import { Button } from "#lib/components/ui/button/index.ts";
+import { m } from "#lib/paraglide/messages.js";
 import { page } from "$app/state";
-import { Button } from "$lib/components/ui/button";
-import { m } from "$lib/paraglide/messages.js";
 
 // One joke per visit. Only the 404 gets jokes; real errors stay plain.
 const JOKES = [

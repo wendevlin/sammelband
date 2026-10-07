@@ -5,21 +5,21 @@ import X from "@lucide/svelte/icons/x";
 import type { Photo, SourceAccount } from "@sammelband/shared";
 import { onMount } from "svelte";
 import { toast } from "svelte-sonner";
+import { ApiError, api, del, patch, post } from "#lib/api.ts";
+import { attempt } from "#lib/attempt.ts";
+import SourceIcon from "#lib/components/app/source-icon.svelte";
+import ConfirmDialog from "#lib/components/dialogs/confirm-dialog.svelte";
+import NoticeDialog from "#lib/components/dialogs/notice-dialog.svelte";
+import { Button } from "#lib/components/ui/button/index.ts";
+import * as DropdownMenu from "#lib/components/ui/dropdown-menu/index.ts";
+import { Input } from "#lib/components/ui/input/index.ts";
+import { errorText } from "#lib/i18n.ts";
+import { imageSrc } from "#lib/images.ts";
+import { m } from "#lib/paraglide/messages.js";
+import { accountTitle } from "#lib/sources.ts";
+import { sources } from "#lib/stores/sources.svelte.ts";
+import { cn } from "#lib/utils.ts";
 import { goto } from "$app/navigation";
-import { ApiError, api, del, patch, post } from "$lib/api";
-import { attempt } from "$lib/attempt";
-import SourceIcon from "$lib/components/app/source-icon.svelte";
-import ConfirmDialog from "$lib/components/dialogs/confirm-dialog.svelte";
-import NoticeDialog from "$lib/components/dialogs/notice-dialog.svelte";
-import { Button } from "$lib/components/ui/button";
-import * as DropdownMenu from "$lib/components/ui/dropdown-menu";
-import { Input } from "$lib/components/ui/input";
-import { errorText } from "$lib/i18n";
-import { imageSrc } from "$lib/images";
-import { m } from "$lib/paraglide/messages.js";
-import { accountTitle } from "$lib/sources";
-import { sources } from "$lib/stores/sources.svelte";
-import { cn } from "$lib/utils";
 import { photoDrag } from "./photo-drag.svelte";
 import SourcePicker from "./source-picker.svelte";
 
@@ -137,21 +137,21 @@ const draggingForeign = $derived(
     {#each photos as p (p.id)}
       <li
         class={cn(
-					'relative transition-opacity',
-					photoDrag.current?.id === p.id && 'opacity-40',
-					dropTarget?.id === p.id &&
-						(dropTarget.after ? 'border-r-4 border-r-primary' : 'border-l-4 border-l-primary')
-				)}
+          "relative transition-opacity",
+          photoDrag.current?.id === p.id && "opacity-40",
+          dropTarget?.id === p.id &&
+            (dropTarget.after ? "border-r-4 border-r-primary" : "border-l-4 border-l-primary"),
+        )}
         ondragover={(e) => {
-					if (!photoDrag.current || photoDrag.current.id === p.id) return;
-					e.preventDefault();
-					const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-					dropTarget = { id: p.id, after: e.clientX > rect.left + rect.width / 2 };
-				}}
+          if (!photoDrag.current || photoDrag.current.id === p.id) return;
+          e.preventDefault();
+          const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+          dropTarget = { id: p.id, after: e.clientX > rect.left + rect.width / 2 };
+        }}
         ondrop={(e) => {
-					e.preventDefault();
-					void drop(p);
-				}}
+          e.preventDefault();
+          void drop(p);
+        }}
       >
         <div
           role="img"
@@ -165,7 +165,7 @@ const draggingForeign = $derived(
         >
           <img
             src={imageSrc(p.filename, 400)}
-            alt={p.caption ?? ''}
+            alt={p.caption ?? ""}
             class="size-full object-cover"
             draggable="false"
           >
@@ -175,9 +175,9 @@ const draggingForeign = $derived(
             class="absolute top-1 right-1 opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
             aria-label={m.photo_delete()}
             onclick={() => {
-							deleteTarget = p;
-							deleteOpen = true;
-						}}
+              deleteTarget = p;
+              deleteOpen = true;
+            }}
           >
             <X />
           </Button>
@@ -185,7 +185,7 @@ const draggingForeign = $derived(
         <Input
           class="mt-1 h-8 text-xs"
           placeholder={m.photo_caption()}
-          value={p.caption ?? ''}
+          value={p.caption ?? ""}
           onchange={(e) => saveCaption(p, e.currentTarget.value)}
         />
       </li>
@@ -194,13 +194,15 @@ const draggingForeign = $derived(
 {/if}
 
 <!-- Drop files here, or click: upload, or (with photo sources) a menu to pick where from. -->
-{#snippet zone(triggerProps: Record<string, unknown> | null)}
+{#snippet zone(
+  triggerProps: Record<string, unknown> | null,
+)}
   <button
     {...triggerProps}
     type="button"
     class={cn(
-      'mt-3 flex w-full flex-col items-center gap-2 rounded-xl border border-dashed px-4 py-6 text-sm text-muted-foreground transition-colors',
-      over ? 'border-primary bg-muted' : 'hover:bg-muted/50'
+      "mt-3 flex w-full flex-col items-center gap-2 rounded-xl border border-dashed px-4 py-6 text-sm text-muted-foreground transition-colors",
+      over ? "border-primary bg-muted" : "hover:bg-muted/50",
     )}
     ondragover={(e) => {
       if (photoDrag.current && !draggingForeign) return;
@@ -236,7 +238,9 @@ const draggingForeign = $derived(
 {#if sources.list.length > 0}
   <DropdownMenu.Root>
     <DropdownMenu.Trigger>
-      {#snippet child({ props })}
+      {#snippet child({
+        props,
+      })}
         {@render zone(props)}
       {/snippet}
     </DropdownMenu.Trigger>
@@ -253,7 +257,7 @@ const draggingForeign = $derived(
           </DropdownMenu.Item>
         {/each}
         {#if s.accounts.length === 0}
-          <DropdownMenu.Item onclick={() => goto('/profile#sources')}>
+          <DropdownMenu.Item onclick={() => goto("/profile#sources")}>
             <SourceIcon id={s.id} />
             {m.photos_add_connect({ source: s.name })}
           </DropdownMenu.Item>
@@ -280,10 +284,10 @@ const draggingForeign = $derived(
   multiple
   class="hidden"
   onchange={(e) => {
-		const files = e.currentTarget.files;
-		if (files) void upload(files);
-		e.currentTarget.value = '';
-	}}
+    const files = e.currentTarget.files;
+    if (files) void upload(files);
+    e.currentTarget.value = "";
+  }}
 >
 
 <ConfirmDialog
@@ -295,6 +299,6 @@ const draggingForeign = $derived(
 
 <NoticeDialog
   bind:open={noticeOpen}
-  title={notice?.title ?? ''}
+  title={notice?.title ?? ""}
   description={notice?.description}
 />

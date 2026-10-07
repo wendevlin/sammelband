@@ -1,13 +1,13 @@
 <script lang="ts">
 import type { SourceAccount, SourceListing } from "@sammelband/shared";
-import { api } from "$lib/api";
-import SourceCrumbs from "$lib/components/app/source-crumbs.svelte";
-import SourceFolders from "$lib/components/app/source-folders.svelte";
-import { Button } from "$lib/components/ui/button";
-import * as Dialog from "$lib/components/ui/dialog";
-import { errorText } from "$lib/i18n";
-import { m } from "$lib/paraglide/messages.js";
-import { cn } from "$lib/utils";
+import { api } from "#lib/api.ts";
+import SourceCrumbs from "#lib/components/app/source-crumbs.svelte";
+import SourceFolders from "#lib/components/app/source-folders.svelte";
+import { Button } from "#lib/components/ui/button/index.ts";
+import * as Dialog from "#lib/components/ui/dialog/index.ts";
+import { errorText } from "#lib/i18n.ts";
+import { m } from "#lib/paraglide/messages.js";
+import { cn } from "#lib/utils.ts";
 
 /** Choose the folder a source account's photo picker opens in (profile page). */
 let {
@@ -69,7 +69,7 @@ async function choose() {
         <SourceCrumbs crumbs={listing.crumbs} top={title} onopen={show} />
       {/if}
     </Dialog.Header>
-    <div class={cn('-mx-1 min-h-32 flex-1 overflow-y-auto px-1', loading && 'opacity-60')}>
+    <div class={cn("-mx-1 min-h-32 flex-1 overflow-y-auto px-1", loading && "opacity-60")}>
       {#if problem}
         <p class="py-10 text-center text-sm text-destructive">{problem}</p>
       {:else if listing}

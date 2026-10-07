@@ -1,7 +1,7 @@
 <script lang="ts">
+import LibraryView from "#lib/components/library/library-view.svelte";
+import { live } from "#lib/live.svelte.ts";
 import { page } from "$app/state";
-import LibraryView from "$lib/components/library/library-view.svelte";
-import { live } from "$lib/live.svelte";
 
 let { data } = $props();
 

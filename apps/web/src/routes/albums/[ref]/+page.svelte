@@ -4,18 +4,18 @@ import FileDown from "@lucide/svelte/icons/file-down";
 import Files from "@lucide/svelte/icons/files";
 import Pencil from "@lucide/svelte/icons/pencil";
 import type { Folder } from "@sammelband/shared";
-import { AlbumExports } from "$lib/album-exports.svelte";
-import { getAlbumState } from "$lib/album-state.svelte";
-import AlbumContent from "$lib/components/album/album-content.svelte";
-import ExportDialog from "$lib/components/export/export-dialog.svelte";
-import ExportsDialog from "$lib/components/export/exports-dialog.svelte";
-import ShareButton from "$lib/components/share/share-button.svelte";
-import * as Breadcrumb from "$lib/components/ui/breadcrumb";
-import { Button } from "$lib/components/ui/button";
-import * as DropdownMenu from "$lib/components/ui/dropdown-menu";
-import { albumPath } from "$lib/links";
-import { m } from "$lib/paraglide/messages.js";
-import { auth } from "$lib/stores/auth.svelte";
+import { AlbumExports } from "#lib/album-exports.svelte.ts";
+import { getAlbumState } from "#lib/album-state.svelte.ts";
+import AlbumContent from "#lib/components/album/album-content.svelte";
+import ExportDialog from "#lib/components/export/export-dialog.svelte";
+import ExportsDialog from "#lib/components/export/exports-dialog.svelte";
+import ShareButton from "#lib/components/share/share-button.svelte";
+import * as Breadcrumb from "#lib/components/ui/breadcrumb/index.ts";
+import { Button } from "#lib/components/ui/button/index.ts";
+import * as DropdownMenu from "#lib/components/ui/dropdown-menu/index.ts";
+import { albumPath } from "#lib/links.ts";
+import { m } from "#lib/paraglide/messages.js";
+import { auth } from "#lib/stores/auth.svelte.ts";
 
 let { data } = $props();
 
@@ -74,7 +74,9 @@ const trail = $derived.by(() => {
       {#if canExport || exports.list.length > 0}
         <DropdownMenu.Root>
           <DropdownMenu.Trigger>
-            {#snippet child({ props })}
+            {#snippet child({
+              props,
+            })}
               <Button {...props} variant="outline" size="icon" aria-label={m.album_more()}>
                 <Ellipsis />
               </Button>

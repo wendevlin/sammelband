@@ -8,9 +8,9 @@ import { Placeholder } from "@tiptap/extensions";
 import { Markdown } from "@tiptap/markdown";
 import StarterKit from "@tiptap/starter-kit";
 import { onDestroy, onMount } from "svelte";
-import { MARKED_OPTIONS } from "$lib/markdown";
-import { m } from "$lib/paraglide/messages.js";
-import { cn } from "$lib/utils";
+import { MARKED_OPTIONS } from "#lib/markdown.ts";
+import { m } from "#lib/paraglide/messages.js";
+import { cn } from "#lib/utils.ts";
 
 /**
  * Rich text that's stored as Markdown: no syntax on screen. Typing `**bold**`,
@@ -120,8 +120,8 @@ const active = (name: string) => {
       <button
         type="button"
         class={cn(
-          'flex size-7 items-center justify-center rounded-sm text-muted-foreground hover:bg-muted hover:text-foreground',
-          active(tool.name) && 'bg-muted text-foreground'
+          "flex size-7 items-center justify-center rounded-sm text-muted-foreground hover:bg-muted hover:text-foreground",
+          active(tool.name) && "bg-muted text-foreground",
         )}
         aria-label={tool.label}
         aria-pressed={active(tool.name)}

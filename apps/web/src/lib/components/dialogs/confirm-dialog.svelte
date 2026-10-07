@@ -1,7 +1,7 @@
 <script lang="ts">
-import * as AlertDialog from "$lib/components/ui/alert-dialog";
-import { buttonVariants } from "$lib/components/ui/button";
-import { m } from "$lib/paraglide/messages.js";
+import * as AlertDialog from "#lib/components/ui/alert-dialog/index.ts";
+import { buttonVariants } from "#lib/components/ui/button/index.ts";
+import { m } from "#lib/paraglide/messages.js";
 
 let {
   open = $bindable(false),
@@ -38,7 +38,7 @@ async function confirm() {
     <AlertDialog.Footer>
       <AlertDialog.Cancel>{m.common_cancel()}</AlertDialog.Cancel>
       <AlertDialog.Action
-        class={buttonVariants({ variant: 'destructive' })}
+        class={buttonVariants({ variant: "destructive" })}
         disabled={busy}
         onclick={confirm}
       >

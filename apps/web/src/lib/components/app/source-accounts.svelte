@@ -5,19 +5,19 @@ import Plus from "@lucide/svelte/icons/plus";
 import type { SourceAccount, SourceInfo } from "@sammelband/shared";
 import { onDestroy, onMount } from "svelte";
 import { toast } from "svelte-sonner";
-import { del, patch, post } from "$lib/api";
-import { attempt } from "$lib/attempt";
-import SourceFolderDialog from "$lib/components/app/source-folder-dialog.svelte";
-import SourceIcon from "$lib/components/app/source-icon.svelte";
-import PromptDialog from "$lib/components/dialogs/prompt-dialog.svelte";
-import { Button } from "$lib/components/ui/button";
-import * as Card from "$lib/components/ui/card";
-import { Input } from "$lib/components/ui/input";
-import { Label } from "$lib/components/ui/label";
-import { errorText } from "$lib/i18n";
-import { m } from "$lib/paraglide/messages.js";
-import { accountTitle, serverHost } from "$lib/sources";
-import { sources } from "$lib/stores/sources.svelte";
+import { del, patch, post } from "#lib/api.ts";
+import { attempt } from "#lib/attempt.ts";
+import SourceFolderDialog from "#lib/components/app/source-folder-dialog.svelte";
+import SourceIcon from "#lib/components/app/source-icon.svelte";
+import PromptDialog from "#lib/components/dialogs/prompt-dialog.svelte";
+import { Button } from "#lib/components/ui/button/index.ts";
+import * as Card from "#lib/components/ui/card/index.ts";
+import { Input } from "#lib/components/ui/input/index.ts";
+import { Label } from "#lib/components/ui/label/index.ts";
+import { errorText } from "#lib/i18n.ts";
+import { m } from "#lib/paraglide/messages.js";
+import { accountTitle, serverHost } from "#lib/sources.ts";
+import { sources } from "#lib/stores/sources.svelte.ts";
 
 /**
  * The user's accounts at the photo sources of their Sammelband (profile page):
@@ -216,7 +216,7 @@ async function disconnect(s: SourceInfo, account: SourceAccount) {
           {:else}
             <div>
               <Button
-                variant={s.accounts.length === 0 ? 'default' : 'outline'}
+                variant={s.accounts.length === 0 ? "default" : "outline"}
                 onclick={() => startAdding(s)}
               >
                 {#if s.accounts.length === 0}
@@ -239,7 +239,7 @@ async function disconnect(s: SourceInfo, account: SourceAccount) {
   bind:open={renameOpen}
   title={m.sources_rename()}
   label={m.sources_name()}
-  value={renaming?.name ?? ''}
+  value={renaming?.name ?? ""}
   onsubmit={rename}
 />
 
@@ -252,7 +252,9 @@ async function disconnect(s: SourceInfo, account: SourceAccount) {
   />
 {/if}
 
-{#snippet addForm(s: SourceInfo)}
+{#snippet addForm(
+  s: SourceInfo,
+)}
   <form class="grid gap-4 rounded-lg border p-4" onsubmit={(e) => saveAppPassword(e, s)}>
     <div class="grid gap-2">
       <Label for="source-server-{s.id}">{m.sources_server()}</Label>

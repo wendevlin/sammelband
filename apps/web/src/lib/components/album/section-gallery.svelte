@@ -1,8 +1,8 @@
 <script lang="ts">
 import MessageSquareText from "@lucide/svelte/icons/message-square-text";
 import { justify, type Photo } from "@sammelband/shared";
-import { imageUrls } from "$lib/images";
-import { cn } from "$lib/utils";
+import { imageUrls } from "#lib/images.ts";
+import { cn } from "#lib/utils.ts";
 
 /**
  * A section's photos in justified rows (like Google Photos): every photo keeps
@@ -49,14 +49,14 @@ let loaded = $state<Record<string, boolean>>({});
           >
             <div
               class={cn(
-                'absolute inset-0 scale-110 bg-cover blur-xl transition-opacity duration-300',
-                loaded[p.id] && 'opacity-0'
+                "absolute inset-0 scale-110 bg-cover blur-xl transition-opacity duration-300",
+                loaded[p.id] && "opacity-0",
               )}
               style:background-image="url({p.placeholder})"
             ></div>
             <img
               loading="lazy"
-              alt={p.caption ?? ''}
+              alt={p.caption ?? ""}
               src={images.src(p.filename, 800)}
               srcset={images.srcset(p.filename)}
               sizes="{Math.ceil(item.width)}px"

@@ -2,8 +2,8 @@
 import Copy from "@lucide/svelte/icons/copy";
 import Download from "@lucide/svelte/icons/download";
 import { toast } from "svelte-sonner";
-import { Button } from "$lib/components/ui/button";
-import { m } from "$lib/paraglide/messages.js";
+import { Button } from "#lib/components/ui/button/index.ts";
+import { m } from "#lib/paraglide/messages.js";
 
 /** Freshly generated backup codes: shown once, to copy or download. */
 let { codes }: { codes: string[] } = $props();

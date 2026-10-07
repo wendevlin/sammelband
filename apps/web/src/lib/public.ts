@@ -1,7 +1,7 @@
 import type { SharedView } from "@sammelband/shared";
 import { error } from "@sveltejs/kit";
-import { ApiError, api } from "$lib/api";
-import { errorText } from "$lib/i18n";
+import { ApiError, api } from "#lib/api.ts";
+import { errorText } from "#lib/i18n.ts";
 
 /** Load a public link's view; unknown, expired or revoked links become a 404 page. */
 export async function loadShared(

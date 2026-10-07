@@ -1,12 +1,12 @@
 <script lang="ts">
+import { safeNext } from "#lib/api.ts";
+import AuthShell from "#lib/components/app/auth-shell.svelte";
+import TwoFactorSetup from "#lib/components/app/two-factor-setup.svelte";
+import { Button } from "#lib/components/ui/button/index.ts";
+import { m } from "#lib/paraglide/messages.js";
+import { auth } from "#lib/stores/auth.svelte.ts";
 import { goto } from "$app/navigation";
 import { page } from "$app/state";
-import { safeNext } from "$lib/api";
-import AuthShell from "$lib/components/app/auth-shell.svelte";
-import TwoFactorSetup from "$lib/components/app/two-factor-setup.svelte";
-import { Button } from "$lib/components/ui/button";
-import { m } from "$lib/paraglide/messages.js";
-import { auth } from "$lib/stores/auth.svelte";
 
 // Where two-factor authentication is required, users without it land here
 // (root layout) and can't reach anything else until it's set up.
@@ -18,12 +18,12 @@ const description = $derived(
 
 async function done() {
   await auth.refresh();
-  await goto(safeNext(page.url), { invalidateAll: true, replaceState: true });
+  await goto(safeNext(page.url), { refreshAll: true, replace: true });
 }
 
 async function signOut() {
   await auth.signOut();
-  await goto("/login", { invalidateAll: true });
+  await goto("/login", { refreshAll: true });
 }
 </script>
 

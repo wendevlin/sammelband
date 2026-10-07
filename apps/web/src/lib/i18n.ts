@@ -1,12 +1,12 @@
-import { ApiError } from "$lib/api";
-import { m } from "$lib/paraglide/messages.js";
+import { ApiError } from "#lib/api.ts";
+import { m } from "#lib/paraglide/messages.js";
 import {
   getLocale,
   type Locale,
   locales,
   localStorageKey,
   setLocale,
-} from "$lib/paraglide/runtime.js";
+} from "#lib/paraglide/runtime.js";
 
 export { getLocale, type Locale, locales, m };
 

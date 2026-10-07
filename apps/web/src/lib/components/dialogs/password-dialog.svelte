@@ -1,9 +1,9 @@
 <script lang="ts">
-import { Button } from "$lib/components/ui/button";
-import * as Dialog from "$lib/components/ui/dialog";
-import { Input } from "$lib/components/ui/input";
-import { Label } from "$lib/components/ui/label";
-import { m } from "$lib/paraglide/messages.js";
+import { Button } from "#lib/components/ui/button/index.ts";
+import * as Dialog from "#lib/components/ui/dialog/index.ts";
+import { Input } from "#lib/components/ui/input/index.ts";
+import { Label } from "#lib/components/ui/label/index.ts";
+import { m } from "#lib/paraglide/messages.js";
 
 /** Confirm a sensitive action with the current password. */
 let {
@@ -61,7 +61,7 @@ async function submit(e: SubmitEvent) {
         <Button variant="outline" onclick={() => (open = false)}>{m.common_cancel()}</Button>
         <Button
           type="submit"
-          variant={destructive ? 'destructive' : 'default'}
+          variant={destructive ? "destructive" : "default"}
           disabled={busy || !password}
         >
           {submitLabel}

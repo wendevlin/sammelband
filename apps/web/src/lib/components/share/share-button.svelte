@@ -1,10 +1,10 @@
 <script lang="ts">
 import Share from "@lucide/svelte/icons/share-2";
 import type { ShareLinkInfo } from "@sammelband/shared";
-import { api } from "$lib/api";
-import { Button } from "$lib/components/ui/button";
-import { m } from "$lib/paraglide/messages.js";
-import { cn } from "$lib/utils";
+import { api } from "#lib/api.ts";
+import { Button } from "#lib/components/ui/button/index.ts";
+import { m } from "#lib/paraglide/messages.js";
+import { cn } from "#lib/utils.ts";
 import ShareDialog from "./share-dialog.svelte";
 import { shareStatus } from "./share-status";
 
@@ -45,21 +45,18 @@ $effect(() => {
   variant="outline"
   class={className}
   onclick={() => (open = true)}
-  aria-label={status === 'active'
+  aria-label={status === "active"
     ? m.share_aria_active()
-    : status === 'expired'
+    : status === "expired"
       ? m.share_aria_expired()
       : m.share()}
 >
   <Share />
   {m.share()}
-  {#if status !== 'none'}
+  {#if status !== "none"}
     <span
-      class={cn(
-        'size-2 rounded-full',
-        status === 'active' ? 'bg-emerald-500' : 'bg-amber-500'
-      )}
-      title={status === 'active' ? m.share_status_active() : m.share_status_expired()}
+      class={cn("size-2 rounded-full", status === "active" ? "bg-emerald-500" : "bg-amber-500")}
+      title={status === "active" ? m.share_status_active() : m.share_status_expired()}
     ></span>
   {/if}
 </Button>

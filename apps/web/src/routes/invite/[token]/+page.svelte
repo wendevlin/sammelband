@@ -1,14 +1,14 @@
 <script lang="ts">
+import { post } from "#lib/api.ts";
+import { attempt } from "#lib/attempt.ts";
+import AuthShell from "#lib/components/app/auth-shell.svelte";
+import * as Alert from "#lib/components/ui/alert/index.ts";
+import { Button } from "#lib/components/ui/button/index.ts";
+import { Input } from "#lib/components/ui/input/index.ts";
+import { Label } from "#lib/components/ui/label/index.ts";
+import { m } from "#lib/paraglide/messages.js";
+import { auth } from "#lib/stores/auth.svelte.ts";
 import { goto } from "$app/navigation";
-import { post } from "$lib/api";
-import { attempt } from "$lib/attempt";
-import AuthShell from "$lib/components/app/auth-shell.svelte";
-import * as Alert from "$lib/components/ui/alert";
-import { Button } from "$lib/components/ui/button";
-import { Input } from "$lib/components/ui/input";
-import { Label } from "$lib/components/ui/label";
-import { m } from "$lib/paraglide/messages.js";
-import { auth } from "$lib/stores/auth.svelte";
 
 let { data } = $props();
 
@@ -39,7 +39,7 @@ async function submit(e: SubmitEvent) {
 
 async function signOut() {
   await auth.signOut();
-  await goto(location.pathname, { invalidateAll: true });
+  await goto(location.pathname, { refreshAll: true });
 }
 </script>
 
@@ -61,13 +61,15 @@ async function signOut() {
   </AuthShell>
 {:else}
   <AuthShell
-    title={data.invite.role === 'admin'
+    title={data.invite.role === "admin"
       ? m.invite_admin_title()
       : m.invite_join({ name: data.invite.sammelband })}
-    description={data.invite.role === 'admin' ? m.invite_admin_description() : m.invite_user_description()}
+    description={data.invite.role === "admin"
+      ? m.invite_admin_description()
+      : m.invite_user_description()}
   >
     <form class="grid gap-4" onsubmit={submit}>
-      {#if data.invite.role === 'admin'}
+      {#if data.invite.role === "admin"}
         <div class="grid gap-2">
           <Label for="sammelband">{m.invite_sammelband_name()}</Label>
           <Input id="sammelband" bind:value={sammelband} required maxlength={100} />

@@ -1,7 +1,7 @@
 import type { AlbumDetail, Folder } from "@sammelband/shared";
 import { redirect } from "@sveltejs/kit";
-import { load as get } from "$lib/api";
-import { albumRef } from "$lib/links";
+import { load as get } from "#lib/api.ts";
+import { albumRef } from "#lib/links.ts";
 
 export const load = async ({ params, url, fetch, depends, parent, untrack }) => {
   // Wait for the root layout's auth/onboarding gate before hitting the API.

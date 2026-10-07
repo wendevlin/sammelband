@@ -3,14 +3,14 @@ import GripVertical from "@lucide/svelte/icons/grip-vertical";
 import Trash from "@lucide/svelte/icons/trash-2";
 import type { Photo, Section } from "@sammelband/shared";
 import { onDestroy } from "svelte";
-import { getAlbumState } from "$lib/album-state.svelte";
-import { patch, post } from "$lib/api";
-import { attempt } from "$lib/attempt";
-import { Button } from "$lib/components/ui/button";
-import { Input } from "$lib/components/ui/input";
-import { Switch } from "$lib/components/ui/switch";
-import { m } from "$lib/paraglide/messages.js";
-import { cn } from "$lib/utils";
+import { getAlbumState } from "#lib/album-state.svelte.ts";
+import { patch, post } from "#lib/api.ts";
+import { attempt } from "#lib/attempt.ts";
+import { Button } from "#lib/components/ui/button/index.ts";
+import { Input } from "#lib/components/ui/input/index.ts";
+import { Switch } from "#lib/components/ui/switch/index.ts";
+import { m } from "#lib/paraglide/messages.js";
+import { cn } from "#lib/utils.ts";
 import GalleryPhotos from "./gallery-photos.svelte";
 import MarkdownEditor from "./markdown-editor.svelte";
 
@@ -121,9 +121,9 @@ const pending = $derived(saving || Object.keys(edits).length > 0);
 
 <div
   class={cn(
-    'rounded-xl border p-4 transition-colors',
-    highlight ? 'border-highlight-border bg-highlight' : 'bg-card',
-    !section && !createdId && 'border-dashed bg-transparent'
+    "rounded-xl border p-4 transition-colors",
+    highlight ? "border-highlight-border bg-highlight" : "bg-card",
+    !section && !createdId && "border-dashed bg-transparent",
   )}
 >
   <div class="mb-3 flex items-center gap-2">

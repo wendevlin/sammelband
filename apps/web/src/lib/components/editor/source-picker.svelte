@@ -5,15 +5,15 @@ import ImageIcon from "@lucide/svelte/icons/image";
 import type { SourceAccount, SourceImage, SourceListing } from "@sammelband/shared";
 import { SvelteMap } from "svelte/reactivity";
 import { toast } from "svelte-sonner";
-import { api, post } from "$lib/api";
-import SourceCrumbs from "$lib/components/app/source-crumbs.svelte";
-import SourceFolders from "$lib/components/app/source-folders.svelte";
-import { Button } from "$lib/components/ui/button";
-import * as Dialog from "$lib/components/ui/dialog";
-import { errorText } from "$lib/i18n";
-import { m } from "$lib/paraglide/messages.js";
-import { thumbnailUrl } from "$lib/sources";
-import { cn } from "$lib/utils";
+import { api, post } from "#lib/api.ts";
+import SourceCrumbs from "#lib/components/app/source-crumbs.svelte";
+import SourceFolders from "#lib/components/app/source-folders.svelte";
+import { Button } from "#lib/components/ui/button/index.ts";
+import * as Dialog from "#lib/components/ui/dialog/index.ts";
+import { errorText } from "#lib/i18n.ts";
+import { m } from "#lib/paraglide/messages.js";
+import { thumbnailUrl } from "#lib/sources.ts";
+import { cn } from "#lib/utils.ts";
 import { dragSelect } from "./drag-select";
 import { pickerMemory } from "./picker-memory";
 import SourceLightbox from "./source-lightbox.svelte";
@@ -167,9 +167,9 @@ async function add() {
       bind:this={scroller}
       {@attach drag}
       class={cn(
-				'relative -mx-1 min-h-0 flex-1 touch-pan-y overflow-y-auto px-1 pb-1 select-none',
-				loading && 'opacity-60'
-			)}
+        "relative -mx-1 min-h-0 flex-1 touch-pan-y overflow-y-auto px-1 pb-1 select-none",
+        loading && "opacity-60",
+      )}
     >
       {#if problem}
         <p class="py-10 text-center text-sm text-destructive">{problem}</p>
@@ -201,9 +201,9 @@ async function add() {
                 <button
                   type="button"
                   class={cn(
-										'relative block aspect-square w-full overflow-hidden rounded-md bg-muted outline-offset-2 transition-[outline-width]',
-										selected.has(image.ref) && 'outline-3 outline-primary'
-									)}
+                    "relative block aspect-square w-full overflow-hidden rounded-md bg-muted outline-offset-2 transition-[outline-width]",
+                    selected.has(image.ref) && "outline-3 outline-primary",
+                  )}
                   aria-pressed={selected.has(image.ref)}
                   aria-label={image.name}
                   title={image.name}
@@ -216,9 +216,9 @@ async function add() {
                       loading="lazy"
                       draggable="false"
                       class={cn(
-												'size-full object-cover transition-transform',
-												selected.has(image.ref) && 'scale-95 rounded-sm'
-											)}
+                        "size-full object-cover transition-transform",
+                        selected.has(image.ref) && "scale-95 rounded-sm",
+                      )}
                     >
                   {:else}
                     <span class="flex size-full items-center justify-center text-muted-foreground">
@@ -262,7 +262,9 @@ async function add() {
         {#if importing}
           {m.picker_importing({ done: importing.done, count: importing.count })}
         {:else}
-          {selected.size === 1 ? m.picker_selected_one() : m.picker_selected_other({ count: selected.size })}
+          {selected.size === 1
+            ? m.picker_selected_one()
+            : m.picker_selected_other({ count: selected.size })}
         {/if}
       </p>
       <div class="flex gap-2 *:flex-1 sm:*:flex-none">

@@ -1,11 +1,11 @@
 <script lang="ts">
 import type { AlbumPatch } from "@sammelband/shared";
+import { AlbumState, setAlbumState } from "#lib/album-state.svelte.ts";
+import { albumRef } from "#lib/links.ts";
+import { live } from "#lib/live.svelte.ts";
+import { onReconnect, subscribeAll } from "#lib/ws.ts";
 import { goto, invalidate } from "$app/navigation";
 import { page } from "$app/state";
-import { AlbumState, setAlbumState } from "$lib/album-state.svelte";
-import { albumRef } from "$lib/links";
-import { live } from "$lib/live.svelte";
-import { onReconnect, subscribeAll } from "$lib/ws";
 
 let { data, children } = $props();
 
@@ -35,9 +35,9 @@ $effect(() => {
   const canonical = albumRef(album.album);
   const ref = page.params.ref;
   if (!ref || ref === canonical) return;
-  const url = new URL(page.url);
+  const url = new URL(page.url.href);
   url.pathname = url.pathname.replace(`/albums/${ref}`, `/albums/${canonical}`);
-  void goto(url, { replaceState: true, noScroll: true, keepFocus: true });
+  void goto(url, { replace: true, reset: false });
 });
 
 // Folder names and paths (breadcrumbs, the folder picker) change rarely.

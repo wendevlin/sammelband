@@ -1,11 +1,11 @@
 <script lang="ts">
 import PhotoSwipeLightbox from "photoswipe/lightbox";
-import { m } from "$lib/paraglide/messages.js";
+import { m } from "#lib/paraglide/messages.js";
 import "photoswipe/style.css";
 import type { Photo, Section } from "@sammelband/shared";
-import * as Dialog from "$lib/components/ui/dialog";
-import { imageUrls } from "$lib/images";
-import { cn } from "$lib/utils";
+import * as Dialog from "#lib/components/ui/dialog/index.ts";
+import { imageUrls } from "#lib/images.ts";
+import { cn } from "#lib/utils.ts";
 import MarkdownText from "./markdown-text.svelte";
 import SectionGallery from "./section-gallery.svelte";
 
@@ -185,8 +185,8 @@ $effect(() => () => {
          text start at its left edge, like the photos, at a readable width. -->
     <section
       class={cn(
-        'bleed my-10 first:mt-0',
-        s.highlight && 'rounded-2xl border border-highlight-border bg-highlight px-5 py-6 sm:px-8'
+        "bleed my-10 first:mt-0",
+        s.highlight && "rounded-2xl border border-highlight-border bg-highlight px-5 py-6 sm:px-8",
       )}
     >
       {#if s.title.trim()}
@@ -216,8 +216,8 @@ $effect(() => () => {
         <!-- Like the section heading on the album page, clear of the close button. -->
         <Dialog.Title
           class={cn(
-            'pr-10 text-2xl leading-tight font-normal tracking-normal normal-case',
-            !infoSection.title.trim() && 'sr-only'
+            "pr-10 text-2xl leading-tight font-normal tracking-normal normal-case",
+            !infoSection.title.trim() && "sr-only",
           )}
         >
           {infoSection.title.trim() || m.lightbox_section_text()}

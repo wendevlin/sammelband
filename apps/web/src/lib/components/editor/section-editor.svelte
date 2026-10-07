@@ -1,11 +1,11 @@
 <script lang="ts">
 import type { Photo, Section } from "@sammelband/shared";
 import { SvelteMap } from "svelte/reactivity";
-import { del, post } from "$lib/api";
-import { attempt } from "$lib/attempt";
-import ConfirmDialog from "$lib/components/dialogs/confirm-dialog.svelte";
-import { m } from "$lib/paraglide/messages.js";
-import { cn } from "$lib/utils";
+import { del, post } from "#lib/api.ts";
+import { attempt } from "#lib/attempt.ts";
+import ConfirmDialog from "#lib/components/dialogs/confirm-dialog.svelte";
+import { m } from "#lib/paraglide/messages.js";
+import { cn } from "#lib/utils.ts";
 import { providePickerMemory } from "./picker-memory";
 import SectionCard from "./section-card.svelte";
 
@@ -81,13 +81,13 @@ async function drop(e: DragEvent, target: Section) {
     {@const s = item.section}
     <li
       class={cn(
-        'transition-opacity',
-        s && dragId === s.id && 'opacity-40',
+        "transition-opacity",
+        s && dragId === s.id && "opacity-40",
         s &&
           dropTarget?.id === s.id &&
           (dropTarget.after
-            ? 'rounded-b-xl border-b-4 border-b-primary'
-            : 'rounded-t-xl border-t-4 border-t-primary')
+            ? "rounded-b-xl border-b-4 border-b-primary"
+            : "rounded-t-xl border-t-4 border-t-primary"),
       )}
       ondragover={(e) => s && dragOver(e, s)}
       ondrop={(e) => s && drop(e, s)}
@@ -104,7 +104,7 @@ async function drop(e: DragEvent, target: Section) {
         ondragstart={(e) => {
           if (!s) return;
           dragId = s.id;
-          e.dataTransfer?.setData('text/plain', s.id);
+          e.dataTransfer?.setData("text/plain", s.id);
         }}
         ondragend={endDrag}
       />

@@ -1,7 +1,7 @@
 import type { InstanceOverview } from "@sammelband/shared";
 import { error } from "@sveltejs/kit";
-import { load as get } from "$lib/api";
-import { auth } from "$lib/stores/auth.svelte";
+import { load as get } from "#lib/api.ts";
+import { auth } from "#lib/stores/auth.svelte.ts";
 
 export const load = async ({ fetch, depends, parent }) => {
   await parent();

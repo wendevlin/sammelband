@@ -7,28 +7,28 @@ import Pencil from "@lucide/svelte/icons/pencil";
 import Play from "@lucide/svelte/icons/play";
 import Trash from "@lucide/svelte/icons/trash-2";
 import type { CreatedInvite, TenantOverview } from "@sammelband/shared";
+import { del, patch, post } from "#lib/api.ts";
+import { attempt } from "#lib/attempt.ts";
+import ActionMenu from "#lib/components/app/action-menu.svelte";
+import ExpandableCard from "#lib/components/app/expandable-card.svelte";
+import type { RowAction } from "#lib/components/app/row-actions.ts";
+import ConfirmDialog from "#lib/components/dialogs/confirm-dialog.svelte";
+import InviteLinkDialog from "#lib/components/dialogs/invite-link-dialog.svelte";
+import PromptDialog from "#lib/components/dialogs/prompt-dialog.svelte";
+import { Badge } from "#lib/components/ui/badge/index.ts";
+import { Button } from "#lib/components/ui/button/index.ts";
+import * as Card from "#lib/components/ui/card/index.ts";
+import * as Dialog from "#lib/components/ui/dialog/index.ts";
+import { Input } from "#lib/components/ui/input/index.ts";
+import { Label } from "#lib/components/ui/label/index.ts";
+import { Switch } from "#lib/components/ui/switch/index.ts";
+import * as Table from "#lib/components/ui/table/index.ts";
+import { formatDate } from "#lib/i18n.ts";
+import { formatBytes } from "#lib/images.ts";
+import { m } from "#lib/paraglide/messages.js";
+import { browserTimeZone } from "#lib/timezone.ts";
+import { cn } from "#lib/utils.ts";
 import { invalidate } from "$app/navigation";
-import { del, patch, post } from "$lib/api";
-import { attempt } from "$lib/attempt";
-import ActionMenu from "$lib/components/app/action-menu.svelte";
-import ExpandableCard from "$lib/components/app/expandable-card.svelte";
-import type { RowAction } from "$lib/components/app/row-actions";
-import ConfirmDialog from "$lib/components/dialogs/confirm-dialog.svelte";
-import InviteLinkDialog from "$lib/components/dialogs/invite-link-dialog.svelte";
-import PromptDialog from "$lib/components/dialogs/prompt-dialog.svelte";
-import { Badge } from "$lib/components/ui/badge";
-import { Button } from "$lib/components/ui/button";
-import * as Card from "$lib/components/ui/card";
-import * as Dialog from "$lib/components/ui/dialog";
-import { Input } from "$lib/components/ui/input";
-import { Label } from "$lib/components/ui/label";
-import { Switch } from "$lib/components/ui/switch";
-import * as Table from "$lib/components/ui/table";
-import { formatDate } from "$lib/i18n";
-import { formatBytes } from "$lib/images";
-import { m } from "$lib/paraglide/messages.js";
-import { browserTimeZone } from "$lib/timezone";
-import { cn } from "$lib/utils";
 
 let { data } = $props();
 
@@ -219,7 +219,7 @@ function open(t: TenantOverview, what: "rename" | "quota" | "suspend" | "delete"
       <Card.Title class="text-3xl">{formatBytes(data.overview.database.size_bytes)}</Card.Title>
     </Card.Header>
     <Card.Content class="text-xs text-muted-foreground">
-      {data.overview.database.type === 'postgres' ? 'PostgreSQL' : 'SQLite'}
+      {data.overview.database.type === "postgres" ? "PostgreSQL" : "SQLite"}
     </Card.Content>
   </Card.Root>
 </div>
@@ -242,7 +242,9 @@ function open(t: TenantOverview, what: "rename" | "quota" | "suspend" | "delete"
   </Card.Content>
 </Card.Root>
 
-{#snippet badges(t: TenantOverview)}
+{#snippet badges(
+  t: TenantOverview,
+)}
   {#if t.own}
     <Badge variant="secondary">{m.instance_yours()}</Badge>
   {/if}
@@ -259,7 +261,9 @@ function open(t: TenantOverview, what: "rename" | "quota" | "suspend" | "delete"
   {/if}
 {/snippet}
 
-{#snippet storage(t: TenantOverview)}
+{#snippet storage(
+  t: TenantOverview,
+)}
   <span class="tabular-nums">
     {formatBytes(t.storage_used_bytes)}
     <span class="text-muted-foreground">
@@ -273,7 +277,7 @@ function open(t: TenantOverview, what: "rename" | "quota" | "suspend" | "delete"
   {#each tenants as t (t.id)}
     <ExpandableCard actions={actionsFor(t)}>
       {#snippet summary()}
-        <p class={cn('font-medium', t.suspended_at && 'opacity-60')}>{t.name}</p>
+        <p class={cn("font-medium", t.suspended_at && "opacity-60")}>{t.name}</p>
         <div class="mt-1 flex flex-wrap gap-1">{@render badges(t)}</div>
       {/snippet}
       <dl class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2">
@@ -304,7 +308,7 @@ function open(t: TenantOverview, what: "rename" | "quota" | "suspend" | "delete"
     </Table.Header>
     <Table.Body>
       {#each tenants as t (t.id)}
-        <Table.Row class={t.suspended_at ? 'opacity-60' : ''}>
+        <Table.Row class={t.suspended_at ? "opacity-60" : ""}>
           <Table.Cell class="font-medium">
             {t.name}
             <span class="ml-2 inline-flex gap-2 align-middle">{@render badges(t)}</span>
@@ -363,9 +367,9 @@ function open(t: TenantOverview, what: "rename" | "quota" | "suspend" | "delete"
 
 <PromptDialog
   bind:open={renameOpen}
-  title={m.users_rename_title({ email: target?.name ?? '' })}
+  title={m.users_rename_title({ email: target?.name ?? "" })}
   label={m.common_name()}
-  value={target?.name ?? ''}
+  value={target?.name ?? ""}
   onsubmit={rename}
 />
 
@@ -373,7 +377,7 @@ function open(t: TenantOverview, what: "rename" | "quota" | "suspend" | "delete"
   <Dialog.Content class="sm:max-w-md">
     <form class="grid gap-4" onsubmit={saveQuota}>
       <Dialog.Header>
-        <Dialog.Title>{m.instance_quota_title({ name: target?.name ?? '' })}</Dialog.Title>
+        <Dialog.Title>{m.instance_quota_title({ name: target?.name ?? "" })}</Dialog.Title>
         <Dialog.Description>{m.instance_quota_description()}</Dialog.Description>
       </Dialog.Header>
       <div class="grid gap-2">
@@ -397,7 +401,7 @@ function open(t: TenantOverview, what: "rename" | "quota" | "suspend" | "delete"
 
 <ConfirmDialog
   bind:open={suspendOpen}
-  title={m.instance_suspend_confirm({ name: target?.name ?? '' })}
+  title={m.instance_suspend_confirm({ name: target?.name ?? "" })}
   description={m.instance_suspend_description()}
   confirmLabel={m.instance_suspend()}
   onconfirm={() => target && setSuspended(target, true)}
@@ -407,7 +411,7 @@ function open(t: TenantOverview, what: "rename" | "quota" | "suspend" | "delete"
   <Dialog.Content class="sm:max-w-md">
     <form class="grid gap-4" onsubmit={remove}>
       <Dialog.Header>
-        <Dialog.Title>{m.folder_delete_confirm({ name: target?.name ?? '' })}</Dialog.Title>
+        <Dialog.Title>{m.folder_delete_confirm({ name: target?.name ?? "" })}</Dialog.Title>
         <Dialog.Description>
           {m.instance_delete_description({
             users: target?.user_count ?? 0,

@@ -1,8 +1,8 @@
 <script lang="ts">
 import ArrowLeft from "@lucide/svelte/icons/arrow-left";
 import ArrowRight from "@lucide/svelte/icons/arrow-right";
-import * as DropdownMenu from "$lib/components/ui/dropdown-menu";
-import { m } from "$lib/paraglide/messages.js";
+import * as DropdownMenu from "#lib/components/ui/dropdown-menu/index.ts";
+import { m } from "#lib/paraglide/messages.js";
 
 /** One step earlier or later in the custom order: reordering without drag and drop (touch, keyboard). */
 let { onmove, first, last }: { onmove: (delta: -1 | 1) => void; first: boolean; last: boolean } =

@@ -1,6 +1,6 @@
-import { ApiError, api } from "$lib/api";
-import { errorText } from "$lib/i18n";
-import { m } from "$lib/paraglide/messages.js";
+import { ApiError, api } from "#lib/api.ts";
+import { errorText } from "#lib/i18n.ts";
+import { m } from "#lib/paraglide/messages.js";
 
 export const load = async ({ params, fetch, parent }) => {
   await parent();

@@ -1,7 +1,7 @@
 <script lang="ts">
 import { Select as SelectPrimitive } from "bits-ui";
 import type { ComponentProps } from "svelte";
-import { cn } from "$lib/utils.js";
+import { cn } from "#lib/utils.js";
 
 let {
   ref = $bindable(null),
@@ -15,9 +15,9 @@ let {
   bind:ref
   data-slot="select-group-heading"
   class={cn(
-		'px-3 py-2 text-xs font-semibold tracking-wider text-muted-foreground uppercase',
-		className
-	)}
+    "px-3 py-2 text-xs font-semibold tracking-wider text-muted-foreground uppercase",
+    className,
+  )}
   {...restProps}
 >
   {@render children?.()}

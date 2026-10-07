@@ -5,17 +5,17 @@ import KeyRound from "@lucide/svelte/icons/key-round";
 import Plus from "@lucide/svelte/icons/plus";
 import Trash from "@lucide/svelte/icons/trash-2";
 import type { ShareLinkInfo } from "@sammelband/shared";
-import { del, post } from "$lib/api";
-import { attempt } from "$lib/attempt";
-import { Badge } from "$lib/components/ui/badge";
-import { Button } from "$lib/components/ui/button";
-import * as Dialog from "$lib/components/ui/dialog";
-import { Input } from "$lib/components/ui/input";
-import { Label } from "$lib/components/ui/label";
-import { Switch } from "$lib/components/ui/switch";
-import { m } from "$lib/paraglide/messages.js";
-import { auth } from "$lib/stores/auth.svelte";
-import { endOfDayIn, formatInZone } from "$lib/timezone";
+import { del, post } from "#lib/api.ts";
+import { attempt } from "#lib/attempt.ts";
+import { Badge } from "#lib/components/ui/badge/index.ts";
+import { Button } from "#lib/components/ui/button/index.ts";
+import * as Dialog from "#lib/components/ui/dialog/index.ts";
+import { Input } from "#lib/components/ui/input/index.ts";
+import { Label } from "#lib/components/ui/label/index.ts";
+import { Switch } from "#lib/components/ui/switch/index.ts";
+import { m } from "#lib/paraglide/messages.js";
+import { auth } from "#lib/stores/auth.svelte.ts";
+import { endOfDayIn, formatInZone } from "#lib/timezone.ts";
 import { isExpired } from "./share-status";
 
 /** Public links of one album or folder: list, copy, revoke, create. */

@@ -3,11 +3,11 @@ import EllipsisVertical from "@lucide/svelte/icons/ellipsis-vertical";
 import ImageIcon from "@lucide/svelte/icons/image";
 import type { Album } from "@sammelband/shared";
 import type { Snippet } from "svelte";
-import { Button } from "$lib/components/ui/button";
-import * as DropdownMenu from "$lib/components/ui/dropdown-menu";
-import { imageUrls } from "$lib/images";
-import { albumPath } from "$lib/links";
-import { m } from "$lib/paraglide/messages.js";
+import { Button } from "#lib/components/ui/button/index.ts";
+import * as DropdownMenu from "#lib/components/ui/dropdown-menu/index.ts";
+import { imageUrls } from "#lib/images.ts";
+import { albumPath } from "#lib/links.ts";
+import { m } from "#lib/paraglide/messages.js";
 
 type CardAlbum = Pick<Album, "title" | "short_id"> & {
   cover_filename?: string | null;
@@ -51,7 +51,9 @@ const images = imageUrls();
     {#if menu}
       <DropdownMenu.Root>
         <DropdownMenu.Trigger>
-          {#snippet child({ props })}
+          {#snippet child({
+            props,
+          })}
             <Button {...props} variant="ghost" size="icon-sm" aria-label={m.album_actions()}>
               <EllipsisVertical />
             </Button>
