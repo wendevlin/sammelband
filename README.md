@@ -102,7 +102,9 @@ Put a reverse proxy with TLS in front (Caddy, Traefik, nginx). Set
 `TRUST_PROXY=true` so rate limits see the real client IP, and configure HSTS
 there; the app doesn't send it. If more than one proxy adds to
 `X-Forwarded-For` (e.g. a CDN in front of Caddy), set `TRUST_PROXY_HOPS` to
-their number.
+their number. The editor uploads all selected photos in one request of up to
+512 MB (more if `MAX_UPLOAD_MB` is larger), so let the proxy accept that much
+(nginx: `client_max_body_size 512m;`). Other requests are limited to 1 MB.
 
 Run a single instance, also with PostgreSQL. Rate limits, live updates, the PDF
 export queue, Nextcloud sign-ins in progress and the setup state live in the
@@ -124,7 +126,7 @@ rate limits, live updates would get lost and exports could run twice.
 | `TRUSTED_ORIGINS` | `http://localhost:5173` in dev | Extra origins allowed to make requests |
 | `TRUST_PROXY` | `false` | Use `X-Forwarded-For` for rate limiting. Only behind a proxy that sets it |
 | `TRUST_PROXY_HOPS` | `1` | Number of reverse proxies in front that append to `X-Forwarded-For`; the client address is read that many entries from the right |
-| `MAX_UPLOAD_MB` | `50` | Largest accepted photo |
+| `MAX_UPLOAD_MB` | `50` | Largest accepted photo, in MB (a positive number) |
 | `MULTI_TENANT` | `false` | Host several Sammelbände; the owner manages them under Admin settings |
 | `SOURCES_ALLOW_PRIVATE_HOSTS` | `false` | Let photo sources (Nextcloud) live on private addresses: home network, Tailscale, the same host |
 | `SMTP_HOST` | unset | SMTP server for email. Without it no mail is sent and "Forgot password?" is hidden |

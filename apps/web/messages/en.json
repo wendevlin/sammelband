@@ -331,6 +331,8 @@
   "upload_storage_full": "Storage full",
   "upload_too_large": "Photo too large",
   "upload_partial": "{reason} Photos before this one in the selection were saved.",
+  "upload_request_too_large": "Too many photos at once",
+  "upload_request_too_large_hint": "Nothing was uploaded. Choose fewer photos and try again.",
   "upload_done_one": "Uploaded 1 photo",
   "upload_done_other": "Uploaded {count} photos",
   "upload_reused": "({count} already stored, reused)",
