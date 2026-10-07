@@ -1,5 +1,5 @@
 <script lang="ts">
-import * as Select from "$lib/components/ui/select";
+import * as Select from "#lib/components/ui/select/index.ts";
 
 /** Single-value select from a flat option list. */
 let {

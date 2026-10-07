@@ -1,8 +1,8 @@
 <script lang="ts">
 import Languages from "@lucide/svelte/icons/languages";
-import { Button } from "$lib/components/ui/button";
-import * as DropdownMenu from "$lib/components/ui/dropdown-menu";
-import { getLocale, LOCALE_NAMES, type Locale, locales, m, switchLocale } from "$lib/i18n";
+import { Button } from "#lib/components/ui/button/index.ts";
+import * as DropdownMenu from "#lib/components/ui/dropdown-menu/index.ts";
+import { getLocale, LOCALE_NAMES, type Locale, locales, m, switchLocale } from "#lib/i18n.ts";
 
 /**
  * Language menu for pages without an account context (sign-in, setup,
@@ -14,7 +14,9 @@ const current = getLocale();
 
 <DropdownMenu.Root>
   <DropdownMenu.Trigger>
-    {#snippet child({ props })}
+    {#snippet child({
+      props,
+    })}
       <Button {...props} variant="ghost" size="sm" aria-label={m.language()}>
         <Languages />
         {LOCALE_NAMES[current]}

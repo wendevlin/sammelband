@@ -1,5 +1,5 @@
 <script lang="ts">
-import SharedPage from "$lib/components/share/shared-page.svelte";
+import SharedPage from "#lib/components/share/shared-page.svelte";
 
 let { data } = $props();
 </script>

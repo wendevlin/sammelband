@@ -1,6 +1,6 @@
 import type { AlbumExport } from "@sammelband/shared";
-import { api } from "$lib/api";
-import { onReconnect, subscribeAll } from "$lib/ws";
+import { api } from "#lib/api.ts";
+import { onReconnect, subscribeAll } from "#lib/ws.ts";
 
 /**
  * An album's PDF exports, kept current: the server sends every change

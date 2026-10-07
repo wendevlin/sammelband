@@ -1,5 +1,5 @@
 <script lang="ts">
-import { cn } from "$lib/utils";
+import { cn } from "#lib/utils.ts";
 
 // The Sammelband mark: an album with a page of photos. The album takes the
 // current text color, the cut-outs take the page background, so it works in
@@ -8,7 +8,7 @@ let { tile = false, class: className }: { tile?: boolean; class?: string } = $pr
 </script>
 
 {#if tile}
-  <svg viewBox="0 0 32 32" class={cn('size-8', className)} aria-hidden="true">
+  <svg viewBox="0 0 32 32" class={cn("size-8", className)} aria-hidden="true">
     <rect width="32" height="32" rx="7" fill="#7B1E2E" />
     <rect x="8.5" y="6.5" width="16" height="19.5" rx="1.6" fill="#D9C3B9" />
     <rect x="7.5" y="5.5" width="16" height="19.5" rx="1.4" fill="#FAF6F1" />
@@ -28,7 +28,7 @@ let { tile = false, class: className }: { tile?: boolean; class?: string } = $pr
     <circle cx="13.65" cy="20.9" r=".26" fill="#7B1E2E" />
   </svg>
 {:else}
-  <svg viewBox="4 4 24 24" class={cn('size-8 text-primary', className)} aria-hidden="true">
+  <svg viewBox="4 4 24 24" class={cn("size-8 text-primary", className)} aria-hidden="true">
     <rect
       x="8.5"
       y="6.5"

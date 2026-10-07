@@ -1,15 +1,15 @@
 <script lang="ts">
+import { post } from "#lib/api.ts";
+import { attempt } from "#lib/attempt.ts";
+import AuthShell from "#lib/components/app/auth-shell.svelte";
+import { Button } from "#lib/components/ui/button/index.ts";
+import { Input } from "#lib/components/ui/input/index.ts";
+import { Label } from "#lib/components/ui/label/index.ts";
+import { m } from "#lib/paraglide/messages.js";
+import { auth } from "#lib/stores/auth.svelte.ts";
+import { browserTimeZone } from "#lib/timezone.ts";
 import { goto } from "$app/navigation";
 import { page } from "$app/state";
-import { post } from "$lib/api";
-import { attempt } from "$lib/attempt";
-import AuthShell from "$lib/components/app/auth-shell.svelte";
-import { Button } from "$lib/components/ui/button";
-import { Input } from "$lib/components/ui/input";
-import { Label } from "$lib/components/ui/label";
-import { m } from "$lib/paraglide/messages.js";
-import { auth } from "$lib/stores/auth.svelte";
-import { browserTimeZone } from "$lib/timezone";
 
 let code = $state(page.url.searchParams.get("code") ?? "");
 let sammelband = $state("");
@@ -36,7 +36,7 @@ async function submit(e: SubmitEvent) {
   busy = false;
   if (!ok) return;
   auth.needsOnboarding = false;
-  await goto("/login", { invalidateAll: true });
+  await goto("/login", { refreshAll: true });
 }
 </script>
 

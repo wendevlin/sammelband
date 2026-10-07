@@ -1,6 +1,6 @@
 <script lang="ts">
-import * as AlertDialog from "$lib/components/ui/alert-dialog";
-import { m } from "$lib/paraglide/messages.js";
+import * as AlertDialog from "#lib/components/ui/alert-dialog/index.ts";
+import { m } from "#lib/paraglide/messages.js";
 
 /** A message that stays until acknowledged (unlike a toast). */
 let {

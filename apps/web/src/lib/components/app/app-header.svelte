@@ -7,13 +7,13 @@ import Sun from "@lucide/svelte/icons/sun";
 import SunMoon from "@lucide/svelte/icons/sun-moon";
 import UserIcon from "@lucide/svelte/icons/user";
 import { mode, setMode } from "mode-watcher";
+import { Button } from "#lib/components/ui/button/index.ts";
+import * as DropdownMenu from "#lib/components/ui/dropdown-menu/index.ts";
+import { m } from "#lib/paraglide/messages.js";
+import { auth } from "#lib/stores/auth.svelte.ts";
+import { cn } from "#lib/utils.ts";
 import { goto } from "$app/navigation";
 import { page } from "$app/state";
-import { Button } from "$lib/components/ui/button";
-import * as DropdownMenu from "$lib/components/ui/dropdown-menu";
-import { m } from "$lib/paraglide/messages.js";
-import { auth } from "$lib/stores/auth.svelte";
-import { cn } from "$lib/utils";
 import Logo from "./logo.svelte";
 import UserAvatar from "./user-avatar.svelte";
 
@@ -30,7 +30,7 @@ const themes = [
 
 async function signOut() {
   await auth.signOut();
-  await goto("/login", { invalidateAll: true });
+  await goto("/login", { refreshAll: true });
 }
 </script>
 
@@ -40,9 +40,11 @@ async function signOut() {
   {/each}
 {/snippet}
 
-{#snippet accountItems(itemClass = '')}
+{#snippet accountItems(
+  itemClass = "",
+)}
   <DropdownMenu.Label class="flex items-center gap-3 tracking-normal normal-case">
-    <UserAvatar name={auth.user?.name ?? ''} image={auth.user?.image} class="size-9 text-sm" />
+    <UserAvatar name={auth.user?.name ?? ""} image={auth.user?.image} class="size-9 text-sm" />
     <div class="min-w-0">
       <div class="truncate text-sm">{auth.user?.name}</div>
       <div class="truncate text-xs font-normal text-muted-foreground">{auth.user?.email}</div>
@@ -53,13 +55,17 @@ async function signOut() {
   </DropdownMenu.Label>
   <DropdownMenu.Separator />
   <DropdownMenu.Item class={itemClass}>
-    {#snippet child({ props })}
+    {#snippet child({
+      props,
+    })}
       <a href="/profile" {...props}><UserIcon /> {m.nav_profile()}</a>
     {/snippet}
   </DropdownMenu.Item>
   {#if auth.isAdmin}
     <DropdownMenu.Item class={itemClass}>
-      {#snippet child({ props })}
+      {#snippet child({
+        props,
+      })}
         <a href="/admin" {...props}><Settings /> {m.nav_admin_settings()}</a>
       {/snippet}
     </DropdownMenu.Item>
@@ -75,8 +81,8 @@ async function signOut() {
       <a
         href="/"
         class={cn(
-          'px-3 py-2 text-xs font-semibold tracking-widest uppercase transition-colors',
-          inLibrary ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'
+          "px-3 py-2 text-xs font-semibold tracking-widest uppercase transition-colors",
+          inLibrary ? "text-foreground" : "text-muted-foreground hover:text-foreground",
         )}
       >
         {m.nav_library()}
@@ -85,9 +91,11 @@ async function signOut() {
     <div class="ml-auto hidden items-center gap-1 sm:flex">
       <DropdownMenu.Root>
         <DropdownMenu.Trigger>
-          {#snippet child({ props })}
+          {#snippet child({
+            props,
+          })}
             <Button {...props} variant="ghost" size="icon-sm" aria-label={m.theme()}>
-              {#if mode.current === 'dark'}
+              {#if mode.current === "dark"}
                 <Moon />
               {:else}
                 <Sun />
@@ -99,9 +107,11 @@ async function signOut() {
       </DropdownMenu.Root>
       <DropdownMenu.Root>
         <DropdownMenu.Trigger>
-          {#snippet child({ props })}
+          {#snippet child({
+            props,
+          })}
             <button {...props} type="button" class="ml-1 rounded-full" aria-label={m.nav_account()}>
-              <UserAvatar name={auth.user?.name ?? ''} image={auth.user?.image} />
+              <UserAvatar name={auth.user?.name ?? ""} image={auth.user?.image} />
             </button>
           {/snippet}
         </DropdownMenu.Trigger>
@@ -117,7 +127,9 @@ async function signOut() {
     <div class="ml-auto sm:hidden">
       <DropdownMenu.Root>
         <DropdownMenu.Trigger>
-          {#snippet child({ props })}
+          {#snippet child({
+            props,
+          })}
             <Button {...props} variant="ghost" size="icon" aria-label={m.nav_menu()}>
               <Menu class="size-5" />
             </Button>
@@ -125,14 +137,16 @@ async function signOut() {
         </DropdownMenu.Trigger>
         <DropdownMenu.Content align="end" class="w-64">
           <DropdownMenu.Item
-            class={cn('py-2.5 text-base', inLibrary && 'font-semibold text-primary')}
+            class={cn("py-2.5 text-base", inLibrary && "font-semibold text-primary")}
           >
-            {#snippet child({ props })}
+            {#snippet child({
+              props,
+            })}
               <a href="/" {...props}>{m.nav_library()}</a>
             {/snippet}
           </DropdownMenu.Item>
           <DropdownMenu.Separator />
-          {@render accountItems('py-2.5 text-base')}
+          {@render accountItems("py-2.5 text-base")}
           <DropdownMenu.Separator />
           <DropdownMenu.Label class="text-xs font-normal text-muted-foreground"
             >{m.theme()}</DropdownMenu.Label

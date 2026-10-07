@@ -3,24 +3,24 @@ import ArrowLeft from "@lucide/svelte/icons/arrow-left";
 import Check from "@lucide/svelte/icons/check";
 import Trash from "@lucide/svelte/icons/trash-2";
 import type { Folder } from "@sammelband/shared";
+import { AlbumExports } from "#lib/album-exports.svelte.ts";
+import { getAlbumState } from "#lib/album-state.svelte.ts";
+import { del, patch, post } from "#lib/api.ts";
+import { attempt } from "#lib/attempt.ts";
+import SimpleSelect from "#lib/components/app/simple-select.svelte";
+import ConfirmDialog from "#lib/components/dialogs/confirm-dialog.svelte";
+import SectionEditor from "#lib/components/editor/section-editor.svelte";
+import { Button } from "#lib/components/ui/button/index.ts";
+import * as Card from "#lib/components/ui/card/index.ts";
+import { Input } from "#lib/components/ui/input/index.ts";
+import { Label } from "#lib/components/ui/label/index.ts";
+import * as Tabs from "#lib/components/ui/tabs/index.ts";
+import { Textarea } from "#lib/components/ui/textarea/index.ts";
+import { imageSrc } from "#lib/images.ts";
+import { albumPath } from "#lib/links.ts";
+import { m } from "#lib/paraglide/messages.js";
+import { cn } from "#lib/utils.ts";
 import { goto } from "$app/navigation";
-import { AlbumExports } from "$lib/album-exports.svelte";
-import { getAlbumState } from "$lib/album-state.svelte";
-import { del, patch, post } from "$lib/api";
-import { attempt } from "$lib/attempt";
-import SimpleSelect from "$lib/components/app/simple-select.svelte";
-import ConfirmDialog from "$lib/components/dialogs/confirm-dialog.svelte";
-import SectionEditor from "$lib/components/editor/section-editor.svelte";
-import { Button } from "$lib/components/ui/button";
-import * as Card from "$lib/components/ui/card";
-import { Input } from "$lib/components/ui/input";
-import { Label } from "$lib/components/ui/label";
-import * as Tabs from "$lib/components/ui/tabs";
-import { Textarea } from "$lib/components/ui/textarea";
-import { imageSrc } from "$lib/images";
-import { albumPath } from "$lib/links";
-import { m } from "$lib/paraglide/messages.js";
-import { cn } from "$lib/utils";
 
 let { data } = $props();
 
@@ -123,9 +123,9 @@ async function deleteAlbum() {
             value={folderId}
             options={folderOptions}
             onchange={(v) => {
-							folderId = v;
-							dirty = true;
-						}}
+              folderId = v;
+              dirty = true;
+            }}
             class="w-64"
           />
         </div>
@@ -167,7 +167,7 @@ async function deleteAlbum() {
       </p>
     {:else}
       <Button
-        variant={live.album.cover_photo_id ? 'outline' : 'default'}
+        variant={live.album.cover_photo_id ? "outline" : "default"}
         size="sm"
         class="mb-4"
         onclick={() => setCover(null)}
@@ -182,15 +182,15 @@ async function deleteAlbum() {
           <button
             type="button"
             class={cn(
-							'relative aspect-square overflow-hidden rounded-lg bg-muted outline-offset-2',
-							live.album.cover_photo_id === p.id && 'outline-3 outline-primary'
-						)}
+              "relative aspect-square overflow-hidden rounded-lg bg-muted outline-offset-2",
+              live.album.cover_photo_id === p.id && "outline-3 outline-primary",
+            )}
             onclick={() => setCover(p.id)}
             aria-label={m.album_cover_use()}
           >
             <img
               src={imageSrc(p.filename, 400)}
-              alt={p.caption ?? ''}
+              alt={p.caption ?? ""}
               class="size-full object-cover"
             >
           </button>

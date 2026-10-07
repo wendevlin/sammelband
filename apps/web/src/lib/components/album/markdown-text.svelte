@@ -1,6 +1,6 @@
 <script lang="ts">
 import type { Token, Tokens } from "marked";
-import { lex, safeHref } from "$lib/markdown";
+import { lex, safeHref } from "#lib/markdown.ts";
 
 /**
  * Markdown as Svelte elements: paragraphs, emphasis, links, lists, quotes,
@@ -14,23 +14,25 @@ const raw = (t: Token): string => ("text" in t && typeof t.text === "string" ? t
 const href = (t: Token) => safeHref((t as Tokens.Link).href);
 </script>
 
-{#snippet inline(list: Token[])}
+{#snippet inline(
+  list: Token[],
+)}
   {#each list as t, i (i)}
-    {#if t.type === 'strong'}
+    {#if t.type === "strong"}
       <strong>{@render inline(children(t))}</strong>
-    {:else if t.type === 'em'}
+    {:else if t.type === "em"}
       <em>{@render inline(children(t))}</em>
-    {:else if t.type === 'del'}
+    {:else if t.type === "del"}
       <del>{@render inline(children(t))}</del>
-    {:else if t.type === 'codespan'}
+    {:else if t.type === "codespan"}
       <code>{(t as Tokens.Codespan).text}</code>
-    {:else if t.type === 'br'}
+    {:else if t.type === "br"}
       <br>
-    {:else if t.type === 'link' && href(t)}
+    {:else if t.type === "link" && href(t)}
       <a href={href(t)} target="_blank" rel="noopener noreferrer nofollow"
         >{@render inline(children(t))}</a
       >
-    {:else if t.type === 'image'}
+    {:else if t.type === "image"}
       {(t as Tokens.Image).text}
     {:else if children(t).length > 0}
       {@render inline(children(t))}
@@ -40,9 +42,11 @@ const href = (t: Token) => safeHref((t as Tokens.Link).href);
   {/each}
 {/snippet}
 
-{#snippet list(l: Tokens.List)}
+{#snippet list(
+  l: Tokens.List,
+)}
   {#if l.ordered}
-    <ol start={typeof l.start === 'number' ? l.start : undefined}>
+    <ol start={typeof l.start === "number" ? l.start : undefined}>
       {#each l.items as item, j (j)}
         <li>{@render blocks(item.tokens)}</li>
       {/each}
@@ -56,24 +60,26 @@ const href = (t: Token) => safeHref((t as Tokens.Link).href);
   {/if}
 {/snippet}
 
-{#snippet blocks(tokens: Token[])}
+{#snippet blocks(
+  tokens: Token[],
+)}
   {#each tokens as t, i (i)}
-    {#if t.type === 'paragraph'}
+    {#if t.type === "paragraph"}
       <p>{@render inline(children(t))}</p>
-    {:else if t.type === 'heading'}
+    {:else if t.type === "heading"}
       <h3>{@render inline(children(t))}</h3>
-    {:else if t.type === 'list'}
+    {:else if t.type === "list"}
       {@render list(t as Tokens.List)}
-    {:else if t.type === 'blockquote'}
+    {:else if t.type === "blockquote"}
       <blockquote>{@render blocks(children(t))}</blockquote>
-    {:else if t.type === 'code'}
+    {:else if t.type === "code"}
       <pre><code>{(t as Tokens.Code).text}</code></pre>
-    {:else if t.type === 'hr'}
+    {:else if t.type === "hr"}
       <hr>
-    {:else if t.type === 'text'}
+    {:else if t.type === "text"}
       <!-- Text directly in a tight list item. -->
       {@render inline(children(t).length > 0 ? children(t) : [t])}
-    {:else if t.type !== 'space'}
+    {:else if t.type !== "space"}
       <p>{t.raw}</p>
     {/if}
   {/each}

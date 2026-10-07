@@ -1,13 +1,13 @@
 <script lang="ts">
+import { post } from "#lib/api.ts";
+import AuthShell from "#lib/components/app/auth-shell.svelte";
+import * as Alert from "#lib/components/ui/alert/index.ts";
+import { Button } from "#lib/components/ui/button/index.ts";
+import { Input } from "#lib/components/ui/input/index.ts";
+import { Label } from "#lib/components/ui/label/index.ts";
+import { errorText } from "#lib/i18n.ts";
+import { m } from "#lib/paraglide/messages.js";
 import { page } from "$app/state";
-import { post } from "$lib/api";
-import AuthShell from "$lib/components/app/auth-shell.svelte";
-import * as Alert from "$lib/components/ui/alert";
-import { Button } from "$lib/components/ui/button";
-import { Input } from "$lib/components/ui/input";
-import { Label } from "$lib/components/ui/label";
-import { errorText } from "$lib/i18n";
-import { m } from "$lib/paraglide/messages.js";
 
 // The answer is the same whether the address has an account or not.
 let email = $state(page.url.searchParams.get("email") ?? "");

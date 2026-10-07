@@ -1,4 +1,4 @@
-import { loadShared } from "$lib/public";
+import { loadShared } from "#lib/public.ts";
 
 export const load = async ({ params, fetch, parent }) => {
   await parent();

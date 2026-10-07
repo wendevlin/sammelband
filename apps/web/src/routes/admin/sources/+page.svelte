@@ -1,16 +1,16 @@
 <script lang="ts">
 import type { SourceSettingsInfo } from "@sammelband/shared";
+import { api } from "#lib/api.ts";
+import { attempt } from "#lib/attempt.ts";
+import SourceIcon from "#lib/components/app/source-icon.svelte";
+import { Button } from "#lib/components/ui/button/index.ts";
+import * as Card from "#lib/components/ui/card/index.ts";
+import { Input } from "#lib/components/ui/input/index.ts";
+import { Label } from "#lib/components/ui/label/index.ts";
+import { Switch } from "#lib/components/ui/switch/index.ts";
+import { m } from "#lib/paraglide/messages.js";
+import { sources as userSources } from "#lib/stores/sources.svelte.ts";
 import { invalidate } from "$app/navigation";
-import { api } from "$lib/api";
-import { attempt } from "$lib/attempt";
-import SourceIcon from "$lib/components/app/source-icon.svelte";
-import { Button } from "$lib/components/ui/button";
-import * as Card from "$lib/components/ui/card";
-import { Input } from "$lib/components/ui/input";
-import { Label } from "$lib/components/ui/label";
-import { Switch } from "$lib/components/ui/switch";
-import { m } from "$lib/paraglide/messages.js";
-import { sources as userSources } from "$lib/stores/sources.svelte";
 
 /**
  * Photo sources of the admin's Sammelband: switched on, optionally with a
@@ -63,7 +63,9 @@ async function save(s: SourceSettingsInfo, e?: SubmitEvent) {
   {/each}
 </div>
 
-{#snippet source(s: SourceSettingsInfo)}
+{#snippet source(
+  s: SourceSettingsInfo,
+)}
   <Card.Root>
     <Card.Header>
       <Card.Title class="flex items-center gap-2">
@@ -102,7 +104,7 @@ async function save(s: SourceSettingsInfo, e?: SubmitEvent) {
                   type="url"
                   class="min-w-64 flex-1"
                   placeholder="https://cloud.example.com"
-                  value={drafts[s.id]?.url ?? ''}
+                  value={drafts[s.id]?.url ?? ""}
                   oninput={(e) => {
                     const draft = drafts[s.id];
                     if (draft) draft.url = e.currentTarget.value;

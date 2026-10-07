@@ -1,6 +1,6 @@
 import { redirect } from "@sveltejs/kit";
-import { loginUrl, safeNext } from "$lib/api";
-import { auth } from "$lib/stores/auth.svelte";
+import { loginUrl, safeNext } from "#lib/api.ts";
+import { auth } from "#lib/stores/auth.svelte.ts";
 
 // Pure client-side SPA served by the Bun backend.
 export const ssr = false;

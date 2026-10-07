@@ -1,6 +1,6 @@
 <script lang="ts">
+import { m } from "#lib/paraglide/messages.js";
 import { navigating } from "$app/state";
-import { m } from "$lib/paraglide/messages.js";
 
 // Thin bar at the top while a navigation's load functions run. It waits a
 // moment before appearing so fast (preloaded) navigations don't flash it.

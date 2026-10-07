@@ -1,5 +1,5 @@
 import type { SourceInfo } from "@sammelband/shared";
-import { api } from "$lib/api";
+import { api } from "#lib/api.ts";
 
 /**
  * The photo sources switched on in the user's Sammelband, with their account.

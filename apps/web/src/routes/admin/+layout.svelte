@@ -1,8 +1,8 @@
 <script lang="ts">
+import { m } from "#lib/paraglide/messages.js";
+import { auth } from "#lib/stores/auth.svelte.ts";
+import { cn } from "#lib/utils.ts";
 import { page } from "$app/state";
-import { m } from "$lib/paraglide/messages.js";
-import { auth } from "$lib/stores/auth.svelte";
-import { cn } from "$lib/utils";
 
 let { children } = $props();
 
@@ -34,12 +34,12 @@ $effect(() => {
   {#each tabs as tab (tab.href)}
     <a
       href={tab.href}
-      aria-current={page.url.pathname === tab.href ? 'page' : undefined}
+      aria-current={page.url.pathname === tab.href ? "page" : undefined}
       class={cn(
-        '-mb-px shrink-0 border-b-2 px-3 py-2 text-sm font-medium whitespace-nowrap transition-colors',
+        "-mb-px shrink-0 border-b-2 px-3 py-2 text-sm font-medium whitespace-nowrap transition-colors",
         page.url.pathname === tab.href
-          ? 'border-primary text-foreground'
-          : 'border-transparent text-muted-foreground hover:text-foreground'
+          ? "border-primary text-foreground"
+          : "border-transparent text-muted-foreground hover:text-foreground",
       )}
     >
       {tab.label}

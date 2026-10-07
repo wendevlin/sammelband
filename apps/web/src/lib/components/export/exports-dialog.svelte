@@ -4,16 +4,16 @@ import FileText from "@lucide/svelte/icons/file-text";
 import Pencil from "@lucide/svelte/icons/pencil";
 import Trash from "@lucide/svelte/icons/trash-2";
 import type { AlbumExport } from "@sammelband/shared";
-import { type AlbumExports, exportUrl } from "$lib/album-exports.svelte";
-import { del, patch } from "$lib/api";
-import { attempt } from "$lib/attempt";
-import ConfirmDialog from "$lib/components/dialogs/confirm-dialog.svelte";
-import PromptDialog from "$lib/components/dialogs/prompt-dialog.svelte";
-import { Button } from "$lib/components/ui/button";
-import * as Dialog from "$lib/components/ui/dialog";
-import { errorCodeText, getLocale } from "$lib/i18n";
-import { formatBytes } from "$lib/images";
-import { m } from "$lib/paraglide/messages.js";
+import { type AlbumExports, exportUrl } from "#lib/album-exports.svelte.ts";
+import { del, patch } from "#lib/api.ts";
+import { attempt } from "#lib/attempt.ts";
+import ConfirmDialog from "#lib/components/dialogs/confirm-dialog.svelte";
+import PromptDialog from "#lib/components/dialogs/prompt-dialog.svelte";
+import { Button } from "#lib/components/ui/button/index.ts";
+import * as Dialog from "#lib/components/ui/dialog/index.ts";
+import { errorCodeText, getLocale } from "#lib/i18n.ts";
+import { formatBytes } from "#lib/images.ts";
+import { m } from "#lib/paraglide/messages.js";
 import { formatLabel, purposeLabel } from "./format-label";
 
 /** An album's PDF exports: download, rename, delete. */
@@ -75,11 +75,11 @@ async function remove() {
             <p class="truncate text-sm font-medium">{x.name}</p>
             <p class="truncate text-xs text-muted-foreground">
               {details(x)}
-              {#if x.status === 'queued'}
+              {#if x.status === "queued"}
                 · {m.export_status_queued()}
-              {:else if x.status === 'running'}
+              {:else if x.status === "running"}
                 · {m.export_status_running({ progress: x.progress })}
-              {:else if x.status === 'failed'}
+              {:else if x.status === "failed"}
                 ·
                 <span class="text-destructive"
                   >{m.export_status_failed()}: {errorCodeText(x.error_code)}</span
@@ -88,7 +88,7 @@ async function remove() {
             </p>
           </div>
           <div class="flex shrink-0 gap-1">
-            {#if x.status === 'done'}
+            {#if x.status === "done"}
               <Button
                 variant="ghost"
                 size="icon-sm"
@@ -134,12 +134,12 @@ async function remove() {
   bind:open={renameOpen}
   title={m.common_rename()}
   label={m.export_name()}
-  value={renaming?.name ?? ''}
+  value={renaming?.name ?? ""}
   onsubmit={rename}
 />
 <ConfirmDialog
   bind:open={deleteOpen}
-  title={m.export_delete_confirm({ name: deleting?.name ?? '' })}
+  title={m.export_delete_confirm({ name: deleting?.name ?? "" })}
   description={m.export_delete_description()}
   onconfirm={remove}
 />

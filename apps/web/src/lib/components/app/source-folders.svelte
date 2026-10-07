@@ -2,9 +2,9 @@
 import ChevronRight from "@lucide/svelte/icons/chevron-right";
 import Folder from "@lucide/svelte/icons/folder";
 import type { SourceFolder } from "@sammelband/shared";
-import { formatDate } from "$lib/i18n";
-import { formatBytes } from "$lib/images";
-import { m } from "$lib/paraglide/messages.js";
+import { formatDate } from "#lib/i18n.ts";
+import { formatBytes } from "#lib/images.ts";
+import { m } from "#lib/paraglide/messages.js";
 
 /** The folders inside a source folder, as cards to open, with what's in them. */
 let { folders, onopen }: { folders: SourceFolder[]; onopen: (ref: string) => void } = $props();

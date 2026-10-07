@@ -1,5 +1,5 @@
 import { toast } from "svelte-sonner";
-import { errorText } from "$lib/i18n";
+import { errorText } from "#lib/i18n.ts";
 
 /** Run an action and toast its failure. Returns the result, or undefined on error. */
 export async function attempt<T>(fn: () => Promise<T>, success?: string): Promise<T | undefined> {

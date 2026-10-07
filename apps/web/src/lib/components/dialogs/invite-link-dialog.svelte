@@ -2,11 +2,11 @@
 import Check from "@lucide/svelte/icons/check";
 import Copy from "@lucide/svelte/icons/copy";
 import type { CreatedInvite } from "@sammelband/shared";
-import { Button } from "$lib/components/ui/button";
-import * as Dialog from "$lib/components/ui/dialog";
-import { Input } from "$lib/components/ui/input";
-import { formatDate } from "$lib/i18n";
-import { m } from "$lib/paraglide/messages.js";
+import { Button } from "#lib/components/ui/button/index.ts";
+import * as Dialog from "#lib/components/ui/dialog/index.ts";
+import { Input } from "#lib/components/ui/input/index.ts";
+import { formatDate } from "#lib/i18n.ts";
+import { m } from "#lib/paraglide/messages.js";
 
 /** Shows a freshly created invite link once, with a copy button. */
 let {
@@ -37,13 +37,13 @@ async function copy() {
       <Dialog.Title>{title}</Dialog.Title>
       <Dialog.Description>
         {description ?? m.invite_link_description()}
-        {m.invite_link_validity({ date: invite ? formatDate(invite.expiresAt) : '' })}
+        {m.invite_link_validity({ date: invite ? formatDate(invite.expiresAt) : "" })}
       </Dialog.Description>
     </Dialog.Header>
     <div class="flex gap-2">
       <Input
         readonly
-        value={invite?.url ?? ''}
+        value={invite?.url ?? ""}
         class="font-mono text-xs"
         onfocus={(e) => e.currentTarget.select()}
       />

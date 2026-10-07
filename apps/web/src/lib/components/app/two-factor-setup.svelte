@@ -1,12 +1,12 @@
 <script lang="ts">
 import { renderSVG } from "uqr";
-import { post } from "$lib/api";
-import { attempt } from "$lib/attempt";
-import BackupCodes from "$lib/components/app/backup-codes.svelte";
-import { Button } from "$lib/components/ui/button";
-import { Input } from "$lib/components/ui/input";
-import { Label } from "$lib/components/ui/label";
-import { m } from "$lib/paraglide/messages.js";
+import { post } from "#lib/api.ts";
+import { attempt } from "#lib/attempt.ts";
+import BackupCodes from "#lib/components/app/backup-codes.svelte";
+import { Button } from "#lib/components/ui/button/index.ts";
+import { Input } from "#lib/components/ui/input/index.ts";
+import { Label } from "#lib/components/ui/label/index.ts";
+import { m } from "#lib/paraglide/messages.js";
 
 /**
  * Turning on two-factor authentication: confirm the password, scan the QR
@@ -62,7 +62,7 @@ async function verify(e: SubmitEvent) {
 }
 </script>
 
-{#if step === 'password'}
+{#if step === "password"}
   <form class="grid gap-4" onsubmit={start}>
     <p class="text-sm text-muted-foreground">{m.two_factor_intro()}</p>
     <div class="grid gap-2">
@@ -82,7 +82,7 @@ async function verify(e: SubmitEvent) {
       {/if}
     </div>
   </form>
-{:else if step === 'scan'}
+{:else if step === "scan"}
   <form class="grid gap-4" onsubmit={verify}>
     <p class="text-sm">{m.two_factor_scan()}</p>
     <img
@@ -107,7 +107,7 @@ async function verify(e: SubmitEvent) {
       />
     </div>
     <div class="flex gap-2">
-      <Button type="submit" disabled={busy || code.replace(/\s/g, '').length < 6}
+      <Button type="submit" disabled={busy || code.replace(/\s/g, "").length < 6}
         >{m.two_factor_enable()}</Button
       >
       {#if oncancel}

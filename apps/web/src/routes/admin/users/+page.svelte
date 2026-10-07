@@ -8,27 +8,27 @@ import ShieldOff from "@lucide/svelte/icons/shield-off";
 import Trash from "@lucide/svelte/icons/trash-2";
 import UserPlus from "@lucide/svelte/icons/user-plus";
 import type { CreatedInvite, Role, User } from "@sammelband/shared";
+import { api, del, patch, post } from "#lib/api.ts";
+import { attempt } from "#lib/attempt.ts";
+import { avatarForm } from "#lib/avatar.ts";
+import ActionMenu from "#lib/components/app/action-menu.svelte";
+import ExpandableCard from "#lib/components/app/expandable-card.svelte";
+import type { RowAction } from "#lib/components/app/row-actions.ts";
+import SimpleSelect from "#lib/components/app/simple-select.svelte";
+import UserAvatar from "#lib/components/app/user-avatar.svelte";
+import ConfirmDialog from "#lib/components/dialogs/confirm-dialog.svelte";
+import InviteLinkDialog from "#lib/components/dialogs/invite-link-dialog.svelte";
+import PromptDialog from "#lib/components/dialogs/prompt-dialog.svelte";
+import { Badge } from "#lib/components/ui/badge/index.ts";
+import { Button } from "#lib/components/ui/button/index.ts";
+import * as Dialog from "#lib/components/ui/dialog/index.ts";
+import { Input } from "#lib/components/ui/input/index.ts";
+import { Label } from "#lib/components/ui/label/index.ts";
+import * as Table from "#lib/components/ui/table/index.ts";
+import { formatDate } from "#lib/i18n.ts";
+import { m } from "#lib/paraglide/messages.js";
+import { auth } from "#lib/stores/auth.svelte.ts";
 import { invalidate } from "$app/navigation";
-import { api, del, patch, post } from "$lib/api";
-import { attempt } from "$lib/attempt";
-import { avatarForm } from "$lib/avatar";
-import ActionMenu from "$lib/components/app/action-menu.svelte";
-import ExpandableCard from "$lib/components/app/expandable-card.svelte";
-import type { RowAction } from "$lib/components/app/row-actions";
-import SimpleSelect from "$lib/components/app/simple-select.svelte";
-import UserAvatar from "$lib/components/app/user-avatar.svelte";
-import ConfirmDialog from "$lib/components/dialogs/confirm-dialog.svelte";
-import InviteLinkDialog from "$lib/components/dialogs/invite-link-dialog.svelte";
-import PromptDialog from "$lib/components/dialogs/prompt-dialog.svelte";
-import { Badge } from "$lib/components/ui/badge";
-import { Button } from "$lib/components/ui/button";
-import * as Dialog from "$lib/components/ui/dialog";
-import { Input } from "$lib/components/ui/input";
-import { Label } from "$lib/components/ui/label";
-import * as Table from "$lib/components/ui/table";
-import { formatDate } from "$lib/i18n";
-import { m } from "$lib/paraglide/messages.js";
-import { auth } from "$lib/stores/auth.svelte";
 
 let { data } = $props();
 
@@ -211,7 +211,7 @@ function actionsFor(u: User): RowAction[] {
   onchange={(e) => {
     const file = e.currentTarget.files?.[0];
     if (file) void uploadAvatar(file);
-    e.currentTarget.value = '';
+    e.currentTarget.value = "";
   }}
 >
 
@@ -219,7 +219,7 @@ function actionsFor(u: User): RowAction[] {
   <div>
     <h1 class="font-heading text-4xl">{m.admin_tab_users()}</h1>
     <p class="mt-2 text-muted-foreground">
-      {m.users_description({ sammelband: auth.tenant?.name ?? 'Sammelband' })}
+      {m.users_description({ sammelband: auth.tenant?.name ?? "Sammelband" })}
     </p>
   </div>
   <div class="flex flex-wrap gap-2">
@@ -231,7 +231,9 @@ function actionsFor(u: User): RowAction[] {
   </div>
 </div>
 
-{#snippet badges(u: User)}
+{#snippet badges(
+  u: User,
+)}
   {#if isSelf(u)}
     <Badge variant="secondary">{m.users_you()}</Badge>
   {/if}
@@ -245,9 +247,11 @@ function actionsFor(u: User): RowAction[] {
   {/if}
 {/snippet}
 
-{#snippet role(u: User)}
+{#snippet role(
+  u: User,
+)}
   {#if locked(u)}
-    <span class="text-sm">{u.role === 'admin' ? m.role_admin() : m.role_user()}</span>
+    <span class="text-sm">{u.role === "admin" ? m.role_admin() : m.role_user()}</span>
   {:else}
     <SimpleSelect
       label={m.users_role()}
@@ -394,28 +398,28 @@ function actionsFor(u: User): RowAction[] {
 
 <PromptDialog
   bind:open={renameOpen}
-  title={m.users_rename_title({ email: target?.email ?? '' })}
+  title={m.users_rename_title({ email: target?.email ?? "" })}
   label={m.common_name()}
-  value={target?.name ?? ''}
+  value={target?.name ?? ""}
   onsubmit={rename}
 />
 <PromptDialog
   bind:open={passwordOpen}
-  title={m.users_set_password_title({ name: target?.name ?? '' })}
+  title={m.users_set_password_title({ name: target?.name ?? "" })}
   label={m.users_set_password_label()}
   submitLabel={m.users_set_password()}
   onsubmit={setPassword}
 />
 <ConfirmDialog
   bind:open={resetTwoFactorOpen}
-  title={m.users_two_factor_reset_title({ name: target?.name ?? '' })}
+  title={m.users_two_factor_reset_title({ name: target?.name ?? "" })}
   description={m.users_two_factor_reset_description()}
   confirmLabel={m.users_two_factor_reset_confirm()}
   onconfirm={resetTwoFactor}
 />
 <ConfirmDialog
   bind:open={deleteOpen}
-  title={m.folder_delete_confirm({ name: target?.email ?? '' })}
+  title={m.folder_delete_confirm({ name: target?.email ?? "" })}
   description={m.users_delete_description()}
   onconfirm={remove}
 />

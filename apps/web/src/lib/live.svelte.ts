@@ -1,6 +1,6 @@
+import { onReconnect, subscribeAll } from "#lib/ws.ts";
 import { invalidate } from "$app/navigation";
 import { navigating } from "$app/state";
-import { onReconnect, subscribeAll } from "$lib/ws";
 
 /**
  * Re-run the load functions that `depends(key)` whenever one of the topics

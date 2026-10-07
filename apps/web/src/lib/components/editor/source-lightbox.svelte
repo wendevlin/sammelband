@@ -5,10 +5,10 @@ import ChevronRight from "@lucide/svelte/icons/chevron-right";
 import X from "@lucide/svelte/icons/x";
 import type { SourceImage } from "@sammelband/shared";
 import { Dialog as DialogPrimitive } from "bits-ui";
-import { Button } from "$lib/components/ui/button";
-import { m } from "$lib/paraglide/messages.js";
-import { thumbnailUrl } from "$lib/sources";
-import { cn } from "$lib/utils";
+import { Button } from "#lib/components/ui/button/index.ts";
+import { m } from "#lib/paraglide/messages.js";
+import { thumbnailUrl } from "#lib/sources.ts";
+import { cn } from "#lib/utils.ts";
 
 /**
  * A photo of a source folder, full screen, to make sure it's the right one
@@ -62,8 +62,8 @@ function touchEnd(e: TouchEvent) {
 <DialogPrimitive.Root
   open={image !== null}
   onOpenChange={(open) => {
-		if (!open) index = null;
-	}}
+    if (!open) index = null;
+  }}
 >
   <DialogPrimitive.Portal>
     <DialogPrimitive.Overlay class="fixed inset-0 z-50 bg-black/95" />
@@ -80,7 +80,7 @@ function touchEnd(e: TouchEvent) {
             <span class="text-white/60">· {(index ?? 0) + 1} / {images.length}</span>
           </DialogPrimitive.Title>
           <Button
-            variant={isSelected(image) ? 'default' : 'secondary'}
+            variant={isSelected(image) ? "default" : "secondary"}
             onclick={() => image && ontoggle(image)}
             aria-pressed={isSelected(image)}
           >
@@ -88,7 +88,9 @@ function touchEnd(e: TouchEvent) {
             {isSelected(image) ? m.picker_selected() : m.picker_select()}
           </Button>
           <DialogPrimitive.Close>
-            {#snippet child({ props })}
+            {#snippet child({
+              props,
+            })}
               <Button
                 {...props}
                 variant="ghost"
@@ -107,9 +109,9 @@ function touchEnd(e: TouchEvent) {
               src={thumbnailUrl(account, image.thumb, 256)}
               alt=""
               class={cn(
-								'absolute inset-0 size-full object-contain blur-sm',
-								loaded === image.ref && 'invisible'
-							)}
+                "absolute inset-0 size-full object-contain blur-sm",
+                loaded === image.ref && "invisible",
+              )}
             >
             <img
               src={thumbnailUrl(account, image.thumb, 2048)}

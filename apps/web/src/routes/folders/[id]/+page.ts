@@ -1,5 +1,5 @@
 import type { Folder, FolderContents } from "@sammelband/shared";
-import { load as get } from "$lib/api";
+import { load as get } from "#lib/api.ts";
 
 export const load = async ({ params, fetch, depends, parent }) => {
   // Wait for the root layout's auth/onboarding gate before hitting the API.

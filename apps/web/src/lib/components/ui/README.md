@@ -5,7 +5,7 @@ Don't edit these files by hand, and there's no need to read them to use them.
 
 shadcn-svelte is not a runtime library. Its CLI (the `shadcn-svelte` dev dependency)
 copies each component's source into this folder, and the app imports it from here
-(`$lib/components/ui/button`, ...). The real dependencies underneath are `bits-ui`
+(`#lib/components/ui/button`, ...). The real dependencies underneath are `bits-ui`
 (behaviour: focus, keyboard, ARIA), `tailwind-variants` and `cn` (classes) and
 `svelte-sonner` (toasts). Settings, such as style, colors and paths, live in
 `apps/web/components.json`.
@@ -25,7 +25,7 @@ the project's formatting.
 ## Customizing
 
 Hand edits would be lost on the next `--overwrite`. Build app-specific variants as
-own components in `$lib/components/` (`app/`, `library/`, ...) that use these
+own components in `#lib/components/` (`app/`, `library/`, ...) that use these
 parts, or pass `class` to adjust one usage.
 
 Only add components that are used: an unused one is dead code in the repo.

@@ -1,6 +1,6 @@
 <script lang="ts">
 import type { HTMLAttributes } from "svelte/elements";
-import { cn, type WithElementRef } from "$lib/utils.js";
+import { cn, type WithElementRef } from "#lib/utils.js";
 
 let {
   ref = $bindable(null),
@@ -14,9 +14,9 @@ let {
   bind:this={ref}
   data-slot="table-row"
   class={cn(
-		'border-b transition-colors hover:bg-muted/50 has-aria-expanded:bg-muted/50 data-[state=selected]:bg-muted',
-		className
-	)}
+    "border-b transition-colors hover:bg-muted/50 has-aria-expanded:bg-muted/50 data-[state=selected]:bg-muted",
+    className,
+  )}
   {...restProps}
 >
   {@render children?.()}

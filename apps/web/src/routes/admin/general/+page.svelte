@@ -1,16 +1,16 @@
 <script lang="ts">
 import type { TenantInfo } from "@sammelband/shared";
-import { api } from "$lib/api";
-import { attempt } from "$lib/attempt";
-import SimpleSelect from "$lib/components/app/simple-select.svelte";
-import { Button } from "$lib/components/ui/button";
-import * as Card from "$lib/components/ui/card";
-import { Input } from "$lib/components/ui/input";
-import { Label } from "$lib/components/ui/label";
-import { Switch } from "$lib/components/ui/switch";
-import { m } from "$lib/paraglide/messages.js";
-import { auth } from "$lib/stores/auth.svelte";
-import { browserTimeZone, formatInZone } from "$lib/timezone";
+import { api } from "#lib/api.ts";
+import { attempt } from "#lib/attempt.ts";
+import SimpleSelect from "#lib/components/app/simple-select.svelte";
+import { Button } from "#lib/components/ui/button/index.ts";
+import * as Card from "#lib/components/ui/card/index.ts";
+import { Input } from "#lib/components/ui/input/index.ts";
+import { Label } from "#lib/components/ui/label/index.ts";
+import { Switch } from "#lib/components/ui/switch/index.ts";
+import { m } from "#lib/paraglide/messages.js";
+import { auth } from "#lib/stores/auth.svelte.ts";
+import { browserTimeZone, formatInZone } from "#lib/timezone.ts";
 
 /** Settings of the admin's own Sammelband. */
 async function save(
@@ -116,7 +116,7 @@ async function savePdfExport(enabled: boolean) {
     <Card.Header>
       <Card.Title>{m.general_timezone()}</Card.Title>
       <Card.Description>
-        {m.general_timezone_description({ sammelband: auth.tenant?.name ?? 'Sammelband' })}
+        {m.general_timezone_description({ sammelband: auth.tenant?.name ?? "Sammelband" })}
       </Card.Description>
     </Card.Header>
     <Card.Content class="grid gap-3">
@@ -148,7 +148,7 @@ async function savePdfExport(enabled: boolean) {
     <Card.Header>
       <Card.Title>{m.two_factor_title()}</Card.Title>
       <Card.Description>
-        {m.general_two_factor_description({ sammelband: auth.tenant?.name ?? 'Sammelband' })}
+        {m.general_two_factor_description({ sammelband: auth.tenant?.name ?? "Sammelband" })}
       </Card.Description>
     </Card.Header>
     <Card.Content class="grid gap-3">
@@ -171,7 +171,7 @@ async function savePdfExport(enabled: boolean) {
     <Card.Header>
       <Card.Title>{m.general_pdf_export_title()}</Card.Title>
       <Card.Description>
-        {m.general_pdf_export_description({ sammelband: auth.tenant?.name ?? 'Sammelband' })}
+        {m.general_pdf_export_description({ sammelband: auth.tenant?.name ?? "Sammelband" })}
       </Card.Description>
     </Card.Header>
     <Card.Content>

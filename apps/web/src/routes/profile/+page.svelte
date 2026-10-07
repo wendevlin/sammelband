@@ -1,21 +1,21 @@
 <script lang="ts">
 import Trash from "@lucide/svelte/icons/trash-2";
 import Upload from "@lucide/svelte/icons/upload";
-import { api, del, patch, post } from "$lib/api";
-import { attempt } from "$lib/attempt";
-import { avatarForm } from "$lib/avatar";
-import BackupCodes from "$lib/components/app/backup-codes.svelte";
-import SimpleSelect from "$lib/components/app/simple-select.svelte";
-import SourceAccounts from "$lib/components/app/source-accounts.svelte";
-import TwoFactorSetup from "$lib/components/app/two-factor-setup.svelte";
-import UserAvatar from "$lib/components/app/user-avatar.svelte";
-import PasswordDialog from "$lib/components/dialogs/password-dialog.svelte";
-import { Badge } from "$lib/components/ui/badge";
-import { Button } from "$lib/components/ui/button";
-import * as Card from "$lib/components/ui/card";
-import * as Dialog from "$lib/components/ui/dialog";
-import { Input } from "$lib/components/ui/input";
-import { Label } from "$lib/components/ui/label";
+import { api, del, patch, post } from "#lib/api.ts";
+import { attempt } from "#lib/attempt.ts";
+import { avatarForm } from "#lib/avatar.ts";
+import BackupCodes from "#lib/components/app/backup-codes.svelte";
+import SimpleSelect from "#lib/components/app/simple-select.svelte";
+import SourceAccounts from "#lib/components/app/source-accounts.svelte";
+import TwoFactorSetup from "#lib/components/app/two-factor-setup.svelte";
+import UserAvatar from "#lib/components/app/user-avatar.svelte";
+import PasswordDialog from "#lib/components/dialogs/password-dialog.svelte";
+import { Badge } from "#lib/components/ui/badge/index.ts";
+import { Button } from "#lib/components/ui/button/index.ts";
+import * as Card from "#lib/components/ui/card/index.ts";
+import * as Dialog from "#lib/components/ui/dialog/index.ts";
+import { Input } from "#lib/components/ui/input/index.ts";
+import { Label } from "#lib/components/ui/label/index.ts";
 import {
   followBrowserLocale,
   getLocale,
@@ -24,8 +24,8 @@ import {
   locales,
   m,
   switchLocale,
-} from "$lib/i18n";
-import { auth } from "$lib/stores/auth.svelte";
+} from "#lib/i18n.ts";
+import { auth } from "#lib/stores/auth.svelte.ts";
 
 // Language: saved with the account, so it follows the user to other devices.
 const BROWSER = "browser";
@@ -171,7 +171,7 @@ async function removeAvatar() {
       <Card.Description>{m.profile_avatar_description()}</Card.Description>
     </Card.Header>
     <Card.Content class="flex flex-wrap items-center gap-4">
-      <UserAvatar name={auth.user?.name ?? ''} image={auth.user?.image} class="size-20 text-2xl" />
+      <UserAvatar name={auth.user?.name ?? ""} image={auth.user?.image} class="size-20 text-2xl" />
       <div class="flex gap-2">
         <Button variant="outline" onclick={() => fileInput?.click()} disabled={uploading}>
           <Upload />
@@ -189,7 +189,7 @@ async function removeAvatar() {
         onchange={(e) => {
           const file = e.currentTarget.files?.[0];
           if (file) void uploadAvatar(file);
-          e.currentTarget.value = '';
+          e.currentTarget.value = "";
         }}
       >
     </Card.Content>

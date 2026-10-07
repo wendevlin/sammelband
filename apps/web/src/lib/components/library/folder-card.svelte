@@ -5,11 +5,11 @@ import Pencil from "@lucide/svelte/icons/pencil";
 import Trash from "@lucide/svelte/icons/trash-2";
 import type { FolderTile } from "@sammelband/shared";
 import type { Snippet } from "svelte";
-import { Button } from "$lib/components/ui/button";
-import * as DropdownMenu from "$lib/components/ui/dropdown-menu";
-import { imageUrls } from "$lib/images";
-import { m } from "$lib/paraglide/messages.js";
-import { cn } from "$lib/utils";
+import { Button } from "#lib/components/ui/button/index.ts";
+import * as DropdownMenu from "#lib/components/ui/dropdown-menu/index.ts";
+import { imageUrls } from "#lib/images.ts";
+import { m } from "#lib/paraglide/messages.js";
+import { cn } from "#lib/utils.ts";
 
 /**
  * A folder in the library grid, the same size as an album card. Its tile
@@ -81,16 +81,19 @@ const summary = $derived(
           <FolderIcon class="size-12 text-primary/30" strokeWidth={1.25} />
         </div>
       {:else}
-        <div class={cn('grid size-full gap-0.5 bg-card', layout)}>
+        <div class={cn("grid size-full gap-0.5 bg-card", layout)}>
           {#each covers as cover, i (cover)}
             <img
-              src={images.src(cover, covers.length === 1 || (covers.length === 3 && i === 0) ? 800 : 400)}
+              src={images.src(
+                cover,
+                covers.length === 1 || (covers.length === 3 && i === 0) ? 800 : 400,
+              )}
               alt=""
               loading="lazy"
               draggable="false"
               class={cn(
-                'size-full min-h-0 object-cover transition-transform duration-500 group-hover:scale-[1.03]',
-                covers.length === 3 && i === 0 && 'col-span-2 row-span-2'
+                "size-full min-h-0 object-cover transition-transform duration-500 group-hover:scale-[1.03]",
+                covers.length === 3 && i === 0 && "col-span-2 row-span-2",
               )}
             >
           {/each}
@@ -114,7 +117,9 @@ const summary = $derived(
     {#if onrename && ondelete}
       <DropdownMenu.Root>
         <DropdownMenu.Trigger>
-          {#snippet child({ props })}
+          {#snippet child({
+            props,
+          })}
             <Button {...props} variant="ghost" size="icon-sm" aria-label={m.folder_actions()}>
               <EllipsisVertical />
             </Button>

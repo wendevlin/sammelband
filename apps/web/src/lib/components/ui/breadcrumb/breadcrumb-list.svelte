@@ -1,6 +1,6 @@
 <script lang="ts">
 import type { HTMLOlAttributes } from "svelte/elements";
-import { cn, type WithElementRef } from "$lib/utils.js";
+import { cn, type WithElementRef } from "#lib/utils.js";
 
 let {
   ref = $bindable(null),
@@ -14,9 +14,9 @@ let {
   bind:this={ref}
   data-slot="breadcrumb-list"
   class={cn(
-		'flex flex-wrap items-center gap-1.5 text-xs tracking-wide wrap-break-word text-muted-foreground uppercase sm:gap-2.5',
-		className
-	)}
+    "flex flex-wrap items-center gap-1.5 text-xs tracking-wide wrap-break-word text-muted-foreground uppercase sm:gap-2.5",
+    className,
+  )}
   {...restProps}
 >
   {@render children?.()}

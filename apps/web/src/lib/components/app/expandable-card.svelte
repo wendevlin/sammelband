@@ -1,7 +1,7 @@
 <script lang="ts">
 import ChevronDown from "@lucide/svelte/icons/chevron-down";
 import type { Snippet } from "svelte";
-import { Button } from "$lib/components/ui/button";
+import { Button } from "#lib/components/ui/button/index.ts";
 import type { RowAction } from "./row-actions";
 
 /**
@@ -31,7 +31,7 @@ let {
       <div class="flex flex-wrap gap-2 pt-1">
         {#each actions as action (action.label)}
           <Button
-            variant={action.destructive ? 'destructive' : 'outline'}
+            variant={action.destructive ? "destructive" : "outline"}
             size="sm"
             onclick={action.run}
           >

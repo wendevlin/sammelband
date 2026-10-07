@@ -1,5 +1,5 @@
 import type { ExportFormat, ExportPurpose } from "@sammelband/shared";
-import { m } from "$lib/paraglide/messages.js";
+import { m } from "#lib/paraglide/messages.js";
 
 export function formatLabel(format: ExportFormat): string {
   return {

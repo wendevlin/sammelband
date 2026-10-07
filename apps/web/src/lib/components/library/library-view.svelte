@@ -6,21 +6,21 @@ import Plus from "@lucide/svelte/icons/plus";
 import Share from "@lucide/svelte/icons/share-2";
 import type { Album, Folder, FolderTile, SortMode } from "@sammelband/shared";
 import { flip } from "svelte/animate";
-import { goto, invalidateAll } from "$app/navigation";
-import { api, del, patch, post } from "$lib/api";
-import { attempt } from "$lib/attempt";
-import ConfirmDialog from "$lib/components/dialogs/confirm-dialog.svelte";
-import PromptDialog from "$lib/components/dialogs/prompt-dialog.svelte";
-import AlbumCard from "$lib/components/library/album-card.svelte";
-import FolderCard from "$lib/components/library/folder-card.svelte";
-import MoveMenuItems from "$lib/components/library/move-menu-items.svelte";
-import ShareButton from "$lib/components/share/share-button.svelte";
-import * as Breadcrumb from "$lib/components/ui/breadcrumb";
-import { Button } from "$lib/components/ui/button";
-import * as DropdownMenu from "$lib/components/ui/dropdown-menu";
-import { albumPath } from "$lib/links";
-import { m } from "$lib/paraglide/messages.js";
-import { cn } from "$lib/utils";
+import { api, del, patch, post } from "#lib/api.ts";
+import { attempt } from "#lib/attempt.ts";
+import ConfirmDialog from "#lib/components/dialogs/confirm-dialog.svelte";
+import PromptDialog from "#lib/components/dialogs/prompt-dialog.svelte";
+import AlbumCard from "#lib/components/library/album-card.svelte";
+import FolderCard from "#lib/components/library/folder-card.svelte";
+import MoveMenuItems from "#lib/components/library/move-menu-items.svelte";
+import ShareButton from "#lib/components/share/share-button.svelte";
+import * as Breadcrumb from "#lib/components/ui/breadcrumb/index.ts";
+import { Button } from "#lib/components/ui/button/index.ts";
+import * as DropdownMenu from "#lib/components/ui/dropdown-menu/index.ts";
+import { albumPath } from "#lib/links.ts";
+import { m } from "#lib/paraglide/messages.js";
+import { cn } from "#lib/utils.ts";
+import { goto, refreshAll } from "$app/navigation";
 import SortMenu, { SORT_OPTIONS } from "./sort-menu.svelte";
 
 /** Contents of one folder (or the root when `folder` is null). */
@@ -45,7 +45,7 @@ const base = $derived(folder ? `/folders/${folder.id}` : "/library");
 
 async function setSort(mode: string) {
   if (await attempt(() => api(`${base}/sort`, { method: "PUT", body: { mode } }))) {
-    await invalidateAll();
+    await refreshAll();
   }
 }
 
@@ -68,7 +68,7 @@ async function move(kind: Kind, id: string, beforeId: string | null) {
   else folderOrder = reordered as FolderTile[];
 
   await attempt(() => post(`${base}/order`, { kind, id, beforeId }));
-  await invalidateAll();
+  await refreshAll();
 }
 
 /** Keyboard/touch alternative to dragging: one step earlier or later. */
@@ -251,7 +251,7 @@ async function confirmMove() {
       ? m.move_done_folder({ name: request.name, folder: request.into.name })
       : m.move_done_library({ name: request.name }),
   );
-  if (ok) await invalidateAll();
+  if (ok) await refreshAll();
 }
 
 const trail = $derived.by(() => {
@@ -295,7 +295,9 @@ const deleteFolder = () =>
 {#snippet mobileMenu()}
   <DropdownMenu.Root>
     <DropdownMenu.Trigger class="sm:hidden">
-      {#snippet child({ props })}
+      {#snippet child({
+        props,
+      })}
         <Button {...props} variant="outline" size="icon" aria-label={m.common_more_actions()}>
           <Ellipsis />
         </Button>
@@ -337,8 +339,11 @@ const deleteFolder = () =>
           {#if folder}
             <Breadcrumb.Link
               href="/"
-              class={cn('rounded px-1 -mx-1', crumbTarget === 'root' && 'bg-primary/15 ring-2 ring-primary')}
-              ondragover={(e: DragEvent) => dragOverCrumb(e, 'root')}
+              class={cn(
+                "rounded px-1 -mx-1",
+                crumbTarget === "root" && "bg-primary/15 ring-2 ring-primary",
+              )}
+              ondragover={(e: DragEvent) => dragOverCrumb(e, "root")}
               ondragleave={() => (crumbTarget = null)}
               ondrop={(e: DragEvent) => dropOnCrumb(e, null)}
             >
@@ -354,7 +359,10 @@ const deleteFolder = () =>
             {#if i < trail.length - 1}
               <Breadcrumb.Link
                 href="/folders/{f.id}"
-                class={cn('rounded px-1 -mx-1', crumbTarget === f.id && 'bg-primary/15 ring-2 ring-primary')}
+                class={cn(
+                  "rounded px-1 -mx-1",
+                  crumbTarget === f.id && "bg-primary/15 ring-2 ring-primary",
+                )}
                 ondragover={(e: DragEvent) => dragOverCrumb(e, f.id)}
                 ondragleave={() => (crumbTarget = null)}
                 ondrop={(e: DragEvent) => dropOnCrumb(e, f)}
@@ -388,7 +396,10 @@ const deleteFolder = () =>
 </div>
 
 <!-- Drag feedback: a dashed placeholder where the dragged item will land, or "Move into". -->
-{#snippet dropOverlay(id: string, name = "")}
+{#snippet dropOverlay(
+  id: string,
+  name = "",
+)}
   {#if drag?.id === id && !intoTarget}
     <div
       class="pointer-events-none absolute -inset-2 rounded-2xl border-2 border-dashed border-primary/60 bg-primary/5"
@@ -404,7 +415,7 @@ const deleteFolder = () =>
   {/if}
 {/snippet}
 
-{#if sort === 'manual' && folderOrder.length + albumOrder.length > 1}
+{#if sort === "manual" && folderOrder.length + albumOrder.length > 1}
   <p class="-mt-6 mb-8 hidden text-sm text-muted-foreground sm:block">
     {m.library_drag_hint()}
   </p>
@@ -417,7 +428,7 @@ const deleteFolder = () =>
     </h2>
     <ul
       class="grid grid-cols-1 gap-x-6 gap-y-10 sm:grid-cols-2 lg:grid-cols-3"
-      ondragover={(e) => dragOverGrid(e, 'folder')}
+      ondragover={(e) => dragOverGrid(e, "folder")}
       ondrop={drop}
     >
       {#each shownFolders as f, i (f.id)}
@@ -425,30 +436,30 @@ const deleteFolder = () =>
           class="relative"
           animate:flip={{ duration: 180 }}
           draggable="true"
-          ondragstart={(e) => startDrag(e, 'folder', f.id)}
+          ondragstart={(e) => startDrag(e, "folder", f.id)}
           ondragend={endDrag}
           ondragover={(e) => dragOverFolder(e, f)}
           ondragleave={(e) => leaveFolder(e, f.id)}
           ondrop={drop}
         >
-          <div class={cn('transition-opacity', drag?.id === f.id && 'opacity-25')}>
+          <div class={cn("transition-opacity", drag?.id === f.id && "opacity-25")}>
             <FolderCard
               folder={f}
               onrename={() => {
-              renameTarget = f;
-              renameOpen = true;
-            }}
+                renameTarget = f;
+                renameOpen = true;
+              }}
               ondelete={() => {
-              deleteTarget = f;
-              deleteOpen = true;
-            }}
+                deleteTarget = f;
+                deleteOpen = true;
+              }}
             >
               {#snippet menu()}
                 {#if manual}
                   <MoveMenuItems
                     first={i === 0}
                     last={i === folderOrder.length - 1}
-                    onmove={(d) => step('folder', f.id, d)}
+                    onmove={(d) => step("folder", f.id, d)}
                   />
                 {/if}
               {/snippet}
@@ -475,7 +486,7 @@ const deleteFolder = () =>
   {:else if albumOrder.length > 0}
     <ul
       class="grid grid-cols-1 gap-x-6 gap-y-10 sm:grid-cols-2 lg:grid-cols-3"
-      ondragover={(e) => dragOverGrid(e, 'album')}
+      ondragover={(e) => dragOverGrid(e, "album")}
       ondrop={drop}
     >
       {#each shownAlbums as album, i (album.id)}
@@ -483,19 +494,19 @@ const deleteFolder = () =>
           class="relative"
           animate:flip={{ duration: 180 }}
           draggable="true"
-          ondragstart={(e) => startDrag(e, 'album', album.id)}
+          ondragstart={(e) => startDrag(e, "album", album.id)}
           ondragend={endDrag}
           ondragover={(e) => dragOverAlbum(e, album)}
           ondrop={drop}
         >
-          <div class={cn('transition-opacity', drag?.id === album.id && 'opacity-25')}>
+          <div class={cn("transition-opacity", drag?.id === album.id && "opacity-25")}>
             {#if manual}
               <AlbumCard {album}>
                 {#snippet menu()}
                   <MoveMenuItems
                     first={i === 0}
                     last={i === albumOrder.length - 1}
-                    onmove={(d) => step('album', album.id, d)}
+                    onmove={(d) => step("album", album.id, d)}
                   />
                 {/snippet}
               </AlbumCard>
@@ -513,9 +524,9 @@ const deleteFolder = () =>
 <ConfirmDialog
   bind:open={moveOpen}
   title={moveRequest?.into
-    ? m.move_confirm_folder({ name: moveRequest?.name ?? '', folder: moveRequest.into.name })
-    : m.move_confirm_library({ name: moveRequest?.name ?? '' })}
-  description={moveRequest?.kind === 'folder'
+    ? m.move_confirm_folder({ name: moveRequest?.name ?? "", folder: moveRequest.into.name })
+    : m.move_confirm_library({ name: moveRequest?.name ?? "" })}
+  description={moveRequest?.kind === "folder"
     ? m.move_confirm_folder_description()
     : m.move_confirm_album_description()}
   confirmLabel={m.move()}
@@ -540,12 +551,12 @@ const deleteFolder = () =>
   bind:open={renameOpen}
   title={m.folder_rename()}
   label={m.common_name()}
-  value={renameTarget?.name ?? ''}
+  value={renameTarget?.name ?? ""}
   onsubmit={renameFolder}
 />
 <ConfirmDialog
   bind:open={deleteOpen}
-  title={m.folder_delete_confirm({ name: deleteTarget?.name ?? '' })}
+  title={m.folder_delete_confirm({ name: deleteTarget?.name ?? "" })}
   description={m.folder_delete_description()}
   onconfirm={deleteFolder}
 />

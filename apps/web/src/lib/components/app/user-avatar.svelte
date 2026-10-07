@@ -1,5 +1,5 @@
 <script lang="ts">
-import { cn } from "$lib/utils";
+import { cn } from "#lib/utils.ts";
 
 /** A user's avatar, or their initials on a colored circle. */
 let {
@@ -19,12 +19,12 @@ const initials = $derived(
 </script>
 
 {#if image}
-  <img src={image} alt="" class={cn('shrink-0 rounded-full object-cover', className)}>
+  <img src={image} alt="" class={cn("shrink-0 rounded-full object-cover", className)}>
 {:else}
   <span
     class={cn(
-      'inline-flex shrink-0 items-center justify-center rounded-full bg-primary/15 font-semibold text-primary',
-      className
+      "inline-flex shrink-0 items-center justify-center rounded-full bg-primary/15 font-semibold text-primary",
+      className,
     )}
     aria-hidden="true"
   >

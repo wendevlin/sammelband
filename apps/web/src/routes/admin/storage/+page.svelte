@@ -1,15 +1,15 @@
 <script lang="ts">
 import TriangleAlert from "@lucide/svelte/icons/triangle-alert";
-import { post } from "$lib/api";
-import { attempt } from "$lib/attempt";
-import ConfirmDialog from "$lib/components/dialogs/confirm-dialog.svelte";
-import * as Alert from "$lib/components/ui/alert";
-import { Button } from "$lib/components/ui/button";
-import * as Card from "$lib/components/ui/card";
-import { formatBytes } from "$lib/images";
-import { live } from "$lib/live.svelte";
-import { m } from "$lib/paraglide/messages.js";
-import { auth } from "$lib/stores/auth.svelte";
+import { post } from "#lib/api.ts";
+import { attempt } from "#lib/attempt.ts";
+import ConfirmDialog from "#lib/components/dialogs/confirm-dialog.svelte";
+import * as Alert from "#lib/components/ui/alert/index.ts";
+import { Button } from "#lib/components/ui/button/index.ts";
+import * as Card from "#lib/components/ui/card/index.ts";
+import { formatBytes } from "#lib/images.ts";
+import { live } from "#lib/live.svelte.ts";
+import { m } from "#lib/paraglide/messages.js";
+import { auth } from "#lib/stores/auth.svelte.ts";
 
 let { data } = $props();
 let clearOpen = $state(false);
@@ -52,7 +52,7 @@ const orphans = $derived(data.stats.orphans.missing_on_disk + data.stats.orphans
 
 <h1 class="font-heading text-4xl">{m.admin_tab_storage()}</h1>
 <p class="mt-2 mb-8 text-muted-foreground">
-  {m.storage_description({ sammelband: auth.tenant?.name ?? 'Sammelband' })}
+  {m.storage_description({ sammelband: auth.tenant?.name ?? "Sammelband" })}
 </p>
 
 <div class="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -95,5 +95,5 @@ const orphans = $derived(data.stats.orphans.missing_on_disk + data.stats.orphans
   title={m.storage_clear_confirm()}
   description={m.storage_clear_description()}
   confirmLabel={m.storage_clear_cache()}
-  onconfirm={() => attempt(() => post('/admin/storage/clear-cache'), m.storage_cache_cleared())}
+  onconfirm={() => attempt(() => post("/admin/storage/clear-cache"), m.storage_cache_cleared())}
 />

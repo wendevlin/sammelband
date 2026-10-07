@@ -1,7 +1,7 @@
 import { error, redirect } from "@sveltejs/kit";
-import { errorText } from "$lib/i18n";
-import { m } from "$lib/paraglide/messages.js";
-import { auth } from "$lib/stores/auth.svelte";
+import { errorText } from "#lib/i18n.ts";
+import { m } from "#lib/paraglide/messages.js";
+import { auth } from "#lib/stores/auth.svelte.ts";
 
 /**
  * Thin fetch wrapper. Cookies flow with every request; non-2xx throws ApiError.
@@ -89,7 +89,7 @@ export function loginUrl(target: URL | string): string {
 }
 
 /** The post-login destination from `?next=`, or "/" if missing or not a local path. */
-export function safeNext(url: URL): string {
+export function safeNext(url: { readonly searchParams: Pick<URLSearchParams, "get"> }): string {
   const next = url.searchParams.get("next");
   return next?.startsWith("/") && !next.startsWith("//") && !next.startsWith("/\\") ? next : "/";
 }

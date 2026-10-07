@@ -1,15 +1,15 @@
 <script lang="ts">
 import { toast } from "svelte-sonner";
+import { ApiError, post } from "#lib/api.ts";
+import AuthShell from "#lib/components/app/auth-shell.svelte";
+import * as Alert from "#lib/components/ui/alert/index.ts";
+import { Button } from "#lib/components/ui/button/index.ts";
+import { Input } from "#lib/components/ui/input/index.ts";
+import { Label } from "#lib/components/ui/label/index.ts";
+import { errorText } from "#lib/i18n.ts";
+import { m } from "#lib/paraglide/messages.js";
 import { goto } from "$app/navigation";
 import { page } from "$app/state";
-import { ApiError, post } from "$lib/api";
-import AuthShell from "$lib/components/app/auth-shell.svelte";
-import * as Alert from "$lib/components/ui/alert";
-import { Button } from "$lib/components/ui/button";
-import { Input } from "$lib/components/ui/input";
-import { Label } from "$lib/components/ui/label";
-import { errorText } from "$lib/i18n";
-import { m } from "$lib/paraglide/messages.js";
 
 // The link in the mail goes through the server, which sends the browser here
 // with ?token=… (or ?error=INVALID_TOKEN when it has expired or was used).
@@ -31,7 +31,7 @@ async function submit(e: SubmitEvent) {
   try {
     await post("/auth/reset-password", { newPassword: password, token });
     toast.success(m.reset_done());
-    await goto("/login", { replaceState: true });
+    await goto("/login", { replace: true });
   } catch (err) {
     if (err instanceof ApiError && err.code === "INVALID_TOKEN") invalid = true;
     else errorMessage = errorText(err);

@@ -1,19 +1,19 @@
 <script lang="ts">
 import type { Photo, Section, SharedView } from "@sammelband/shared";
-import { invalidateAll } from "$app/navigation";
-import { post } from "$lib/api";
-import AlbumContent from "$lib/components/album/album-content.svelte";
-import AlbumCard from "$lib/components/library/album-card.svelte";
-import FolderCard from "$lib/components/library/folder-card.svelte";
-import * as Alert from "$lib/components/ui/alert";
-import * as Breadcrumb from "$lib/components/ui/breadcrumb";
-import { Button } from "$lib/components/ui/button";
-import * as Card from "$lib/components/ui/card";
-import { Input } from "$lib/components/ui/input";
-import { Label } from "$lib/components/ui/label";
-import { errorText } from "$lib/i18n";
-import { m } from "$lib/paraglide/messages.js";
-import { sharePath } from "$lib/public";
+import { post } from "#lib/api.ts";
+import AlbumContent from "#lib/components/album/album-content.svelte";
+import AlbumCard from "#lib/components/library/album-card.svelte";
+import FolderCard from "#lib/components/library/folder-card.svelte";
+import * as Alert from "#lib/components/ui/alert/index.ts";
+import * as Breadcrumb from "#lib/components/ui/breadcrumb/index.ts";
+import { Button } from "#lib/components/ui/button/index.ts";
+import * as Card from "#lib/components/ui/card/index.ts";
+import { Input } from "#lib/components/ui/input/index.ts";
+import { Label } from "#lib/components/ui/label/index.ts";
+import { errorText } from "#lib/i18n.ts";
+import { m } from "#lib/paraglide/messages.js";
+import { sharePath } from "#lib/public.ts";
+import { refreshAll } from "$app/navigation";
 
 /** A public link page: password prompt, shared folder or shared album. */
 let { token, view }: { token: string; view: SharedView } = $props();
@@ -28,7 +28,7 @@ async function unlock(e: SubmitEvent) {
   problem = null;
   try {
     await post(`/public/${token}/unlock`, { password });
-    await invalidateAll();
+    await refreshAll();
   } catch (err) {
     problem = errorText(err);
   } finally {
@@ -53,7 +53,7 @@ const crumbHref = (i: number, id: string) =>
 
 <svelte:head><title>{title} · Sammelband</title></svelte:head>
 
-{#if view.status === 'locked'}
+{#if view.status === "locked"}
   <div class="mx-auto mt-12 max-w-sm">
     <Card.Root>
       <Card.Header>
@@ -84,7 +84,7 @@ const crumbHref = (i: number, id: string) =>
   </div>
 {:else}
   {#if crumbs.length > 0}
-    <Breadcrumb.Root class={view.kind === 'album' ? 'bleed mb-3' : 'mb-3'}>
+    <Breadcrumb.Root class={view.kind === "album" ? "bleed mb-3" : "mb-3"}>
       <Breadcrumb.List>
         {#each crumbs as c, i (c.id)}
           {#if i > 0}
@@ -98,7 +98,7 @@ const crumbHref = (i: number, id: string) =>
     </Breadcrumb.Root>
   {/if}
 
-  {#if view.kind === 'album'}
+  {#if view.kind === "album"}
     <article class="mx-auto max-w-4xl">
       <div class="bleed">
         <h1 class="font-heading text-4xl leading-tight sm:text-5xl">{view.album.title}</h1>
