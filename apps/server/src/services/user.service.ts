@@ -156,8 +156,11 @@ export async function removeAvatar(id: string): Promise<User> {
   return requireUser(id);
 }
 
-export async function setPassword(id: string, password: string): Promise<void> {
-  await requireUser(id);
+export async function setPassword(actorId: string, id: string, password: string): Promise<void> {
+  const user = await requireUser(id);
+  // The owner is an ordinary member of the first tenant; a co-admin taking over
+  // their account would take over the whole instance.
+  if (user.superadmin && id !== actorId) throw fail("owner_not_editable");
   const ctx = await auth.$context;
   const hash = await ctx.password.hash(password);
   await ctx.internalAdapter.updatePassword(id, hash);
@@ -170,8 +173,9 @@ export async function setPassword(id: string, password: string): Promise<void> {
  * where it's required); trusted devices are forgotten.
  */
 export async function resetTwoFactor(actorId: string, id: string): Promise<User> {
-  await requireUser(id);
+  const user = await requireUser(id);
   if (id === actorId) throw fail("two_factor_reset_own");
+  if (user.superadmin) throw fail("owner_not_editable");
   await tdb()
     .updateTable("user")
     .set({ twoFactorEnabled: false, updatedAt: new Date().toISOString() })

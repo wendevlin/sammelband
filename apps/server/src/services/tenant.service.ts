@@ -287,6 +287,11 @@ export async function deleteTenant(
     await trx.deleteFrom("tenant_invites").where("tenant_id", "=", id).execute();
     await trx.deleteFrom("session").where("userId", "in", users(trx)).execute();
     await trx.deleteFrom("account").where("userId", "in", users(trx)).execute();
+    // better-auth rows keyed by the user: two-factor secrets (these would also
+    // cascade) and verification rows whose value is the user id, i.e. trusted
+    // devices ("trust-device-…") and pending password resets.
+    await trx.deleteFrom("twoFactor").where("userId", "in", users(trx)).execute();
+    await trx.deleteFrom("verification").where("value", "in", users(trx)).execute();
     await trx.deleteFrom("user").where("tenantId", "=", id).execute();
     await trx.deleteFrom("tenants").where("id", "=", id).execute();
   });

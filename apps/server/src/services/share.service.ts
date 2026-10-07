@@ -11,7 +11,7 @@ import { currentTenant } from "./tenant.service";
 
 export type ShareTarget = { albumId: string } | { folderId: string };
 
-const MIN_PASSWORD = 4;
+const MIN_PASSWORD = 8;
 
 export const shareUrl = (token: string) => appUrl(`/s/${token}`);
 

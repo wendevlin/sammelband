@@ -157,6 +157,8 @@ const isSelf = (u: User) => u.id === auth.user?.id;
 const lastAdmin = (u: User) => u.role === "admin" && adminCount <= 1;
 /** Role and deletion are locked for yourself, the last admin and the instance owner. */
 const locked = (u: User) => isSelf(u) || lastAdmin(u) || u.superadmin;
+/** The instance owner's password and two-factor authentication are theirs alone. */
+const isOtherOwner = (u: User) => u.superadmin && !isSelf(u);
 
 function actionsFor(u: User): RowAction[] {
   const open = (dialog: () => void) => () => {
@@ -165,7 +167,15 @@ function actionsFor(u: User): RowAction[] {
   };
   return [
     { label: m.common_rename(), icon: Pencil, run: open(() => (renameOpen = true)) },
-    { label: m.users_set_password(), icon: KeyRound, run: open(() => (passwordOpen = true)) },
+    ...(isOtherOwner(u)
+      ? []
+      : [
+          {
+            label: m.users_set_password(),
+            icon: KeyRound,
+            run: open(() => (passwordOpen = true)),
+          },
+        ]),
     {
       label: m.users_avatar_set(),
       icon: ImageUp,
@@ -177,7 +187,7 @@ function actionsFor(u: User): RowAction[] {
     ...(u.image
       ? [{ label: m.users_avatar_remove(), icon: ImageMinus, run: () => removeAvatar(u) }]
       : []),
-    ...(u.twoFactorEnabled && !isSelf(u)
+    ...(u.twoFactorEnabled && !isSelf(u) && !u.superadmin
       ? [
           {
             label: m.users_two_factor_reset(),

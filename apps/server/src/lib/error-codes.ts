@@ -20,6 +20,10 @@ export const ERRORS = {
     status: 429,
     message: (p: { retryAfter: number }) => `Too many requests. Try again in ${p.retryAfter} s.`,
   },
+  payload_too_large: {
+    status: 413,
+    message: (p: { maxMb: number }) => `Too much data at once (at most ${p.maxMb} MB per request)`,
+  },
 
   // Sign-in, setup, invites
   signup_disabled: {
@@ -44,6 +48,10 @@ export const ERRORS = {
   last_admin_delete: { status: 400, message: "Cannot delete the last admin" },
   owner_stays_admin: { status: 400, message: "The instance owner stays an admin" },
   owner_not_deletable: { status: 400, message: "The instance owner can't be deleted" },
+  owner_not_editable: {
+    status: 403,
+    message: "Only the instance owner can change their own password or two-factor authentication",
+  },
   avatar_not_found: { status: 404, message: "No avatar" },
   avatar_not_square: { status: 400, message: "The avatar must be square" },
   avatar_too_large: {

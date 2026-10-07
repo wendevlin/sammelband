@@ -172,7 +172,7 @@ async function revoke(link: ShareLinkInfo) {
               aria-label={m.common_password()}
               autocomplete="off"
               required
-              minlength={4}
+              minlength={8}
               maxlength={128}
             />
           {/if}

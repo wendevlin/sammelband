@@ -190,7 +190,9 @@ describe("tenant isolation", () => {
       await expect(userService.updateUser(bUser.id, user.id, { name: "x" })).rejects.toThrow(
         "not found",
       );
-      await expect(userService.setPassword(user.id, "hijacked-123")).rejects.toThrow("not found");
+      await expect(userService.setPassword(bUser.id, user.id, "hijacked-123")).rejects.toThrow(
+        "not found",
+      );
       await expect(userService.deleteUser(bUser.id, user.id)).rejects.toThrow("not found");
     });
   });
