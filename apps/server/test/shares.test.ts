@@ -118,7 +118,7 @@ describe("share links", () => {
   test("password links need the unlock cookie; a wrong password is refused", async () => {
     const { as, user, inside } = await setup();
     const link = await as(() =>
-      shareService.createShare({ albumId: inside.album.id }, { password: "secret" }, user.id),
+      shareService.createShare({ albumId: inside.album.id }, { password: "open sesame" }, user.id),
     );
     expect(link.has_password).toBe(true);
     const token = tokenOf(link.url);
@@ -128,7 +128,7 @@ describe("share links", () => {
     expect(() => publicService.image(locked, inside.filename, 400, "webp")).toThrow("password");
     await expect(publicService.unlock(token, "nope")).rejects.toThrow("Wrong password");
 
-    const cookie = await publicService.unlock(token, "secret");
+    const cookie = await publicService.unlock(token, "open sesame");
     const view = await publicService.view(await open(token, cookie.value), {});
     expect(view.status).toBe("ok");
     expect((await publicService.view(await open(token, `${cookie.value}x`), {})).status).toBe(
@@ -179,11 +179,16 @@ describe("share links", () => {
         ),
       ),
     ).rejects.toThrow("future");
+    // Link passwords need at least 8 characters.
     await expect(
       as(() =>
-        shareService.createShare({ albumId: inside.album.id }, { password: "abc" }, user.id),
+        shareService.createShare({ albumId: inside.album.id }, { password: "7 chars" }, user.id),
       ),
-    ).rejects.toThrow("at least");
+    ).rejects.toMatchObject({ code: "share_password_too_short", params: { min: 8 } });
+    const eight = await as(() =>
+      shareService.createShare({ albumId: inside.album.id }, { password: "8 chars!" }, user.id),
+    );
+    expect(eight.has_password).toBe(true);
 
     const other = await createTenant("Other");
     await runInTenant(other.id, async () => {
@@ -223,7 +228,7 @@ describe("share links", () => {
     expect(folderPreview?.image?.url).toContain(inside.filename);
 
     const locked = await as(() =>
-      shareService.createShare({ albumId: inside.album.id }, { password: "secret" }, user.id),
+      shareService.createShare({ albumId: inside.album.id }, { password: "open sesame" }, user.id),
     );
     const lockedPreview = await publicService.linkPreview(tokenOf(locked.url), {});
     expect(lockedPreview).toEqual({

@@ -237,7 +237,7 @@ describe("superadmin", () => {
   test("deleting leaves no row behind in any tenant table", async () => {
     const own = await createTenant("Own");
     const tenant = await createTenant("Full");
-    await runInTenant(tenant.id, async () => {
+    const user = await runInTenant(tenant.id, async () => {
       const { user, album, section } = await gallery(tenant.id);
       const folder = await folderService.createFolder({
         name: "F",
@@ -251,7 +251,7 @@ describe("superadmin", () => {
         id: folder.id,
         beforeId: null,
       });
-      await shareService.createShare({ folderId: folder.id }, { password: "secret" }, user.id);
+      await shareService.createShare({ folderId: folder.id }, { password: "open sesame" }, user.id);
       await tenantService.updateCurrentTenant({ pdfExportEnabled: true });
       await exportService.createExport(album.id, user.id, {
         format: "a5",
@@ -276,7 +276,35 @@ describe("superadmin", () => {
         config: {},
         credentials: { appPassword: "x" },
       });
+      return user;
     });
+    // better-auth's rows for the users (not tenant tables): a two-factor secret,
+    // a trusted device and a password reset, written like better-auth does. The
+    // same for a user of another tenant, whose rows have to stay.
+    const keeper = await runInTenant(own.id, () => createUser());
+    const ctx = await auth.$context;
+    for (const u of [user, keeper]) {
+      await ctx.adapter.create({
+        model: "twoFactor",
+        data: { secret: "secret", backupCodes: "codes", userId: u.id },
+      });
+      for (const identifier of [`trust-device-${u.id}`, `reset-password:${u.id}`]) {
+        await ctx.internalAdapter.createVerificationValue({
+          identifier,
+          value: u.id,
+          expiresAt: new Date(Date.now() + 60_000),
+        });
+      }
+    }
+    const authRowsOf = async (userId: string) => ({
+      twoFactor: (
+        await db.selectFrom("twoFactor").select("id").where("userId", "=", userId).execute()
+      ).length,
+      verification: (
+        await db.selectFrom("verification").select("id").where("value", "=", userId).execute()
+      ).length,
+    });
+    expect(await authRowsOf(user.id)).toEqual({ twoFactor: 1, verification: 2 });
     const rowsOf = async () => {
       const counts: Record<string, number> = {};
       for (const [table, column] of Object.entries(TENANT_COLUMNS)) {
@@ -293,6 +321,8 @@ describe("superadmin", () => {
 
     await tenantService.deleteTenant(own.id, tenant.id, "Full");
     expect(Object.values(await rowsOf()).every((n) => n === 0)).toBe(true);
+    expect(await authRowsOf(user.id)).toEqual({ twoFactor: 0, verification: 0 });
+    expect(await authRowsOf(keeper.id)).toEqual({ twoFactor: 1, verification: 2 });
   });
 
   test("overview counts per tenant", async () => {
@@ -329,6 +359,53 @@ describe("superadmin", () => {
         userService.updateUser(admin.id, owner?.id ?? "", { role: "user" }),
       ).rejects.toThrow("owner");
       await expect(userService.deleteUser(admin.id, owner?.id ?? "")).rejects.toThrow("owner");
+    });
+  });
+
+  test("only the instance owner changes their own password and two-factor", async () => {
+    const tenant = await createTenant();
+    await runInTenant(tenant.id, async () => {
+      const ownerId = await userService.createAccount({
+        tenantId: tenant.id,
+        email: "owner@example.com",
+        name: "Owner",
+        password: "password123",
+        role: "admin",
+        superadmin: true,
+      });
+      const admin = await createUser("admin");
+      const user = await createUser();
+      // As if both had turned it on (the reset only needs the flag).
+      await db
+        .updateTable("user")
+        .set({ twoFactorEnabled: true })
+        .where("id", "in", [ownerId, user.id])
+        .execute();
+      const signInWith = (email: string, password: string) =>
+        auth.api.signInEmail({ body: { email, password } });
+
+      // A co-admin can't take over the owner's account.
+      await expect(
+        userService.setPassword(admin.id, ownerId, "taken-over-123"),
+      ).rejects.toMatchObject({ code: "owner_not_editable" });
+      await expect(userService.resetTwoFactor(admin.id, ownerId)).rejects.toMatchObject({
+        code: "owner_not_editable",
+      });
+      expect((await userService.getUser(ownerId))?.twoFactorEnabled).toBe(true);
+      await expect(signInWith("owner@example.com", "taken-over-123")).rejects.toThrow();
+
+      // The owner can set their own password on the admin page (and still needs a code).
+      await userService.setPassword(ownerId, ownerId, "owners-new-123");
+      expect(await signInWith("owner@example.com", "owners-new-123")).toMatchObject({
+        twoFactorRedirect: true,
+      });
+
+      // Other users stay in the co-admin's hands.
+      expect((await userService.resetTwoFactor(admin.id, user.id)).twoFactorEnabled).toBe(false);
+      await userService.setPassword(admin.id, user.id, "users-new-123");
+      expect(await signInWith(user.email, "users-new-123")).toMatchObject({
+        user: { id: user.id },
+      });
     });
   });
 });

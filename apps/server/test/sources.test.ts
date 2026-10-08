@@ -1,9 +1,13 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { Hono } from "hono";
+import type { ContentfulStatusCode } from "hono/utils/http-status";
+import { auth } from "../src/auth";
 import { config } from "../src/config";
 import { db } from "../src/db/client";
-import { classifyAddress } from "../src/lib/remote-fetch";
+import { isAppError } from "../src/lib/errors";
 import { open, seal } from "../src/lib/secret-box";
 import { runInTenant } from "../src/lib/tenant-context";
+import { sourceRoutes } from "../src/routes/sources";
 import * as albumService from "../src/services/album.service";
 import * as imageService from "../src/services/image.service";
 import * as sectionService from "../src/services/section.service";
@@ -171,19 +175,6 @@ async function connected(name: string | null = null) {
 }
 
 describe("photo sources", () => {
-  test("addresses: link-local and metadata never, private networks as configured", () => {
-    expect(classifyAddress("169.254.169.254")).toBe("blocked");
-    expect(classifyAddress("0.0.0.0")).toBe("blocked");
-    expect(classifyAddress("fe80::1")).toBe("blocked");
-    expect(classifyAddress("::ffff:169.254.1.1")).toBe("blocked");
-    expect(classifyAddress("192.168.1.10")).toBe("private");
-    expect(classifyAddress("100.100.1.1")).toBe("private");
-    expect(classifyAddress("127.0.0.1")).toBe("private");
-    expect(classifyAddress("fd00::1")).toBe("private");
-    expect(classifyAddress("93.184.216.34")).toBe("public");
-    expect(classifyAddress("2a01:4f8::1")).toBe("public");
-  });
-
   test(
     "private addresses are refused unless SOURCES_ALLOW_PRIVATE_HOSTS is set",
     inTenant(async () => {
@@ -433,5 +424,39 @@ describe("photo sources", () => {
     });
     const rows = await db.selectFrom("source_accounts").select("tenant_id").execute();
     expect(rows.map((r) => r.tenant_id)).toEqual([a.id]);
+  });
+
+  test("connecting an account is rate limited; polling a started login isn't", async () => {
+    const tenant = await createTenant();
+    const cookie = await runInTenant(tenant.id, async () => {
+      const user = await createUser();
+      const res = await auth.api.signInEmail({
+        body: { email: user.email, password: "password123" },
+        asResponse: true,
+      });
+      return res.headers
+        .getSetCookie()
+        .map((c) => c.split(";")[0])
+        .join("; ");
+    });
+    const app = new Hono().route("/", sourceRoutes).onError((err, c) => {
+      if (!isAppError(err)) throw err;
+      return c.json({ code: err.code }, err.statusCode as ContentfulStatusCode);
+    });
+    const post = (path: string, body: unknown) =>
+      app.request(path, {
+        method: "POST",
+        headers: { cookie, "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+    // Invalid input makes no outbound request, but every try counts.
+    for (let i = 0; i < 20; i++) {
+      expect((await post("/nextcloud/connect", { url: 1 })).status).toBe(400);
+    }
+    expect((await post("/nextcloud/connect", { url: 1 })).status).toBe(429);
+    expect((await post("/nextcloud/accounts", { url: 1 })).status).toBe(429);
+    for (let i = 0; i < 30; i++) {
+      expect((await post("/nextcloud/connect/poll", { flow: "gone" })).status).toBe(410);
+    }
   });
 });

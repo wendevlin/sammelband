@@ -94,12 +94,16 @@ const publicAlbum = (a: SharedAlbum): SharedAlbum => ({
 
 /**
  * The folder's path from the shared root folder, or null when it's outside
- * the shared subtree.
+ * the shared subtree. Walks up, so it costs one query per level.
  */
 async function trailWithin(rootId: string, folderId: string | null): Promise<Crumb[] | null> {
   const chain: Crumb[] = [];
+  const seen = new Set<string>();
   let current: Folder | null = folderId ? await folderService.getFolder(folderId) : null;
-  while (current) {
+  // A folder seen twice would be a cycle. Moving a folder below itself is
+  // refused, but a public request must never loop forever.
+  while (current && !seen.has(current.id)) {
+    seen.add(current.id);
     chain.unshift({ id: current.id, name: current.name });
     if (current.id === rootId) return chain;
     current = current.parent_id ? await folderService.getFolder(current.parent_id) : null;
@@ -183,18 +187,16 @@ export function view(
 
 const sameAlbum = (ref: string, shortId: string) => ref.slice(ref.lastIndexOf("-") + 1) === shortId;
 
-/** All folder ids of the subtree below (and including) `rootId`. */
-async function subtree(rootId: string): Promise<string[]> {
-  const ids = [rootId];
-  for (let i = 0; i < ids.length; i++) {
-    const children = await tdb()
-      .selectFrom("folders")
-      .select("id")
-      .where("parent_id", "=", ids[i] ?? "")
-      .execute();
-    ids.push(...children.map((c) => c.id));
+/** Whether one of these albums is the shared album or lies in the shared subtree. */
+async function sharesAlbum(
+  share: ShareLink,
+  albums: { id: string; folder_id: string | null }[],
+): Promise<boolean> {
+  if (share.album_id) return albums.some((a) => a.id === share.album_id);
+  for (const album of albums) {
+    if (await trailWithin(share.folder_id ?? "", album.folder_id)) return true;
   }
-  return ids;
+  return false;
 }
 
 /** A resized image, if it belongs to the shared album or folder subtree. */
@@ -206,16 +208,16 @@ export function image(
 ): Promise<Response> {
   if (!unlocked) throw fail("share_locked");
   return runInTenant(share.tenant_id, async () => {
-    let q = tdb()
+    // Uploads of the same bytes share one file, so it can be in several albums.
+    const albums = await tdb()
       .selectFrom("photos as p")
       .innerJoin("image_files as i", "i.id", "p.image_file_id")
       .innerJoin("albums as a", "a.id", "p.album_id")
-      .select("p.id")
-      .where("i.filename", "=", filename);
-    q = share.album_id
-      ? q.where("a.id", "=", share.album_id)
-      : q.where("a.folder_id", "in", await subtree(share.folder_id ?? ""));
-    if (!(await q.executeTakeFirst())) throw fail("image_not_found");
+      .select(["a.id", "a.folder_id"])
+      .distinct()
+      .where("i.filename", "=", filename)
+      .execute();
+    if (!(await sharesAlbum(share, albums))) throw fail("image_not_found");
     return imageDelivery.serveVariant(filename, width, format);
   });
 }

@@ -11,6 +11,16 @@ import * as publicService from "../services/public.service";
 const viewLimit = rateLimit({ name: "public-view", windowMs: 10 * 60 * 1000, max: 300 });
 const unlockLimit = rateLimit({ name: "public-unlock", windowMs: 10 * 60 * 1000, max: 10 });
 const imageLimit = rateLimit({ name: "public-image", windowMs: 10 * 60 * 1000, max: 3000 });
+// Wrong passwords per link, from all IPs together: bounds guessing spread over
+// many addresses. Right ones don't count, so a link shared widely keeps working.
+const unlockLinkLimit = rateLimit({
+  name: "public-unlock-link",
+  windowMs: 60 * 60 * 1000,
+  max: 50,
+  failuresOnly: true,
+  // Real tokens are 32 characters; longer ones only fill the bucket map.
+  key: (c) => (c.req.param("token") ?? "").slice(0, 64),
+});
 
 export const publicRoutes = new Hono()
   .get(
@@ -28,6 +38,7 @@ export const publicRoutes = new Hono()
   .post(
     "/:token/unlock",
     unlockLimit,
+    unlockLinkLimit,
     validate("json", z.object({ password: z.string().max(128) })),
     async (c) => {
       const token = c.req.param("token");

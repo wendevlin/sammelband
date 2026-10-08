@@ -9,9 +9,12 @@ import type { ContentfulStatusCode } from "hono/utils/http-status";
 import { auth } from "./auth";
 import { config } from "./config";
 import { migrate } from "./db/migrate";
+import { builtScriptHashes } from "./lib/csp";
 import { errorBody } from "./lib/error-codes";
 import { AppError } from "./lib/errors";
 import { checkMailOnStartup } from "./lib/mail";
+import { resolveUser } from "./middleware/auth.middleware";
+import { apiBodyLimit, MAX_BODY_LIMIT } from "./middleware/body-limit.middleware";
 import { requireMail } from "./middleware/mail.middleware";
 import { authRateLimit, passwordResetRateLimit } from "./middleware/rate-limit.middleware";
 import { adminInviteRoutes } from "./routes/admin/invites";
@@ -19,6 +22,7 @@ import { adminSourceRoutes } from "./routes/admin/sources";
 import { adminStorageRoutes } from "./routes/admin/storage";
 import { adminUserRoutes } from "./routes/admin/users";
 import { albumRoutes } from "./routes/albums";
+import { authRoutes } from "./routes/auth";
 import { albumExportRoutes, exportRoutes } from "./routes/exports";
 import { folderRoutes } from "./routes/folders";
 import { imageRoutes } from "./routes/images";
@@ -69,8 +73,9 @@ app.use(
     strictTransportSecurity: false,
     contentSecurityPolicy: {
       defaultSrc: ["'self'"],
-      // SvelteKit's CSP meta tag narrows inline scripts to its bootstrap's hash.
-      scriptSrc: ["'self'", "'unsafe-inline'"],
+      // Inline scripts only by hash: the ones SvelteKit's build lists in
+      // index.html's CSP meta tag (its bootstrap), read again after a rebuild.
+      scriptSrc: ["'self'", builtScriptHashes(config.FRONTEND_DIST)],
       styleSrc: ["'self'", "'unsafe-inline'"],
       imgSrc: ["'self'", "data:", "blob:"],
       fontSrc: ["'self'", "data:"],
@@ -98,13 +103,24 @@ app.use("*", async (c, next) => {
 // cross-origin without a CORS preflight, which this server never answers.
 app.use("/api/*", csrf({ origin: config.ALLOWED_ORIGINS }));
 
-// Auth. Closed instance: accounts are created by an admin, an invite link or
-// the first-run setup, all server-side, so the public sign-up endpoint is blocked.
-app.use("/api/auth/*", authRateLimit);
-app.post("/api/auth/sign-up/*", (c) => c.json(errorBody("signup_disabled"), 403));
-// "Forgot password?" needs SMTP (see lib/mail.ts).
-app.post("/api/auth/request-password-reset", passwordResetRateLimit, requireMail);
-app.on(["GET", "POST"], "/api/auth/*", (c) => auth.handler(c.req.raw));
+// 1 MB per request body, more only for the upload routes (see the middleware).
+app.use(
+  "/api/*",
+  apiBodyLimit(async (headers) => (await resolveUser(headers)) !== null),
+);
+
+// Auth: only the better-auth endpoints the app uses, rate limited where they
+// check credentials. "Forgot password?" needs SMTP (see lib/mail.ts).
+app.route(
+  "/api/auth",
+  authRoutes({
+    handler: auth.handler,
+    limits: {
+      credentials: [authRateLimit],
+      "password-reset": [passwordResetRateLimit, requireMail],
+    },
+  }),
+);
 
 app.route("/api/onboarding", onboardingRoutes);
 app.route("/api/invites", inviteRoutes);
@@ -139,8 +155,8 @@ Bun.serve({
   port: config.PORT,
   fetch: app.fetch,
   websocket,
-  // Photo uploads can be large; Bun's default body limit is 128 MB.
-  maxRequestBodySize: 512 * 1024 * 1024,
+  // Hard cap for any request; the routes' own limits are in apiBodyLimit.
+  maxRequestBodySize: MAX_BODY_LIMIT,
 });
 
 console.log(`[Sammelband] listening on http://localhost:${config.PORT}`);

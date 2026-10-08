@@ -5,12 +5,16 @@ on:
   push:
     branches: [main]
 
+# Read-only token for every job; a job that needs more asks for it itself.
+permissions:
+  contents: read
+
 jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
-      - uses: oven-sh/setup-bun@v2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version: 1.4.2 # keep in sync with the Dockerfile
       - run: bun install --frozen-lockfile
@@ -36,9 +40,46 @@ jobs:
     env:
       DATABASE_URL: ${{ matrix.database == 'postgres' && 'postgres://postgres:test@localhost:5432/sammelband_test' || '' }}
     steps:
-      - uses: actions/checkout@v7
-      - uses: oven-sh/setup-bun@v2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version: 1.4.2 # keep in sync with the Dockerfile
       - run: bun install --frozen-lockfile
       - run: bun run test
+
+  # Developer Certificate of Origin: every commit in a pull request needs a
+  # "Signed-off-by:" line (git commit -s). See CONTRIBUTING.md.
+  dco:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - name: Check Signed-off-by lines
+        env:
+          BASE_REF: ${{ github.base_ref }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -eu
+          if ! git cat-file -e "${BASE_SHA}^{commit}" 2>/dev/null; then
+            git fetch --no-tags origin "refs/heads/${BASE_REF}"
+          fi
+          commits=$(git rev-list --no-merges --reverse "${BASE_SHA}..${HEAD_SHA}")
+          unsigned=0
+          for commit in $commits; do
+            if [ -n "$(git log -1 --format='%(trailers:key=Signed-off-by,valueonly,separator=%x20)' "$commit")" ]; then
+              continue
+            fi
+            if [ "$unsigned" -eq 0 ]; then echo "Commits without a Signed-off-by line:"; fi
+            git log -1 --format='  %h %s (%an)' "$commit"
+            unsigned=$((unsigned + 1))
+          done
+          if [ "$unsigned" -gt 0 ]; then
+            echo "::error::${unsigned} commit(s) lack a Signed-off-by line. Sign them off with 'git rebase --signoff origin/${BASE_REF}' and force-push; see CONTRIBUTING.md."
+            exit 1
+          fi
+          echo "All commits since ${BASE_REF} are signed off."

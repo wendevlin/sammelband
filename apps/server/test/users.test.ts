@@ -58,8 +58,9 @@ describe("users", () => {
     "setting a password works for sign-in",
     inTenant(async () => {
       const { auth } = await import("../src/auth");
+      const admin = await createUser("admin");
       const user = await createUser();
-      await userService.setPassword(user.id, "new-password-123");
+      await userService.setPassword(admin.id, user.id, "new-password-123");
       const res = await auth.api.signInEmail({
         body: { email: user.email, password: "new-password-123" },
       });

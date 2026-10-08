@@ -41,7 +41,11 @@ export const adminUserRoutes = new Hono<AuthEnv>()
       ),
   )
   .post("/:id/password", validate("json", z.object({ password })), async (c) => {
-    await userService.setPassword(c.req.param("id"), c.req.valid("json").password);
+    await userService.setPassword(
+      c.get("user").id,
+      c.req.param("id"),
+      c.req.valid("json").password,
+    );
     return c.json({ ok: true });
   })
   // A square image, cropped in the browser like on the profile page.

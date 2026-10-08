@@ -4,7 +4,7 @@ import { fail } from "../lib/errors";
 import { currentTenantId } from "../lib/tenant-context";
 import { validate } from "../lib/validate";
 import { type AuthEnv, requireAuth } from "../middleware/auth.middleware";
-import { uploadRateLimit } from "../middleware/rate-limit.middleware";
+import { rateLimit, uploadRateLimit } from "../middleware/rate-limit.middleware";
 import * as sourceService from "../services/source.service";
 import {
   type LoginFlow,
@@ -30,6 +30,11 @@ type PendingFlow = {
 const flows = new Map<string, PendingFlow>();
 const owner = (userId: string) => `${currentTenantId()}/${userId}`;
 
+// Connecting makes requests to a server the user picks: 20 tries per IP per
+// 10 minutes. Polling a started login isn't limited: the web app polls every
+// few seconds while the user signs in to Nextcloud.
+const connectRateLimit = rateLimit({ name: "source-connect", windowMs: 10 * 60 * 1000, max: 20 });
+
 const server = z.object({
   url: z.string().max(2000).optional(),
   name: z.string().max(100).nullable().optional(),
@@ -40,7 +45,7 @@ const server = z.object({
  * one: Login Flow v2, or an app password typed in.
  */
 const nextcloudRoutes = new Hono<AuthEnv>()
-  .post("/connect", validate("json", server), async (c) => {
+  .post("/connect", connectRateLimit, validate("json", server), async (c) => {
     const { url, name } = c.req.valid("json");
     const config = await sourceService.configFor<NextcloudConfig>("nextcloud", { url });
     const flow = await startLogin(config);
@@ -76,6 +81,7 @@ const nextcloudRoutes = new Hono<AuthEnv>()
   })
   .post(
     "/accounts",
+    connectRateLimit,
     validate(
       "json",
       server.extend({

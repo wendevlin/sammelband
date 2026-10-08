@@ -40,6 +40,25 @@ if (!isDev && secretKey.length < 32) {
 
 const baseUrl = required("BASE_URL", isDev ? "http://localhost:3000" : undefined);
 
+// How many reverse proxies in front of the app append to X-Forwarded-For. The
+// client's address is the entry the outermost one added, this many from the end.
+const trustProxyHops = (() => {
+  const raw = optional("TRUST_PROXY_HOPS")?.trim();
+  if (raw === undefined) return 1;
+  if (!/^[1-9]\d*$/.test(raw)) {
+    throw new Error("TRUST_PROXY_HOPS must be a positive whole number (default 1)");
+  }
+  return Number(raw);
+})();
+
+// Largest accepted photo upload. Also sizes the upload routes' body limit, so
+// it must be a real number.
+const maxUploadMb = (() => {
+  const mb = Number(optional("MAX_UPLOAD_MB") ?? 50);
+  if (!Number.isFinite(mb) || mb <= 0) throw new Error("MAX_UPLOAD_MB must be a positive number");
+  return mb;
+})();
+
 // Outgoing email over SMTP (password reset links). Optional: without SMTP_HOST
 // the app sends no mail and hides "Forgot password?".
 const smtp = (() => {
@@ -72,6 +91,8 @@ export const config = {
   // Honor X-Forwarded-For / X-Real-IP for rate limiting. Only enable behind a
   // reverse proxy that sets these headers itself.
   TRUST_PROXY: process.env.TRUST_PROXY === "true",
+  /** Reverse proxies in front of the app (with TRUST_PROXY); see trustProxyHops. */
+  TRUST_PROXY_HOPS: trustProxyHops,
   // Host several independent Sammelbände (tenants) on this instance. Off by
   // default: one Sammelband, no tenant management. Existing tenants keep
   // working if it is switched off again; only managing them is hidden.
@@ -81,7 +102,7 @@ export const config = {
   // the server, and could otherwise make this one probe its own network.
   SOURCES_ALLOW_PRIVATE_HOSTS: process.env.SOURCES_ALLOW_PRIVATE_HOSTS === "true",
   /** Largest accepted photo upload. */
-  MAX_UPLOAD_BYTES: Number(process.env.MAX_UPLOAD_MB ?? 50) * 1024 * 1024,
+  MAX_UPLOAD_BYTES: maxUploadMb * 1024 * 1024,
   // postgres://… selects PostgreSQL; otherwise SQLite at DATABASE_PATH.
   DATABASE_URL: optional("DATABASE_URL"),
   DATABASE_PATH: process.env.DATABASE_PATH ?? "./sammelband.db",

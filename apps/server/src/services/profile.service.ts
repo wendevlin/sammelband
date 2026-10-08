@@ -3,8 +3,10 @@ import { dirname } from "node:path";
 import { auth } from "../auth";
 import { db } from "../db/client";
 import { fail } from "../lib/errors";
+import { imageDecoding } from "../lib/semaphore";
 import { avatarPath } from "../lib/storage-paths";
 import { tdb } from "../lib/tenant-context";
+import { MAX_PIXELS } from "./image.service";
 
 // The signed-in user's own account. Password checks go through better-auth
 // with the request's session headers.
@@ -81,15 +83,21 @@ export async function setAvatar(userId: string, file: File): Promise<string> {
   }
   if (!file.type.startsWith("image/")) throw fail("only_images");
   const buf = Buffer.from(await file.arrayBuffer());
-  const { width, height } = await new Bun.Image(buf)
-    .metadata()
-    .catch(() => ({ width: 0, height: 0 }));
-  if (!width || !height) throw fail("unreadable_image");
-  if (width !== height) throw fail("avatar_not_square");
-  const output = await new Bun.Image(buf, { autoOrient: true })
-    .resize(AVATAR_SIZE, AVATAR_SIZE)
-    .webp({ quality: 85 })
-    .bytes();
+  const output = await imageDecoding.run(async () => {
+    const { width, height } = await new Bun.Image(buf)
+      .metadata()
+      .catch(() => ({ width: 0, height: 0 }));
+    if (!width || !height) throw fail("unreadable_image");
+    if (width !== height) throw fail("avatar_not_square");
+    // The same bound as for photos: a small file can decompress to gigabytes.
+    if (width * height > MAX_PIXELS) {
+      throw fail("image_too_large", { maxMegapixels: MAX_PIXELS / 1e6 });
+    }
+    return new Bun.Image(buf, { autoOrient: true })
+      .resize(AVATAR_SIZE, AVATAR_SIZE)
+      .webp({ quality: 85 })
+      .bytes();
+  });
   const path = avatarPath(userId);
   mkdirSync(dirname(path), { recursive: true });
   await Bun.write(path, output);

@@ -12,6 +12,12 @@ services:
       - UPLOADS_PATH=/uploads
       - SECRET_KEY=${SECRET_KEY}
       - BASE_URL=${BASE_URL}
+      # Behind a reverse proxy (Caddy, nginx, Traefik): set TRUST_PROXY=true so
+      # rate limits see each client's address, not the proxy's. Leave it off
+      # when port 3000 is reachable directly, or clients can fake their address.
+      - TRUST_PROXY=${TRUST_PROXY:-false}
+      # Proxies that append to X-Forwarded-For, e.g. 2 for a CDN plus your proxy.
+      - TRUST_PROXY_HOPS=${TRUST_PROXY_HOPS:-1}
       # The user the app runs as and who owns /data and /uploads.
       - PUID=${PUID:-1000}
       - PGID=${PGID:-1000}

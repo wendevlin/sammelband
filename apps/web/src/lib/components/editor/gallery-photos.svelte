@@ -71,11 +71,16 @@ async function upload(files: FileList | File[]) {
     });
   } catch (e) {
     if (e instanceof ApiError && e.status === 413) {
-      // The server stops at the first photo over the limit; earlier ones are kept.
-      notice = {
-        title: e.code === "quota_exceeded" ? m.upload_storage_full() : m.upload_too_large(),
-        description: m.upload_partial({ reason: errorText(e) }),
-      };
+      // A photo over the limit or a full quota stops the server at that photo,
+      // and earlier ones are kept. A request over the body limit (payload_too_large,
+      // or Bun's own cap without a code) is refused before anything is saved.
+      const partial = e.code === "quota_exceeded" || e.code === "file_too_large";
+      notice = partial
+        ? {
+            title: e.code === "quota_exceeded" ? m.upload_storage_full() : m.upload_too_large(),
+            description: m.upload_partial({ reason: errorText(e) }),
+          }
+        : { title: m.upload_request_too_large(), description: m.upload_request_too_large_hint() };
       noticeOpen = true;
     } else {
       toast.error(errorText(e));
