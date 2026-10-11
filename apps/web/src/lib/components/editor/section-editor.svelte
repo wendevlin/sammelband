@@ -2,7 +2,7 @@
 import Plus from "@lucide/svelte/icons/plus";
 import type { Photo, Section } from "@sammelband/shared";
 import { flushSync, tick } from "svelte";
-import { SvelteMap } from "svelte/reactivity";
+import { SvelteMap, SvelteSet } from "svelte/reactivity";
 import { del, post } from "#lib/api.ts";
 import { attempt } from "#lib/attempt.ts";
 import ConfirmDialog from "#lib/components/dialogs/confirm-dialog.svelte";
@@ -130,6 +130,13 @@ async function discard(key: string) {
   if (slot) list?.querySelector<HTMLElement>(`[data-insert-before="${CSS.escape(slot)}"]`)?.focus();
 }
 
+// Collapsed sections, by id: only for this visit of the editor, so a reload
+// shows everything expanded again.
+const collapsed = new SvelteSet<string>();
+function toggleCollapsed(id: string) {
+  if (!collapsed.delete(id)) collapsed.add(id);
+}
+
 let deleteTarget = $state<Section | null>(null);
 let deleteOpen = $state(false);
 
@@ -191,6 +198,8 @@ async function drop(e: DragEvent, target: Section) {
         photos={s ? photosOf(s.id) : []}
         anchor={item.insert ? () => slotOf(item.key) : undefined}
         focusTitle={item.insert?.focus ?? 0}
+        collapsed={s !== null && collapsed.has(s.id)}
+        ontogglecollapse={s ? () => toggleCollapsed(s.id) : undefined}
         oncreated={(id) => created(item.key, id)}
         ondelete={() => {
           deleteTarget = s;

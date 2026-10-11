@@ -1,4 +1,5 @@
 <script lang="ts">
+import ChevronDown from "@lucide/svelte/icons/chevron-down";
 import GripVertical from "@lucide/svelte/icons/grip-vertical";
 import Trash from "@lucide/svelte/icons/trash-2";
 import type { Photo, Section } from "@sammelband/shared";
@@ -9,6 +10,7 @@ import { attempt } from "#lib/attempt.ts";
 import { Button } from "#lib/components/ui/button/index.ts";
 import { Input } from "#lib/components/ui/input/index.ts";
 import { Switch } from "#lib/components/ui/switch/index.ts";
+import { plainText } from "#lib/markdown.ts";
 import { m } from "#lib/paraglide/messages.js";
 import { cn } from "#lib/utils.ts";
 import GalleryPhotos from "./gallery-photos.svelte";
@@ -28,6 +30,8 @@ let {
   photos,
   anchor,
   focusTitle = 0,
+  collapsed = false,
+  ontogglecollapse,
   oncreated,
   ondelete,
   ondiscard,
@@ -41,6 +45,10 @@ let {
   anchor?: () => string | null;
   /** Focuses the title on mount and whenever it changes (0: never). */
   focusTitle?: number;
+  /** Only the header and a one-line summary are shown (the editor keeps this per session). */
+  collapsed?: boolean;
+  /** Collapses or expands the section (and gives it the button for that). */
+  ontogglecollapse?: () => void;
   /** The empty section was just created with this id. */
   oncreated?: (id: string) => void;
   ondelete?: () => void;
@@ -65,6 +73,7 @@ let discarded = false;
 
 const sectionId = $derived(section?.id ?? createdId);
 const highlightId = $props.id();
+const bodyId = `${highlightId}-body`;
 const value = <K extends keyof Fields>(key: K, fallback: Fields[K]): Fields[K] =>
   (edits[key] ?? section?.[key] ?? fallback) as Fields[K];
 const title = $derived(value("title", ""));
@@ -165,6 +174,19 @@ $effect(() => {
 });
 
 const pending = $derived(saving || Object.keys(edits).length > 0);
+
+/** What a collapsed section holds: its photo count and the start of its text. */
+const summary = $derived.by(() => {
+  const parts = [
+    photos.length === 0
+      ? ""
+      : photos.length === 1
+        ? m.section_photos_one()
+        : m.section_photos_other({ count: photos.length }),
+    plainText(text).slice(0, 200),
+  ].filter(Boolean);
+  return parts.join(" · ") || m.section_collapsed_empty();
+});
 </script>
 
 <div
@@ -174,7 +196,20 @@ const pending = $derived(saving || Object.keys(edits).length > 0);
     !section && !createdId && "border-dashed bg-transparent",
   )}
 >
-  <div class="mb-3 flex items-center gap-2">
+  <div class={cn("flex items-center gap-2", !collapsed && "mb-3")}>
+    {#if ontogglecollapse}
+      <button
+        type="button"
+        class="-ml-1 flex size-7 shrink-0 items-center justify-center rounded-sm text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50"
+        aria-expanded={!collapsed}
+        aria-controls={bodyId}
+        aria-label={collapsed ? m.section_expand() : m.section_collapse()}
+        title={collapsed ? m.section_expand() : m.section_collapse()}
+        onclick={ontogglecollapse}
+      >
+        <ChevronDown class={cn("size-4 transition-transform", collapsed && "-rotate-90")} />
+      </button>
+    {/if}
     {#if section}
       <button
         type="button"
@@ -220,14 +255,27 @@ const pending = $derived(saving || Object.keys(edits).length > 0);
     {/if}
   </div>
 
-  <MarkdownEditor
-    placeholder={section || createdId ? m.section_text_placeholder() : m.section_new()}
-    value={text}
-    onchange={(markdown) => change({ text: markdown })}
-    onblur={flush}
-  />
+  <div id={bodyId}>
+    {#if collapsed}
+      <button
+        type="button"
+        class="mt-1 block w-full truncate rounded-sm px-2 text-left text-sm text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50"
+        title={m.section_expand()}
+        onclick={ontogglecollapse}
+      >
+        {summary}
+      </button>
+    {:else}
+      <MarkdownEditor
+        placeholder={section || createdId ? m.section_text_placeholder() : m.section_new()}
+        value={text}
+        onchange={(markdown) => change({ text: markdown })}
+        onblur={flush}
+      />
 
-  <div class="mt-3">
-    <GalleryPhotos {sectionId} {photos} ensureSection={() => ensureId()} />
+      <div class="mt-3">
+        <GalleryPhotos {sectionId} {photos} ensureSection={() => ensureId()} />
+      </div>
+    {/if}
   </div>
 </div>
