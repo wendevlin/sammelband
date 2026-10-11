@@ -327,6 +327,7 @@
   "section_delete_confirm": "Delete this section?",
   "section_delete_description": "Its text and photos are deleted too.",
   "section_new": "New section: start typing or add photos.",
+  "section_insert": "Add a section here",
   "common_saving": "Saving…",
   "upload_storage_full": "Storage full",
   "upload_too_large": "Photo too large",

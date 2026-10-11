@@ -4,7 +4,7 @@ import Trash from "@lucide/svelte/icons/trash-2";
 import type { Photo, Section } from "@sammelband/shared";
 import { onDestroy } from "svelte";
 import { getAlbumState } from "#lib/album-state.svelte.ts";
-import { patch, post } from "#lib/api.ts";
+import { ApiError, del, patch, post } from "#lib/api.ts";
 import { attempt } from "#lib/attempt.ts";
 import { Button } from "#lib/components/ui/button/index.ts";
 import { Input } from "#lib/components/ui/input/index.ts";
@@ -18,24 +18,34 @@ type Fields = { title: string; text: string; highlight: boolean };
 
 /**
  * One section in the editor: title, text, highlight and photos, saved as you
- * type. Without `section` it's the empty section at the end, which exists
- * only here until its first input or upload creates it.
+ * type. Without `section` it's an empty section (at the end, or inserted
+ * between others), which exists only here until its first input or upload
+ * creates it.
  */
 let {
   albumId,
   section,
   photos,
+  anchor,
+  focusTitle = 0,
   oncreated,
   ondelete,
+  ondiscard,
   ondragstart,
   ondragend,
 }: {
   albumId: string;
   section: Section | null;
   photos: Photo[];
+  /** For an inserted empty section: the section it's created before (asked then). */
+  anchor?: () => string | null;
+  /** Focuses the title on mount and whenever it changes (0: never). */
+  focusTitle?: number;
   /** The empty section was just created with this id. */
   oncreated?: (id: string) => void;
   ondelete?: () => void;
+  /** Removes the empty section without saving anything (and gives it a delete button). */
+  ondiscard?: () => void;
   ondragstart?: (e: DragEvent) => void;
   ondragend?: () => void;
 } = $props();
@@ -50,6 +60,8 @@ let saving = $state(false);
 let timer: ReturnType<typeof setTimeout> | undefined;
 let createdId = $state<string | null>(null);
 let creating: Promise<string | null> | null = null;
+// Removed before it was created: nothing may be saved from here on.
+let discarded = false;
 
 const sectionId = $derived(section?.id ?? createdId);
 const highlightId = $props.id();
@@ -62,10 +74,13 @@ const highlight = $derived(value("highlight", false));
 /** The section's id, creating it (once) with `fields` if it doesn't exist yet. */
 function ensureId(fields: Partial<Fields> = {}): Promise<string | null> {
   if (sectionId) return Promise.resolve(sectionId);
+  if (discarded) return Promise.resolve(null);
   creating ??= (async () => {
-    const created = await attempt(() => post<Section>(`/albums/${albumId}/sections`, fields));
-    if (!created) {
+    const created = await attempt(() => create(fields));
+    if (!created || discarded) {
       creating = null;
+      // Removed while it was being created: take that back.
+      if (created) void attempt(() => del(`/albums/${albumId}/sections/${created.id}`));
       return null;
     }
     createdId = created.id;
@@ -76,7 +91,34 @@ function ensureId(fields: Partial<Fields> = {}): Promise<string | null> {
   return creating;
 }
 
+/**
+ * Create the section, before its anchor if it has one. An anchor that was
+ * deleted elsewhere just now is skipped: the section goes before the one that
+ * replaced it here (once the live update has arrived), or else at the end.
+ */
+async function create(fields: Partial<Fields>): Promise<Section> {
+  const gone = new Set<string>();
+  for (;;) {
+    const next = anchor?.();
+    const beforeId = next && !gone.has(next) ? next : undefined;
+    try {
+      return await post<Section>(`/albums/${albumId}/sections`, { ...fields, beforeId });
+    } catch (e) {
+      if (!beforeId || !(e instanceof ApiError && e.code === "anchor_section_not_found")) throw e;
+      gone.add(beforeId);
+    }
+  }
+}
+
+function discard() {
+  discarded = true;
+  clearTimeout(timer);
+  timer = undefined;
+  ondiscard?.();
+}
+
 function change(fields: Partial<Fields>, delay = SAVE_DELAY_MS) {
+  if (discarded) return;
   edits = { ...edits, ...fields };
   clearTimeout(timer);
   // The first input creates the section right away, so the next empty one appears.
@@ -92,6 +134,7 @@ function flush() {
 async function save() {
   clearTimeout(timer);
   timer = undefined;
+  if (discarded) return;
   const sent = edits;
   if (Object.keys(sent).length === 0) return;
   saving = true;
@@ -115,6 +158,11 @@ async function save() {
 }
 
 onDestroy(flush);
+
+let titleInput = $state<HTMLInputElement | null>(null);
+$effect(() => {
+  if (focusTitle) titleInput?.focus();
+});
 
 const pending = $derived(saving || Object.keys(edits).length > 0);
 </script>
@@ -140,6 +188,7 @@ const pending = $derived(saving || Object.keys(edits).length > 0);
       </button>
     {/if}
     <Input
+      bind:ref={titleInput}
       class="h-9 flex-1 border-transparent bg-transparent px-2 font-heading text-xl shadow-none md:text-xl focus-visible:border-input dark:bg-transparent"
       placeholder={m.section_title_placeholder()}
       aria-label={m.section_title_placeholder()}
@@ -162,6 +211,10 @@ const pending = $derived(saving || Object.keys(edits).length > 0);
     </div>
     {#if section}
       <Button variant="ghost" size="icon-sm" aria-label={m.section_delete()} onclick={ondelete}>
+        <Trash />
+      </Button>
+    {:else if ondiscard && !createdId}
+      <Button variant="ghost" size="icon-sm" aria-label={m.section_delete()} onclick={discard}>
         <Trash />
       </Button>
     {/if}

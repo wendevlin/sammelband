@@ -327,6 +327,7 @@
   "section_delete_confirm": "Diesen Abschnitt löschen?",
   "section_delete_description": "Sein Text und seine Fotos werden ebenfalls gelöscht.",
   "section_new": "Neuer Abschnitt: einfach lostippen oder Fotos hinzufügen.",
+  "section_insert": "Hier einen Abschnitt einfügen",
   "common_saving": "Wird gespeichert…",
   "upload_storage_full": "Speicher voll",
   "upload_too_large": "Foto zu groß",
