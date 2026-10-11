@@ -345,6 +345,7 @@
   "photo": "Foto",
   "photo_delete": "Foto löschen",
   "photo_caption": "Bildunterschrift…",
+  "photo_view": "Im Vollbild ansehen",
   "upload_progress_one": "1 Foto wird hochgeladen…",
   "upload_progress_other": "{count} Fotos werden hochgeladen…",
   "upload_drop_move": "Loslassen, um das Foto in diesen Abschnitt zu verschieben",

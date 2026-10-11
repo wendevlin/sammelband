@@ -345,6 +345,7 @@
   "photo": "Photo",
   "photo_delete": "Delete photo",
   "photo_caption": "Caption…",
+  "photo_view": "View full screen",
   "upload_progress_one": "Uploading 1 photo…",
   "upload_progress_other": "Uploading {count} photos…",
   "upload_drop_move": "Drop to move the photo into this section",

@@ -5,6 +5,7 @@ import "photoswipe/style.css";
 import type { Photo, Section } from "@sammelband/shared";
 import * as Dialog from "#lib/components/ui/dialog/index.ts";
 import { imageUrls } from "#lib/images.ts";
+import { lightboxOptions } from "#lib/lightbox.ts";
 import { cn } from "#lib/utils.ts";
 import MarkdownText from "./markdown-text.svelte";
 import SectionGallery from "./section-gallery.svelte";
@@ -77,16 +78,7 @@ function followSlide(data: unknown) {
 
 function open(index: number) {
   if (!lightbox) {
-    lightbox = new PhotoSwipeLightbox({
-      loop: false,
-      // Solid backdrop: the page behind would otherwise show through at 0.8.
-      bgOpacity: 1,
-      closeTitle: m.lightbox_close(),
-      zoomTitle: m.lightbox_zoom(),
-      arrowPrevTitle: m.lightbox_previous(),
-      arrowNextTitle: m.lightbox_next(),
-      pswpModule: () => import("photoswipe"),
-    });
+    lightbox = new PhotoSwipeLightbox(lightboxOptions());
     lightbox.on("uiRegister", () => {
       const ui = lightbox?.pswp?.ui;
       ui?.registerElement({

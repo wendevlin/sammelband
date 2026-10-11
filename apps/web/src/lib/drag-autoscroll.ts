@@ -1,9 +1,9 @@
 /**
- * Scroll the page while something is dragged near the top or bottom edge:
- * browsers don't reliably do it for HTML5 drag and drop. Faster the closer
- * the pointer gets to the edge. Returns a cleanup function.
+ * Scroll the page while a pointer is near its top or bottom edge, faster the
+ * closer it gets. `move` with each new pointer position, `stop` when the drag
+ * ends.
  */
-export function dragAutoscroll(edge = 90, maxSpeed = 22): () => void {
+export function edgeAutoscroll(edge = 90, maxSpeed = 22) {
   let y: number | null = null;
   let frame = 0;
 
@@ -16,15 +16,28 @@ export function dragAutoscroll(edge = 90, maxSpeed = 22): () => void {
     }
     frame = requestAnimationFrame(tick);
   };
-  const onDragOver = (e: DragEvent) => {
-    y = e.clientY;
-    if (!frame) frame = requestAnimationFrame(tick);
+  return {
+    move(clientY: number) {
+      y = clientY;
+      if (!frame) frame = requestAnimationFrame(tick);
+    },
+    stop() {
+      y = null;
+      cancelAnimationFrame(frame);
+      frame = 0;
+    },
   };
-  const stop = () => {
-    y = null;
-    cancelAnimationFrame(frame);
-    frame = 0;
-  };
+}
+
+/**
+ * Scroll the page while something is dragged near the top or bottom edge:
+ * browsers don't reliably do it for HTML5 drag and drop. Returns a cleanup
+ * function.
+ */
+export function dragAutoscroll(edge = 90, maxSpeed = 22): () => void {
+  const scroller = edgeAutoscroll(edge, maxSpeed);
+  const onDragOver = (e: DragEvent) => scroller.move(e.clientY);
+  const stop = () => scroller.stop();
 
   document.addEventListener("dragover", onDragOver);
   document.addEventListener("dragend", stop);
