@@ -15,6 +15,7 @@ import { m } from "#lib/paraglide/messages.js";
 import { cn } from "#lib/utils.ts";
 import GalleryPhotos from "./gallery-photos.svelte";
 import MarkdownEditor from "./markdown-editor.svelte";
+import { type TouchDragOptions, touchDrag } from "./touch-drag";
 
 type Fields = { title: string; text: string; highlight: boolean };
 
@@ -37,6 +38,7 @@ let {
   ondiscard,
   ondragstart,
   ondragend,
+  touch,
 }: {
   albumId: string;
   section: Section | null;
@@ -56,6 +58,8 @@ let {
   ondiscard?: () => void;
   ondragstart?: (e: DragEvent) => void;
   ondragend?: () => void;
+  /** Moving the section with a finger: press and hold the grip, then drag. */
+  touch?: Omit<TouchDragOptions, "preview">;
 } = $props();
 
 // --- Autosave ----------------------------------------------------------------
@@ -175,6 +179,15 @@ $effect(() => {
 
 const pending = $derived(saving || Object.keys(edits).length > 0);
 
+/** What follows the finger while the section is moved by touch: a small card with its title. */
+function dragPreview(): HTMLElement {
+  const card = document.createElement("div");
+  card.className =
+    "max-w-[min(85vw,28rem)] truncate rounded-xl border bg-card px-4 py-3 font-heading text-xl shadow-lg";
+  card.textContent = title.trim() || summary;
+  return card;
+}
+
 /** What a collapsed section holds: its photo count and the start of its text. */
 const summary = $derived.by(() => {
   const parts = [
@@ -214,10 +227,16 @@ const summary = $derived.by(() => {
       <button
         type="button"
         aria-label={m.section_drag()}
-        class="cursor-grab text-muted-foreground"
+        class="relative cursor-grab text-muted-foreground after:absolute after:-inset-2"
         draggable="true"
         {ondragstart}
         {ondragend}
+        {@attach touchDrag({
+          onstart: () => touch?.onstart(),
+          onmove: (x, y) => touch?.onmove(x, y),
+          onend: (dropped) => touch?.onend(dropped),
+          preview: dragPreview,
+        })}
       >
         <GripVertical class="size-4" />
       </button>

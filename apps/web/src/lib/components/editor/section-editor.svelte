@@ -162,9 +162,34 @@ async function drop(e: DragEvent, target: Section) {
   const dragged = dragId;
   const after = dropTarget?.after ?? false;
   endDrag();
-  if (!dragged || dragged === target.id) return;
+  if (dragged) await move(dragged, target.id, after);
+}
+
+// Touch: the grip is pressed and held, then the section under the finger is
+// the target, by the same halves as with the mouse.
+function touchOver(x: number, y: number) {
+  const li = document.elementFromPoint(x, y)?.closest<HTMLElement>("[data-section-id]");
+  const id = li?.dataset.sectionId;
+  if (!li || !id || id === dragId) {
+    dropTarget = null;
+    return;
+  }
+  const rect = li.getBoundingClientRect();
+  dropTarget = { id, after: y > rect.top + rect.height / 2 };
+}
+
+function touchEnd(dropped: boolean) {
+  const dragged = dragId;
+  const target = dropTarget;
+  endDrag();
+  if (dropped && dragged && target) void move(dragged, target.id, target.after);
+}
+
+/** Put section `dragged` before or after `targetId`. */
+async function move(dragged: string, targetId: string, after: boolean) {
+  if (dragged === targetId) return;
   const order = ordered.map((s) => s.id).filter((id) => id !== dragged);
-  order.splice(order.indexOf(target.id) + (after ? 1 : 0), 0, dragged);
+  order.splice(order.indexOf(targetId) + (after ? 1 : 0), 0, dragged);
   await attempt(() =>
     post(`/albums/${albumId}/sections/reorder`, {
       order: order.map((id, i) => ({ id, sortOrder: i + 1 })),
@@ -186,6 +211,7 @@ async function drop(e: DragEvent, target: Section) {
             ? "rounded-b-xl border-b-4 border-b-primary"
             : "rounded-t-xl border-t-4 border-t-primary"),
       )}
+      data-section-id={s?.id}
       ondragover={(e) => s && dragOver(e, s)}
       ondrop={(e) => s && drop(e, s)}
     >
@@ -212,6 +238,13 @@ async function drop(e: DragEvent, target: Section) {
           e.dataTransfer?.setData("text/plain", s.id);
         }}
         ondragend={endDrag}
+        touch={{
+          onstart: () => {
+            if (s) dragId = s.id;
+          },
+          onmove: touchOver,
+          onend: touchEnd,
+        }}
       />
     </li>
   {/each}

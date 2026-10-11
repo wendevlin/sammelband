@@ -23,6 +23,11 @@ export type TouchDragOptions = {
   onmove: (x: number, y: number) => void;
   /** Let go (`dropped`), or cancelled by the browser. Only after `onstart`. */
   onend: (dropped: boolean) => void;
+  /**
+   * What follows the finger, made at pick-up: e.g. a small card for a handle
+   * that stands for something bigger. Without it, a smaller copy of the element.
+   */
+  preview?: () => HTMLElement;
 };
 
 const CONTROLS = "a, button, input, select, textarea, [contenteditable]";
@@ -83,7 +88,7 @@ export function touchDrag(options: TouchDragOptions): Attachment<HTMLElement> {
       const rect = el.getBoundingClientRect();
       drag.offsetX = drag.x - rect.left;
       drag.offsetY = drag.y - rect.top;
-      drag.ghost = ghostOf(el, rect, drag);
+      drag.ghost = options.preview ? float(options.preview(), drag) : ghostOf(el, rect, drag);
       window.addEventListener("scroll", follow, { passive: true });
       options.onstart();
       follow();
@@ -152,6 +157,23 @@ export function touchDrag(options: TouchDragOptions): Attachment<HTMLElement> {
       el.removeEventListener("dragstart", preventForTouch);
     };
   };
+}
+
+/** `preview`, floating where the finger holds the element. */
+function float(preview: HTMLElement, drag: Drag): HTMLElement {
+  preview.setAttribute("aria-hidden", "true");
+  Object.assign(preview.style, {
+    position: "fixed",
+    top: "0",
+    left: "0",
+    zIndex: "100",
+    margin: "0",
+    pointerEvents: "none",
+    opacity: "0.95",
+    translate: `${drag.x - drag.offsetX}px ${drag.y - drag.offsetY}px`,
+  });
+  document.body.append(preview);
+  return preview;
 }
 
 /** A copy of `el` without its controls, floating where the finger holds it. */
