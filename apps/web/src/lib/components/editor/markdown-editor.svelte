@@ -29,6 +29,9 @@ let {
   onblur?: () => void;
 } = $props();
 
+/** Classes of the editable text, shared with the placeholder's stand-in below. */
+const CONTENT = "prose prose-stone dark:prose-invert max-w-none min-h-16 px-3 py-2";
+
 let element = $state<HTMLDivElement | null>(null);
 let editor = $state.raw<Editor | null>(null);
 /** Bumped on every transaction, so the toolbar's active states recompute. */
@@ -56,7 +59,7 @@ onMount(() => {
     contentType: "markdown",
     editorProps: {
       attributes: {
-        class: "prose prose-stone dark:prose-invert max-w-none min-h-16 px-3 py-2 outline-none",
+        class: `${CONTENT} outline-none`,
         "aria-label": placeholder,
       },
     },
@@ -106,6 +109,13 @@ const tools: Tool[] = [
     run: (e) => e.chain().focus().toggleOrderedList().run(),
   },
 ];
+// Tiptap's placeholder floats with no height, so a long one (narrow phones,
+// German) spilled out of the box. While the text is empty, an invisible copy in
+// the same grid cell gives the box the placeholder's height.
+const empty = $derived.by(() => {
+  void tick;
+  return editor ? editor.isEmpty : value.trim() === "";
+});
 const active = (name: string) => {
   void tick;
   return editor?.isActive(name) ?? false;
@@ -133,5 +143,12 @@ const active = (name: string) => {
       </button>
     {/each}
   </div>
-  <div bind:this={element}></div>
+  <div class="grid">
+    {#if empty}
+      <div class={cn(CONTENT, "invisible [grid-area:1/1]")} aria-hidden="true">
+        <p>{placeholder}</p>
+      </div>
+    {/if}
+    <div bind:this={element} class="grid [grid-area:1/1]"></div>
+  </div>
 </div>

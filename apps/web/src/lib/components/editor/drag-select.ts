@@ -19,8 +19,10 @@ export type DragSelectOptions = {
 };
 
 const MOUSE_THRESHOLD = 6;
-const TOUCH_SLOP = 10;
-const LONG_PRESS_MS = 350;
+/** How far a finger may move before a long press, else it's scrolling (also `touch-drag.ts`). */
+export const TOUCH_SLOP = 10;
+/** How long to press and hold to pick something up (also `touch-drag.ts`). */
+export const LONG_PRESS_MS = 350;
 const EDGE = 48;
 const MAX_SCROLL_STEP = 18;
 

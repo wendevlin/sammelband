@@ -1,8 +1,11 @@
 <script lang="ts">
+import Expand from "@lucide/svelte/icons/expand";
 import ImagePlus from "@lucide/svelte/icons/image-plus";
 import Upload from "@lucide/svelte/icons/upload";
 import X from "@lucide/svelte/icons/x";
 import type { Photo, SourceAccount } from "@sammelband/shared";
+import PhotoSwipeLightbox from "photoswipe/lightbox";
+import "photoswipe/style.css";
 import { onMount } from "svelte";
 import { toast } from "svelte-sonner";
 import { ApiError, api, del, patch, post } from "#lib/api.ts";
@@ -14,18 +17,22 @@ import { Button } from "#lib/components/ui/button/index.ts";
 import * as DropdownMenu from "#lib/components/ui/dropdown-menu/index.ts";
 import { Input } from "#lib/components/ui/input/index.ts";
 import { errorText } from "#lib/i18n.ts";
-import { imageSrc } from "#lib/images.ts";
+import { imageSrc, srcset } from "#lib/images.ts";
+import { lightboxOptions } from "#lib/lightbox.ts";
 import { m } from "#lib/paraglide/messages.js";
 import { accountTitle } from "#lib/sources.ts";
 import { sources } from "#lib/stores/sources.svelte.ts";
 import { cn } from "#lib/utils.ts";
 import { goto } from "$app/navigation";
-import { photoDrag } from "./photo-drag.svelte";
+import { dropPhoto, photoDrag, photoTargetAt, registerGallery } from "./photo-drag.svelte";
 import SourcePicker from "./source-picker.svelte";
+import { touchDrag } from "./touch-drag";
 
 /**
- * Photo manager for one section: upload, caption, reorder, delete. The empty
- * section at the end has no id yet; `ensureSection` creates it first.
+ * Photo manager for one section: upload, caption, reorder, delete, view full
+ * screen. Photos are dragged with the mouse (HTML5 drag and drop) or, on touch
+ * screens, pressed and held, then dragged. The empty section at the end has no
+ * id yet; `ensureSection` creates it first.
  */
 let {
   sectionId,
@@ -104,21 +111,22 @@ async function saveCaption(p: Photo, raw: string) {
   await attempt(() => patch(`/photos/${p.id}`, { caption }));
 }
 
+function startDrag(p: Photo) {
+  if (sectionId) photoDrag.current = { id: p.id, sectionId };
+}
+
 /**
- * Drop the dragged photo (from this or another section) before or after
- * `target`, or at the end of this section. One write either way.
+ * Drop the dragged photo (from this or another section) before or after the
+ * photo `targetId`, or at the end of this section. One write either way.
  */
-async function drop(target: Photo | null) {
+async function drop(targetId: string | null, after: boolean) {
   const dragged = photoDrag.current;
-  const after = dropTarget?.after ?? false;
   endDrag();
-  if (!dragged || dragged.id === target?.id) return;
+  if (!dragged || dragged.id === targetId) return;
   let beforeId: string | null = null;
-  if (target) {
+  if (targetId) {
     const rest = photos.filter((p) => p.id !== dragged.id);
-    beforeId = after
-      ? (rest[rest.findIndex((p) => p.id === target.id) + 1]?.id ?? null)
-      : target.id;
+    beforeId = after ? (rest[rest.findIndex((p) => p.id === targetId) + 1]?.id ?? null) : targetId;
   }
   const id = sectionId ?? (await ensureSection());
   if (!id) return;
@@ -127,26 +135,73 @@ async function drop(target: Photo | null) {
 
 function endDrag() {
   photoDrag.current = null;
+  photoDrag.target = null;
   dropTarget = null;
   over = false;
 }
+
+// Touch drags: the target under the finger, dropped by the gallery it's in.
+const galleryKey = $props.id();
+$effect(() => registerGallery(galleryKey, (at) => void drop(at.id, at.after)));
+
+function followFinger(x: number, y: number) {
+  photoDrag.target = photoTargetAt(x, y);
+}
+
+function endTouchDrag(dropped: boolean) {
+  const at = photoDrag.target;
+  if (dropped && at) dropPhoto(at);
+  endDrag();
+}
+
+/** Where the dragged photo would land here: from dragover (mouse) or under the finger (touch). */
+const indicator = $derived<{ id: string | null; after: boolean } | null>(
+  dropTarget ?? (photoDrag.target?.gallery === galleryKey ? photoDrag.target : null),
+);
 
 /** A photo from another section is being dragged over this one. */
 const draggingForeign = $derived(
   photoDrag.current !== null && photoDrag.current.sectionId !== sectionId,
 );
+
+// The section's photos full screen; swipe or arrow keys to the others.
+let lightbox: PhotoSwipeLightbox | null = null;
+
+function view(index: number) {
+  if (!lightbox) {
+    lightbox = new PhotoSwipeLightbox(lightboxOptions());
+    lightbox.init();
+  }
+  lightbox.loadAndOpen(
+    index,
+    photos.map((p) => ({
+      src: imageSrc(p.filename, 1920),
+      srcset: srcset(p.filename),
+      width: p.width,
+      height: p.height,
+      alt: p.caption ?? "",
+    })),
+  );
+}
+
+$effect(() => () => {
+  lightbox?.destroy();
+  lightbox = null;
+});
 </script>
 
 {#if photos.length > 0}
   <ul class="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-6">
-    {#each photos as p (p.id)}
+    {#each photos as p, i (p.id)}
       <li
         class={cn(
           "relative transition-opacity",
           photoDrag.current?.id === p.id && "opacity-40",
-          dropTarget?.id === p.id &&
-            (dropTarget.after ? "border-r-4 border-r-primary" : "border-l-4 border-l-primary"),
+          indicator?.id === p.id &&
+            (indicator.after ? "border-r-4 border-r-primary" : "border-l-4 border-l-primary"),
         )}
+        data-drop-gallery={galleryKey}
+        data-drop-photo={p.id}
         ondragover={(e) => {
           if (!photoDrag.current || photoDrag.current.id === p.id) return;
           e.preventDefault();
@@ -155,7 +210,7 @@ const draggingForeign = $derived(
         }}
         ondrop={(e) => {
           e.preventDefault();
-          void drop(p);
+          void drop(p.id, dropTarget?.after ?? false);
         }}
       >
         <div
@@ -163,10 +218,13 @@ const draggingForeign = $derived(
           aria-label={p.caption ?? m.photo()}
           class="group relative aspect-square cursor-grab overflow-hidden rounded-lg bg-muted"
           draggable="true"
-          ondragstart={() => {
-            if (sectionId) photoDrag.current = { id: p.id, sectionId };
-          }}
+          ondragstart={() => startDrag(p)}
           ondragend={endDrag}
+          {@attach touchDrag({
+            onstart: () => startDrag(p),
+            onmove: followFinger,
+            onend: endTouchDrag,
+          })}
         >
           <img
             src={imageSrc(p.filename, 400)}
@@ -174,10 +232,11 @@ const draggingForeign = $derived(
             class="size-full object-cover"
             draggable="false"
           >
+          <!-- Both buttons: always there on touch screens, on hover with a mouse. -->
           <Button
             variant="secondary"
             size="icon-xs"
-            class="absolute top-1 right-1 opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
+            class="absolute top-1 right-1 group-hover:opacity-100 after:absolute after:-inset-1.5 focus-visible:opacity-100 [@media(hover:hover)_and_(pointer:fine)]:opacity-0"
             aria-label={m.photo_delete()}
             onclick={() => {
               deleteTarget = p;
@@ -186,6 +245,15 @@ const draggingForeign = $derived(
           >
             <X />
           </Button>
+          <button
+            type="button"
+            class="absolute right-1.5 bottom-1.5 flex size-8 items-center justify-center rounded-full bg-black/55 text-white shadow transition-opacity group-hover:opacity-100 after:absolute after:-inset-1.5 hover:bg-black/75 focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none [@media(hover:hover)_and_(pointer:fine)]:size-7 [@media(hover:hover)_and_(pointer:fine)]:opacity-0"
+            aria-label={m.photo_view()}
+            title={m.photo_view()}
+            onclick={() => view(i)}
+          >
+            <Expand class="size-4" />
+          </button>
         </div>
         <Input
           class="mt-1 h-8 text-xs"
@@ -207,8 +275,9 @@ const draggingForeign = $derived(
     type="button"
     class={cn(
       "mt-3 flex w-full flex-col items-center gap-2 rounded-xl border border-dashed px-4 py-6 text-sm text-muted-foreground transition-colors",
-      over ? "border-primary bg-muted" : "hover:bg-muted/50",
+      over || indicator?.id === null ? "border-primary bg-muted" : "hover:bg-muted/50",
     )}
+    data-drop-gallery={draggingForeign ? galleryKey : undefined}
     ondragover={(e) => {
       if (photoDrag.current && !draggingForeign) return;
       e.preventDefault();
@@ -218,7 +287,7 @@ const draggingForeign = $derived(
     ondrop={(e) => {
       e.preventDefault();
       if (photoDrag.current) {
-        if (draggingForeign) void drop(null);
+        if (draggingForeign) void drop(null, false);
         return;
       }
       over = false;
