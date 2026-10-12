@@ -143,6 +143,14 @@
   html {
     @apply font-sans;
   }
+  /* Dialogs never grow past the screen: a tall one (e.g. the PDF export on a
+     phone) scrolls instead of cutting off its buttons. Utilities on a dialog
+     still win, like the pickers' own heights. */
+  [data-slot="dialog-content"],
+  [data-slot="alert-dialog-content"] {
+    max-height: calc(100dvh - 2rem);
+    overflow-y: auto;
+  }
 }
 
 /* Pointer cursor on everything clickable. Unlayered on purpose: Tailwind v4
