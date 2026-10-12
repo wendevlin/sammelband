@@ -94,6 +94,23 @@ describe("PDF export", () => {
   );
 
   test(
+    "records the album version it shows, so later edits mark it as outdated",
+    inTenant(async () => {
+      const { user, album, section } = await gallery();
+      const queued = await exportService.createExport(album.id, user.id, options);
+      expect(queued.album_updated_at).toBeNull();
+      await exportService.exportsIdle();
+      const current = async () => Number((await albumService.getAlbum(album.id))?.updated_at);
+      const [done] = await exportService.listExports(album.id);
+      expect(done?.album_updated_at).toBe(await current());
+
+      await Bun.sleep(2);
+      await sectionService.updateSection(section.id, { text: "We left late." });
+      expect(await current()).toBeGreaterThan(done?.album_updated_at ?? 0);
+    }),
+  );
+
+  test(
     "exports from before the purposes keep a sensible one",
     inTenant(async () => {
       const { user, album } = await gallery();

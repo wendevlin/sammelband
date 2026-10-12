@@ -58,6 +58,14 @@ export async function albumChanged(albumId: string): Promise<void> {
     .set({ updated_at: Date.now(), cover_filename: await computeCover(albumId) })
     .where("id", "=", albumId)
     .execute();
+  // Open album pages need the new `updated_at` (e.g. to mark PDF exports as
+  // outdated) and cover.
+  const album = await tdb()
+    .selectFrom("albums")
+    .selectAll()
+    .where("id", "=", albumId)
+    .executeTakeFirst();
+  if (album) emitAlbumPatch(albumId, { album });
 }
 
 /** Photos joined with their image metadata, ordered by sort_order. */

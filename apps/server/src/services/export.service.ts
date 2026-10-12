@@ -63,6 +63,7 @@ function toExport(row: AlbumExportRow): AlbumExport {
     created_by: row.created_by,
     created_at: Number(row.created_at),
     finished_at: row.finished_at === null ? null : Number(row.finished_at),
+    album_updated_at: row.album_updated_at === null ? null : Number(row.album_updated_at),
   };
 }
 
@@ -157,6 +158,7 @@ export async function createExport(
     created_by: userId,
     created_at: Date.now(),
     finished_at: null,
+    album_updated_at: null,
   };
   await tdb().insertInto("album_exports").values(row).execute();
   changed(row, "created");
@@ -309,6 +311,7 @@ async function runExport(id: string): Promise<void> {
       file_size: size,
       page_count: result.pages,
       finished_at: Date.now(),
+      album_updated_at: Number(album.updated_at),
     });
     if (!done) {
       // Deleted in the last moment.

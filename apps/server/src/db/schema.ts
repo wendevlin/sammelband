@@ -101,6 +101,8 @@ export type AlbumExportRow = {
   created_by: string | null;
   created_at: number;
   finished_at: number | null;
+  /** The album's `updated_at` the PDF was rendered from. */
+  album_updated_at: number | null;
 };
 
 /** A photo source switched on for a Sammelband; `config` is JSON (per source). */

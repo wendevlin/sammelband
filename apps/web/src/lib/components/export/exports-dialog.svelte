@@ -3,8 +3,9 @@ import Download from "@lucide/svelte/icons/download";
 import FileText from "@lucide/svelte/icons/file-text";
 import Pencil from "@lucide/svelte/icons/pencil";
 import Trash from "@lucide/svelte/icons/trash-2";
+import TriangleAlert from "@lucide/svelte/icons/triangle-alert";
 import type { AlbumExport } from "@sammelband/shared";
-import { type AlbumExports, exportUrl } from "#lib/album-exports.svelte.ts";
+import { type AlbumExports, exportUrl, isOutdated } from "#lib/album-exports.svelte.ts";
 import { del, patch } from "#lib/api.ts";
 import { attempt } from "#lib/attempt.ts";
 import ConfirmDialog from "#lib/components/dialogs/confirm-dialog.svelte";
@@ -16,8 +17,15 @@ import { formatBytes } from "#lib/images.ts";
 import { m } from "#lib/paraglide/messages.js";
 import { formatLabel, purposeLabel } from "./format-label";
 
-/** An album's PDF exports: download, rename, delete. */
-let { open = $bindable(false), exports }: { open?: boolean; exports: AlbumExports } = $props();
+/**
+ * An album's PDF exports: download, rename, delete. Exports the album has
+ * changed since are marked as outdated.
+ */
+let {
+  open = $bindable(false),
+  exports,
+  albumUpdatedAt,
+}: { open?: boolean; exports: AlbumExports; albumUpdatedAt: number } = $props();
 
 let renaming = $state<AlbumExport | null>(null);
 let renameOpen = $state(false);
@@ -86,6 +94,12 @@ async function remove() {
                 >
               {/if}
             </p>
+            {#if isOutdated(x, albumUpdatedAt)}
+              <p class="mt-0.5 flex items-start gap-1 text-xs text-amber-700 dark:text-amber-400">
+                <TriangleAlert class="mt-px size-3.5 shrink-0" />
+                {m.export_outdated({ date: date(x.created_at) })}
+              </p>
+            {/if}
           </div>
           <div class="flex shrink-0 gap-1">
             {#if x.status === "done"}

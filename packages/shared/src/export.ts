@@ -80,4 +80,10 @@ export type AlbumExport = {
   created_by: string | null;
   created_at: number;
   finished_at: number | null;
+  /**
+   * The album's `updated_at` the PDF was rendered from; once the album's is
+   * newer, the export no longer matches it. Null before rendering (and for
+   * exports from before this was recorded).
+   */
+  album_updated_at: number | null;
 };
