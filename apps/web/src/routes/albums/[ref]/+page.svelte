@@ -3,6 +3,7 @@ import Ellipsis from "@lucide/svelte/icons/ellipsis";
 import FileDown from "@lucide/svelte/icons/file-down";
 import Files from "@lucide/svelte/icons/files";
 import Pencil from "@lucide/svelte/icons/pencil";
+import Share from "@lucide/svelte/icons/share-2";
 import type { Folder } from "@sammelband/shared";
 import { AlbumExports } from "#lib/album-exports.svelte.ts";
 import { getAlbumState } from "#lib/album-state.svelte.ts";
@@ -16,6 +17,7 @@ import * as DropdownMenu from "#lib/components/ui/dropdown-menu/index.ts";
 import { albumPath } from "#lib/links.ts";
 import { m } from "#lib/paraglide/messages.js";
 import { auth } from "#lib/stores/auth.svelte.ts";
+import { goto } from "$app/navigation";
 
 let { data } = $props();
 
@@ -28,6 +30,7 @@ const exports = new AlbumExports(() => live.album.id);
 const canExport = $derived(auth.tenant?.pdf_export_enabled ?? false);
 let exportOpen = $state(false);
 let exportsOpen = $state(false);
+let shareOpen = $state(false);
 
 const trail = $derived.by(() => {
   const chain: Folder[] = [];
@@ -67,37 +70,55 @@ const trail = $derived.by(() => {
       {/if}
     </div>
     <div class="flex gap-2">
-      <ShareButton target={{ albumId: live.album.id }} name={live.album.title} />
-      <Button variant="outline" href={albumPath(live.album, "/edit")}
+      <!-- On phones Share and Edit move into the menu; there is no room for three buttons. -->
+      <ShareButton
+        target={{ albumId: live.album.id }}
+        name={live.album.title}
+        bind:open={shareOpen}
+        class="max-sm:hidden"
+      />
+      <Button variant="outline" class="max-sm:hidden" href={albumPath(live.album, "/edit")}
         ><Pencil /> {m.album_edit()}</Button
       >
-      {#if canExport || exports.list.length > 0}
-        <DropdownMenu.Root>
-          <DropdownMenu.Trigger>
-            {#snippet child({
-              props,
-            })}
-              <Button {...props} variant="outline" size="icon" aria-label={m.album_more()}>
-                <Ellipsis />
-              </Button>
-            {/snippet}
-          </DropdownMenu.Trigger>
-          <DropdownMenu.Content align="end">
-            {#if canExport}
-              <DropdownMenu.Item onclick={() => (exportOpen = true)}>
-                <FileDown />
-                {m.export_pdf()}
-              </DropdownMenu.Item>
-            {/if}
-            {#if exports.list.length > 0}
-              <DropdownMenu.Item onclick={() => (exportsOpen = true)}>
-                <Files />
-                {m.exports_count({ count: exports.list.length })}
-              </DropdownMenu.Item>
-            {/if}
-          </DropdownMenu.Content>
-        </DropdownMenu.Root>
-      {/if}
+      <DropdownMenu.Root>
+        <DropdownMenu.Trigger>
+          {#snippet child({
+            props,
+          })}
+            <Button
+              {...props}
+              variant="outline"
+              size="icon"
+              class={canExport || exports.list.length > 0 ? "" : "sm:hidden"}
+              aria-label={m.album_more()}
+            >
+              <Ellipsis />
+            </Button>
+          {/snippet}
+        </DropdownMenu.Trigger>
+        <DropdownMenu.Content align="end">
+          <DropdownMenu.Item class="sm:hidden" onclick={() => (shareOpen = true)}>
+            <Share />
+            {m.share()}
+          </DropdownMenu.Item>
+          <DropdownMenu.Item class="sm:hidden" onclick={() => goto(albumPath(live.album, "/edit"))}>
+            <Pencil />
+            {m.album_edit()}
+          </DropdownMenu.Item>
+          {#if canExport}
+            <DropdownMenu.Item onclick={() => (exportOpen = true)}>
+              <FileDown />
+              {m.export_pdf()}
+            </DropdownMenu.Item>
+          {/if}
+          {#if exports.list.length > 0}
+            <DropdownMenu.Item onclick={() => (exportsOpen = true)}>
+              <Files />
+              {m.exports_count({ count: exports.list.length })}
+            </DropdownMenu.Item>
+          {/if}
+        </DropdownMenu.Content>
+      </DropdownMenu.Root>
     </div>
   </div>
   <AlbumContent sections={live.sections} photos={live.photos} />

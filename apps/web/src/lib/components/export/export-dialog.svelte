@@ -79,7 +79,7 @@ function preview(f: ExportFormat) {
 </script>
 
 <Dialog.Root bind:open>
-  <Dialog.Content class="sm:max-w-lg">
+  <Dialog.Content class="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-lg">
     <Dialog.Header>
       <Dialog.Title>{m.export_pdf()}</Dialog.Title>
       {#if !started}
