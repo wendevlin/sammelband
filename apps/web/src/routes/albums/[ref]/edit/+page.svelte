@@ -1,6 +1,7 @@
 <script lang="ts">
 import ArrowLeft from "@lucide/svelte/icons/arrow-left";
 import Check from "@lucide/svelte/icons/check";
+import Ellipsis from "@lucide/svelte/icons/ellipsis";
 import Trash from "@lucide/svelte/icons/trash-2";
 import type { Folder } from "@sammelband/shared";
 import { AlbumExports } from "#lib/album-exports.svelte.ts";
@@ -12,6 +13,7 @@ import ConfirmDialog from "#lib/components/dialogs/confirm-dialog.svelte";
 import SectionEditor from "#lib/components/editor/section-editor.svelte";
 import { Button } from "#lib/components/ui/button/index.ts";
 import * as Card from "#lib/components/ui/card/index.ts";
+import * as DropdownMenu from "#lib/components/ui/dropdown-menu/index.ts";
 import { Input } from "#lib/components/ui/input/index.ts";
 import { Label } from "#lib/components/ui/label/index.ts";
 import * as Tabs from "#lib/components/ui/tabs/index.ts";
@@ -103,9 +105,33 @@ async function deleteAlbum() {
 
 <div class="mb-6 flex flex-wrap items-center justify-between gap-2">
   <Button variant="ghost" href={albumPath(live.album)}><ArrowLeft /> {m.album_view()}</Button>
-  <Button variant="destructive" onclick={() => (deleteOpen = true)}
+  <!-- On phones Delete sits in a menu, out of the way of the back button. -->
+  <Button variant="destructive" class="max-sm:hidden" onclick={() => (deleteOpen = true)}
     ><Trash /> {m.album_delete()}</Button
   >
+  <DropdownMenu.Root>
+    <DropdownMenu.Trigger>
+      {#snippet child({
+        props,
+      })}
+        <Button
+          {...props}
+          variant="outline"
+          size="icon"
+          class="sm:hidden"
+          aria-label={m.album_more()}
+        >
+          <Ellipsis />
+        </Button>
+      {/snippet}
+    </DropdownMenu.Trigger>
+    <DropdownMenu.Content align="end">
+      <DropdownMenu.Item variant="destructive" onclick={() => (deleteOpen = true)}>
+        <Trash />
+        {m.album_delete()}
+      </DropdownMenu.Item>
+    </DropdownMenu.Content>
+  </DropdownMenu.Root>
 </div>
 
 <Card.Root class="mb-8">

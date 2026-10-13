@@ -130,4 +130,4 @@ const trail = $derived.by(() => {
   {exports}
   onshowall={() => (exportsOpen = true)}
 />
-<ExportsDialog bind:open={exportsOpen} {exports} />
+<ExportsDialog bind:open={exportsOpen} {exports} albumUpdatedAt={live.album.updated_at} />

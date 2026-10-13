@@ -45,6 +45,15 @@ export class AlbumExports {
   }
 }
 
+/**
+ * A finished export the album has changed since: the PDF no longer shows what
+ * the album does. Exports from before the album version was recorded fall back
+ * to their creation time.
+ */
+export function isOutdated(x: AlbumExport, albumUpdatedAt: number): boolean {
+  return x.status === "done" && Number(albumUpdatedAt) > (x.album_updated_at ?? x.created_at);
+}
+
 /** Where a finished export downloads from. */
 export function exportUrl(id: string): string {
   return `/api/exports/${id}/file`;

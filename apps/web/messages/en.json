@@ -541,6 +541,7 @@
   "export_status_queued": "Waiting",
   "export_status_running": "Creating… {progress} %",
   "export_status_failed": "Failed",
+  "export_outdated": "Not up to date: created {date}, the album has changed since.",
   "export_name": "File name",
   "export_renamed": "Renamed",
   "export_delete_confirm": "Delete “{name}”?",
