@@ -46,11 +46,56 @@ const trail = $derived.by(() => {
 
 <svelte:head><title>{live.album.title} · Sammelband</title></svelte:head>
 
+<!-- Share and Edit only show here on phones, where they don't fit beside the title. -->
+{#snippet moreMenu(
+  triggerClass: string,
+)}
+  <DropdownMenu.Root>
+    <DropdownMenu.Trigger>
+      {#snippet child({
+        props,
+      })}
+        <Button
+          {...props}
+          variant="outline"
+          size="icon"
+          class={triggerClass}
+          aria-label={m.album_more()}
+        >
+          <Ellipsis />
+        </Button>
+      {/snippet}
+    </DropdownMenu.Trigger>
+    <DropdownMenu.Content align="end">
+      <DropdownMenu.Item class="sm:hidden" onclick={() => (shareOpen = true)}>
+        <Share />
+        {m.share()}
+      </DropdownMenu.Item>
+      <DropdownMenu.Item class="sm:hidden" onclick={() => goto(albumPath(live.album, "/edit"))}>
+        <Pencil />
+        {m.album_edit()}
+      </DropdownMenu.Item>
+      {#if canExport}
+        <DropdownMenu.Item onclick={() => (exportOpen = true)}>
+          <FileDown />
+          {m.export_pdf()}
+        </DropdownMenu.Item>
+      {/if}
+      {#if exports.list.length > 0}
+        <DropdownMenu.Item onclick={() => (exportsOpen = true)}>
+          <Files />
+          {m.exports_count({ count: exports.list.length })}
+        </DropdownMenu.Item>
+      {/if}
+    </DropdownMenu.Content>
+  </DropdownMenu.Root>
+{/snippet}
+
 <article class="mx-auto max-w-4xl">
   <!-- As wide as the sections below, so title and photos share the left edge. -->
   <div class="bleed mb-10 flex flex-wrap items-start justify-between gap-4">
     <!-- min-w-0: long titles wrap instead of widening the page. -->
-    <div class="min-w-0">
+    <div class="min-w-0 flex-1">
       <Breadcrumb.Root class="mb-3">
         <Breadcrumb.List>
           <Breadcrumb.Item
@@ -64,61 +109,27 @@ const trail = $derived.by(() => {
           {/each}
         </Breadcrumb.List>
       </Breadcrumb.Root>
-      <h1 class="font-heading text-4xl leading-tight sm:text-5xl">{live.album.title}</h1>
+      <!-- Phones get the actions from the "⋯" menu next to the title, as in folders. -->
+      <div class="flex items-start justify-between gap-2">
+        <h1 class="min-w-0 font-heading text-4xl leading-tight sm:text-5xl">{live.album.title}</h1>
+        {@render moreMenu("sm:hidden")}
+      </div>
       {#if live.album.description}
         <p class="mt-4 max-w-2xl text-lg text-muted-foreground">{live.album.description}</p>
       {/if}
     </div>
-    <div class="flex gap-2">
-      <!-- On phones Share and Edit move into the menu; there is no room for three buttons. -->
+    <div class="hidden gap-2 sm:flex">
       <ShareButton
         target={{ albumId: live.album.id }}
         name={live.album.title}
         bind:open={shareOpen}
-        class="max-sm:hidden"
       />
-      <Button variant="outline" class="max-sm:hidden" href={albumPath(live.album, "/edit")}
+      <Button variant="outline" href={albumPath(live.album, "/edit")}
         ><Pencil /> {m.album_edit()}</Button
       >
-      <DropdownMenu.Root>
-        <DropdownMenu.Trigger>
-          {#snippet child({
-            props,
-          })}
-            <Button
-              {...props}
-              variant="outline"
-              size="icon"
-              class={canExport || exports.list.length > 0 ? "" : "sm:hidden"}
-              aria-label={m.album_more()}
-            >
-              <Ellipsis />
-            </Button>
-          {/snippet}
-        </DropdownMenu.Trigger>
-        <DropdownMenu.Content align="end">
-          <DropdownMenu.Item class="sm:hidden" onclick={() => (shareOpen = true)}>
-            <Share />
-            {m.share()}
-          </DropdownMenu.Item>
-          <DropdownMenu.Item class="sm:hidden" onclick={() => goto(albumPath(live.album, "/edit"))}>
-            <Pencil />
-            {m.album_edit()}
-          </DropdownMenu.Item>
-          {#if canExport}
-            <DropdownMenu.Item onclick={() => (exportOpen = true)}>
-              <FileDown />
-              {m.export_pdf()}
-            </DropdownMenu.Item>
-          {/if}
-          {#if exports.list.length > 0}
-            <DropdownMenu.Item onclick={() => (exportsOpen = true)}>
-              <Files />
-              {m.exports_count({ count: exports.list.length })}
-            </DropdownMenu.Item>
-          {/if}
-        </DropdownMenu.Content>
-      </DropdownMenu.Root>
+      {#if canExport || exports.list.length > 0}
+        {@render moreMenu("")}
+      {/if}
     </div>
   </div>
   <AlbumContent sections={live.sections} photos={live.photos} />
