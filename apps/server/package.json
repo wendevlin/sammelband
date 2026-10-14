@@ -15,7 +15,7 @@
     "@sammelband/shared": "workspace:*",
     "better-auth": "1.7.7",
     "fast-xml-parser": "5.11.2",
-    "hono": "4.13.12",
+    "hono": "4.13.13",
     "kysely": "0.29.6",
     "marked": "17.0.6",
     "nodemailer": "10.0.14",
