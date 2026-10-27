@@ -1,4 +1,4 @@
-FROM oven/bun:1.4.2@sha256:9114c058aeae42162ee16dd5084b95fe9473970bb6bcb5b232ab1630f0546895 AS base
+FROM oven/bun:1.4.4@sha256:1d22548f177f4ff38e0c15baa3c2c46c6c2060ba2d1bc573bb4720b407548f1d AS base
 WORKDIR /app
 
 # Only the workspace manifests, so the install layers stay cached until they change.
@@ -14,7 +14,7 @@ RUN bun install --frozen-lockfile --production
 
 # The SPA is the same on every platform: build it natively on the build machine
 # instead of under emulation for multi-arch images.
-FROM --platform=$BUILDPLATFORM oven/bun:1.4.2@sha256:9114c058aeae42162ee16dd5084b95fe9473970bb6bcb5b232ab1630f0546895 AS web
+FROM --platform=$BUILDPLATFORM oven/bun:1.4.4@sha256:1d22548f177f4ff38e0c15baa3c2c46c6c2060ba2d1bc573bb4720b407548f1d AS web
 WORKDIR /app
 COPY package.json bun.lock bunfig.toml ./
 COPY apps/server/package.json apps/server/
