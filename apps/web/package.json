@@ -35,7 +35,7 @@
     "@types/node": "^26",
     "bits-ui": "^2.19.5",
     "cn": "^0.4.0",
-    "marked": "17.0.6",
+    "marked": "18.1.1",
     "mode-watcher": "^1.1.0",
     "photoswipe": "^5.4.4",
     "shadcn-svelte": "^1.7.0",
