@@ -228,11 +228,11 @@ describe("remote requests", () => {
     expect(seen).toEqual([]);
   });
 
-  test("a closed port is ConnectionRefused, which counts as not connected", async () => {
+  test("a closed port is ECONNREFUSED (Bun 1.4.4+; ConnectionRefused before), which counts as not connected", async () => {
     const closed = Bun.serve({ port: 0, hostname: "127.0.0.1", fetch: () => new Response() });
     const url = `http://127.0.0.1:${closed.port}/`;
     closed.stop(true);
-    await expect(fetch(url)).rejects.toMatchObject({ code: "ConnectionRefused" });
+    await expect(fetch(url)).rejects.toMatchObject({ code: "ECONNREFUSED" });
   });
 
   test("redirects resolve against the name and are checked again", async () => {
