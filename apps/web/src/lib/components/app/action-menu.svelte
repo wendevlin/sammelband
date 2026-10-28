@@ -11,9 +11,7 @@ let { actions, label }: { actions: RowAction[]; label: string } = $props();
 {#if actions.length > 0}
   <DropdownMenu.Root>
     <DropdownMenu.Trigger>
-      {#snippet child({
-        props,
-      })}
+      {#snippet child({ props })}
         <Button {...props} variant="ghost" size="icon-sm" aria-label={label}>
           <EllipsisVertical />
         </Button>

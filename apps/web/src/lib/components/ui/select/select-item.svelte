@@ -25,10 +25,7 @@ let {
   )}
   {...restProps}
 >
-  {#snippet children({
-    selected,
-    highlighted,
-  })}
+  {#snippet children({ selected, highlighted })}
     <span class="pointer-events-none absolute right-2 flex size-4 items-center justify-center">
       {#if selected}
         <CheckIcon class="pointer-events-none" />

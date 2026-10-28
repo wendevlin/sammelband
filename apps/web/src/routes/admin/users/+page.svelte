@@ -241,9 +241,7 @@ function actionsFor(u: User): RowAction[] {
   </div>
 </div>
 
-{#snippet badges(
-  u: User,
-)}
+{#snippet badges(u: User)}
   {#if isSelf(u)}
     <Badge variant="secondary">{m.users_you()}</Badge>
   {/if}
@@ -257,9 +255,7 @@ function actionsFor(u: User): RowAction[] {
   {/if}
 {/snippet}
 
-{#snippet role(
-  u: User,
-)}
+{#snippet role(u: User)}
   {#if locked(u)}
     <span class="text-sm">{u.role === "admin" ? m.role_admin() : m.role_user()}</span>
   {:else}

@@ -88,9 +88,7 @@ function touchEnd(e: TouchEvent) {
             {isSelected(image) ? m.picker_selected() : m.picker_select()}
           </Button>
           <DialogPrimitive.Close>
-            {#snippet child({
-              props,
-            })}
+            {#snippet child({ props })}
               <Button
                 {...props}
                 variant="ghost"

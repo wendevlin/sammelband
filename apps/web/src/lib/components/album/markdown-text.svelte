@@ -14,9 +14,7 @@ const raw = (t: Token): string => ("text" in t && typeof t.text === "string" ? t
 const href = (t: Token) => safeHref((t as Tokens.Link).href);
 </script>
 
-{#snippet inline(
-  list: Token[],
-)}
+{#snippet inline(list: Token[])}
   {#each list as t, i (i)}
     {#if t.type === "strong"}
       <strong>{@render inline(children(t))}</strong>
@@ -42,9 +40,7 @@ const href = (t: Token) => safeHref((t as Tokens.Link).href);
   {/each}
 {/snippet}
 
-{#snippet list(
-  l: Tokens.List,
-)}
+{#snippet list(l: Tokens.List)}
   {#if l.ordered}
     <ol start={typeof l.start === "number" ? l.start : undefined}>
       {#each l.items as item, j (j)}
@@ -60,9 +56,7 @@ const href = (t: Token) => safeHref((t as Tokens.Link).href);
   {/if}
 {/snippet}
 
-{#snippet blocks(
-  tokens: Token[],
-)}
+{#snippet blocks(tokens: Token[])}
   {#each tokens as t, i (i)}
     {#if t.type === "paragraph"}
       <p>{@render inline(children(t))}</p>

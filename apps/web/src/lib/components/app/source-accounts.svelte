@@ -252,9 +252,7 @@ async function disconnect(s: SourceInfo, account: SourceAccount) {
   />
 {/if}
 
-{#snippet addForm(
-  s: SourceInfo,
-)}
+{#snippet addForm(s: SourceInfo)}
   <form class="grid gap-4 rounded-lg border p-4" onsubmit={(e) => saveAppPassword(e, s)}>
     <div class="grid gap-2">
       <Label for="source-server-{s.id}">{m.sources_server()}</Label>

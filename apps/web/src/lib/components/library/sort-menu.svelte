@@ -26,9 +26,7 @@ const current = $derived(SORT_OPTIONS.find((o) => o.value === value)?.label ?? "
 
 <DropdownMenu.Root>
   <DropdownMenu.Trigger>
-    {#snippet child({
-      props,
-    })}
+    {#snippet child({ props })}
       <Button {...props} variant="ghost" aria-label={m.sort_aria({ order: current })}>
         <ArrowDownUp />
         {current}

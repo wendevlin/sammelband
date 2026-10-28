@@ -295,9 +295,7 @@ const deleteFolder = () =>
 {#snippet mobileMenu()}
   <DropdownMenu.Root>
     <DropdownMenu.Trigger class="sm:hidden">
-      {#snippet child({
-        props,
-      })}
+      {#snippet child({ props })}
         <Button {...props} variant="outline" size="icon" aria-label={m.common_more_actions()}>
           <Ellipsis />
         </Button>
@@ -396,10 +394,7 @@ const deleteFolder = () =>
 </div>
 
 <!-- Drag feedback: a dashed placeholder where the dragged item will land, or "Move into". -->
-{#snippet dropOverlay(
-  id: string,
-  name = "",
-)}
+{#snippet dropOverlay(id: string, name = "")}
   {#if drag?.id === id && !intoTarget}
     <div
       class="pointer-events-none absolute -inset-2 rounded-2xl border-2 border-dashed border-primary/60 bg-primary/5"
