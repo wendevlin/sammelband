@@ -80,12 +80,12 @@ docker compose logs app  # shows the setup link on first start
 
 The image is `ghcr.io/wendevlin/sammelband` for amd64 and arm64:
 
-| Tag | What |
-|---|---|
-| `latest` | The newest stable release |
-| `beta` | The newest pre-release (until 1.0 the only releases there are) |
-| `nightly`, `nightly-YYYYMMDD` | Built from `main` every night with new commits |
-| `0.1.0`, `0.1.0-beta.1`, … | One release |
+| Tag                           | What                                                           |
+| ----------------------------- | -------------------------------------------------------------- |
+| `latest`                      | The newest stable release                                      |
+| `beta`                        | The newest pre-release (until 1.0 the only releases there are) |
+| `nightly`, `nightly-YYYYMMDD` | Built from `main` every night with new commits                 |
+| `0.1.0`, `0.1.0-beta.1`, …    | One release                                                    |
 
 Pick one with `SAMMELBAND_TAG` in `.env` (default `latest`). To update, `docker
 compose pull && docker compose up -d`; migrations run on start. To build the
@@ -113,27 +113,27 @@ rate limits, live updates would get lost and exports could run twice.
 
 ## Configuration
 
-| Variable | Default (dev) | Purpose |
-|---|---|---|
-| `PORT` | `3000` | HTTP port of the server (the dev proxy follows it). Fixed to 3000 in the Docker image |
-| `HOST_PORT` | `3000` | `docker compose` only: the host port mapped to the container's 3000 |
-| `BASE_URL` | `http://localhost:3000` | Public URL, used for the CSRF origin check |
-| `SECRET_KEY` | dev placeholder | Signs sessions and share-link cookies. Required in production, at least 32 characters |
-| `DATABASE_URL` | unset | `postgres://user:pass@host:5432/db` to use PostgreSQL instead of SQLite |
-| `DATABASE_PATH` | `./sammelband.db` | SQLite file (when `DATABASE_URL` is unset) |
-| `UPLOADS_PATH` | `./uploads` | Photo storage |
-| `FRONTEND_DIST` | `./dist/frontend` | Built SPA served by the backend |
-| `TRUSTED_ORIGINS` | `http://localhost:5173` in dev | Extra origins allowed to make requests |
-| `TRUST_PROXY` | `false` | Use `X-Forwarded-For` for rate limiting. Only behind a proxy that sets it |
-| `TRUST_PROXY_HOPS` | `1` | Number of reverse proxies in front that append to `X-Forwarded-For`; the client address is read that many entries from the right |
-| `MAX_UPLOAD_MB` | `50` | Largest accepted photo, in MB (a positive number) |
-| `MULTI_TENANT` | `false` | Host several Sammelbände; the owner manages them under Admin settings |
-| `SOURCES_ALLOW_PRIVATE_HOSTS` | `false` | Let photo sources (Nextcloud) live on private addresses: home network, Tailscale, the same host |
-| `SMTP_HOST` | unset | SMTP server for email. Without it no mail is sent and "Forgot password?" is hidden |
-| `SMTP_PORT` | `587` (`465` with `SMTP_SECURE`) | SMTP port |
-| `SMTP_SECURE` | `true` on port 465 | TLS from the start (465); otherwise STARTTLS is used when offered |
-| `SMTP_USER`, `SMTP_PASSWORD` | unset | SMTP login |
-| `SMTP_FROM` | required with `SMTP_HOST` | Sender, e.g. `Sammelband <sammelband@example.com>` |
+| Variable                      | Default (dev)                    | Purpose                                                                                                                          |
+| ----------------------------- | -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| `PORT`                        | `3000`                           | HTTP port of the server (the dev proxy follows it). Fixed to 3000 in the Docker image                                            |
+| `HOST_PORT`                   | `3000`                           | `docker compose` only: the host port mapped to the container's 3000                                                              |
+| `BASE_URL`                    | `http://localhost:3000`          | Public URL, used for the CSRF origin check                                                                                       |
+| `SECRET_KEY`                  | dev placeholder                  | Signs sessions and share-link cookies. Required in production, at least 32 characters                                            |
+| `DATABASE_URL`                | unset                            | `postgres://user:pass@host:5432/db` to use PostgreSQL instead of SQLite                                                          |
+| `DATABASE_PATH`               | `./sammelband.db`                | SQLite file (when `DATABASE_URL` is unset)                                                                                       |
+| `UPLOADS_PATH`                | `./uploads`                      | Photo storage                                                                                                                    |
+| `FRONTEND_DIST`               | `./dist/frontend`                | Built SPA served by the backend                                                                                                  |
+| `TRUSTED_ORIGINS`             | `http://localhost:5173` in dev   | Extra origins allowed to make requests                                                                                           |
+| `TRUST_PROXY`                 | `false`                          | Use `X-Forwarded-For` for rate limiting. Only behind a proxy that sets it                                                        |
+| `TRUST_PROXY_HOPS`            | `1`                              | Number of reverse proxies in front that append to `X-Forwarded-For`; the client address is read that many entries from the right |
+| `MAX_UPLOAD_MB`               | `50`                             | Largest accepted photo, in MB (a positive number)                                                                                |
+| `MULTI_TENANT`                | `false`                          | Host several Sammelbände; the owner manages them under Admin settings                                                            |
+| `SOURCES_ALLOW_PRIVATE_HOSTS` | `false`                          | Let photo sources (Nextcloud) live on private addresses: home network, Tailscale, the same host                                  |
+| `SMTP_HOST`                   | unset                            | SMTP server for email. Without it no mail is sent and "Forgot password?" is hidden                                               |
+| `SMTP_PORT`                   | `587` (`465` with `SMTP_SECURE`) | SMTP port                                                                                                                        |
+| `SMTP_SECURE`                 | `true` on port 465               | TLS from the start (465); otherwise STARTTLS is used when offered                                                                |
+| `SMTP_USER`, `SMTP_PASSWORD`  | unset                            | SMTP login                                                                                                                       |
+| `SMTP_FROM`                   | required with `SMTP_HOST`        | Sender, e.g. `Sammelband <sammelband@example.com>`                                                                               |
 
 With SMTP set up, users reset a forgotten password with a link by mail. It works
 once within an hour and signs them out everywhere. `BASE_URL` has to be the

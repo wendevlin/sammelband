@@ -267,9 +267,7 @@ $effect(() => () => {
 {/if}
 
 <!-- Drop files here, or click: upload, or (with photo sources) a menu to pick where from. -->
-{#snippet zone(
-  triggerProps: Record<string, unknown> | null,
-)}
+{#snippet zone(triggerProps: Record<string, unknown> | null)}
   <button
     {...triggerProps}
     type="button"
@@ -312,9 +310,7 @@ $effect(() => () => {
 {#if sources.list.length > 0}
   <DropdownMenu.Root>
     <DropdownMenu.Trigger>
-      {#snippet child({
-        props,
-      })}
+      {#snippet child({ props })}
         {@render zone(props)}
       {/snippet}
     </DropdownMenu.Trigger>

@@ -242,9 +242,7 @@ function open(t: TenantOverview, what: "rename" | "quota" | "suspend" | "delete"
   </Card.Content>
 </Card.Root>
 
-{#snippet badges(
-  t: TenantOverview,
-)}
+{#snippet badges(t: TenantOverview)}
   {#if t.own}
     <Badge variant="secondary">{m.instance_yours()}</Badge>
   {/if}
@@ -261,9 +259,7 @@ function open(t: TenantOverview, what: "rename" | "quota" | "suspend" | "delete"
   {/if}
 {/snippet}
 
-{#snippet storage(
-  t: TenantOverview,
-)}
+{#snippet storage(t: TenantOverview)}
   <span class="tabular-nums">
     {formatBytes(t.storage_used_bytes)}
     <span class="text-muted-foreground">

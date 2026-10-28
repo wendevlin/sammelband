@@ -251,9 +251,7 @@ async function move(dragged: string, targetId: string, after: boolean) {
 </ol>
 
 <!-- Sits on the gap above a card: small with a mouse, a bigger target on touch screens. -->
-{#snippet insertButton(
-  sectionId: string,
-)}
+{#snippet insertButton(sectionId: string)}
   <button
     type="button"
     data-insert-before={sectionId}

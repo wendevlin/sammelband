@@ -63,9 +63,7 @@ async function save(s: SourceSettingsInfo, e?: SubmitEvent) {
   {/each}
 </div>
 
-{#snippet source(
-  s: SourceSettingsInfo,
-)}
+{#snippet source(s: SourceSettingsInfo)}
   <Card.Root>
     <Card.Header>
       <Card.Title class="flex items-center gap-2">

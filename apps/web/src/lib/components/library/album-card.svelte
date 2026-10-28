@@ -51,9 +51,7 @@ const images = imageUrls();
     {#if menu}
       <DropdownMenu.Root>
         <DropdownMenu.Trigger>
-          {#snippet child({
-            props,
-          })}
+          {#snippet child({ props })}
             <Button {...props} variant="ghost" size="icon-sm" aria-label={m.album_actions()}>
               <EllipsisVertical />
             </Button>

@@ -14,9 +14,7 @@ const current = getLocale();
 
 <DropdownMenu.Root>
   <DropdownMenu.Trigger>
-    {#snippet child({
-      props,
-    })}
+    {#snippet child({ props })}
       <Button {...props} variant="ghost" size="sm" aria-label={m.language()}>
         <Languages />
         {LOCALE_NAMES[current]}

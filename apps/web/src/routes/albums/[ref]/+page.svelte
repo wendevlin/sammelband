@@ -47,14 +47,10 @@ const trail = $derived.by(() => {
 <svelte:head><title>{live.album.title} · Sammelband</title></svelte:head>
 
 <!-- Share and Edit only show here on phones, where they don't fit beside the title. -->
-{#snippet moreMenu(
-  triggerClass: string,
-)}
+{#snippet moreMenu(triggerClass: string)}
   <DropdownMenu.Root>
     <DropdownMenu.Trigger>
-      {#snippet child({
-        props,
-      })}
+      {#snippet child({ props })}
         <Button
           {...props}
           variant="outline"

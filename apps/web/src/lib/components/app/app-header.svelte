@@ -40,9 +40,7 @@ async function signOut() {
   {/each}
 {/snippet}
 
-{#snippet accountItems(
-  itemClass = "",
-)}
+{#snippet accountItems(itemClass = "")}
   <DropdownMenu.Label class="flex items-center gap-3 tracking-normal normal-case">
     <UserAvatar name={auth.user?.name ?? ""} image={auth.user?.image} class="size-9 text-sm" />
     <div class="min-w-0">
@@ -55,17 +53,13 @@ async function signOut() {
   </DropdownMenu.Label>
   <DropdownMenu.Separator />
   <DropdownMenu.Item class={itemClass}>
-    {#snippet child({
-      props,
-    })}
+    {#snippet child({ props })}
       <a href="/profile" {...props}><UserIcon /> {m.nav_profile()}</a>
     {/snippet}
   </DropdownMenu.Item>
   {#if auth.isAdmin}
     <DropdownMenu.Item class={itemClass}>
-      {#snippet child({
-        props,
-      })}
+      {#snippet child({ props })}
         <a href="/admin" {...props}><Settings /> {m.nav_admin_settings()}</a>
       {/snippet}
     </DropdownMenu.Item>
@@ -91,9 +85,7 @@ async function signOut() {
     <div class="ml-auto hidden items-center gap-1 sm:flex">
       <DropdownMenu.Root>
         <DropdownMenu.Trigger>
-          {#snippet child({
-            props,
-          })}
+          {#snippet child({ props })}
             <Button {...props} variant="ghost" size="icon-sm" aria-label={m.theme()}>
               {#if mode.current === "dark"}
                 <Moon />
@@ -107,9 +99,7 @@ async function signOut() {
       </DropdownMenu.Root>
       <DropdownMenu.Root>
         <DropdownMenu.Trigger>
-          {#snippet child({
-            props,
-          })}
+          {#snippet child({ props })}
             <button {...props} type="button" class="ml-1 rounded-full" aria-label={m.nav_account()}>
               <UserAvatar name={auth.user?.name ?? ""} image={auth.user?.image} />
             </button>
@@ -127,9 +117,7 @@ async function signOut() {
     <div class="ml-auto sm:hidden">
       <DropdownMenu.Root>
         <DropdownMenu.Trigger>
-          {#snippet child({
-            props,
-          })}
+          {#snippet child({ props })}
             <Button {...props} variant="ghost" size="icon" aria-label={m.nav_menu()}>
               <Menu class="size-5" />
             </Button>
@@ -139,9 +127,7 @@ async function signOut() {
           <DropdownMenu.Item
             class={cn("py-2.5 text-base", inLibrary && "font-semibold text-primary")}
           >
-            {#snippet child({
-              props,
-            })}
+            {#snippet child({ props })}
               <a href="/" {...props}>{m.nav_library()}</a>
             {/snippet}
           </DropdownMenu.Item>
