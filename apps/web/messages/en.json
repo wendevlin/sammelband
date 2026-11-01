@@ -596,7 +596,6 @@
   "share_video_link_locked": "Deleted together with its PDF",
   "public_videos_of": "Videos from",
   "public_videos_none": "No videos here.",
-  "public_video_processing": "This video is still being prepared. Try again in a few minutes.",
-  "public_video_failed": "This video can't be played.",
-  "public_videos_more": "More videos from this album"
+  "video_play": "Play video",
+  "public_video_unmute": "Tap for sound"
 }

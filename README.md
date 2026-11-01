@@ -248,7 +248,9 @@ they count toward the storage limit. Public links never offer exports.
 Videos are printed as their still image with a QR code (and play when the photo
 is clicked in a PDF viewer). The codes lead to a public link that the PDF gets
 when it is made: it shows only the album's videos, needs no account and never
-expires, so a printed book keeps playing them. It is listed under Share, marked
+expires, so a printed book keeps playing them. A code opens its video filling
+the screen and playing at once (muted where the browser wants a tap for sound:
+that tap turns the sound on and goes fullscreen). It is listed under Share, marked
 as the PDF's, and goes with the PDF: deleting the PDF asks whether to delete the
 link too or keep it (printed copies keep working; it can still be deleted later
 under Share).

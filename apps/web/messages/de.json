@@ -596,7 +596,6 @@
   "share_video_link_locked": "Wird zusammen mit seinem PDF gelöscht",
   "public_videos_of": "Videos aus",
   "public_videos_none": "Hier gibt es keine Videos.",
-  "public_video_processing": "Dieses Video wird noch vorbereitet. Versuch es in ein paar Minuten noch einmal.",
-  "public_video_failed": "Dieses Video kann nicht abgespielt werden.",
-  "public_videos_more": "Weitere Videos aus diesem Album"
+  "video_play": "Video abspielen",
+  "public_video_unmute": "Für Ton tippen"
 }
