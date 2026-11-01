@@ -116,6 +116,16 @@ where `.env`, the dev SQLite file, `uploads/` and `dist/` live.
   print with margins, print shop edge to edge with bleed and TrimBox, screen), ready for a
   print service later. Progress reaches the web app as `album-exports:<id>`
   events carrying the full row.
+- Videos (`services/video.service.ts`, ffmpeg via `lib/video.ts`) are `image_files` rows
+  with `kind = "video"`: `filename` is a still frame (the poster), so everything that
+  shows images (thumbnails, covers, the PDF) works unchanged; only playing needs the
+  video. Uploads stream the request body to disk (`POST /api/sections/:id/videos`, one
+  per request), a job queue converts them one at a time (re-queued at startup) and
+  replaces the upload; `file_size` counts poster plus whatever video file is on disk.
+  Videos are served with HTTP ranges (`lib/range.ts`), on public links too. A PDF of an
+  album with videos prints QR codes to a `videos_only` share link that belongs to the
+  export (`share_links.export_id`): it can't be deleted on its own, and deleting the
+  PDF deletes it or keeps it as an ordinary link (`label`).
 - Deleting a tenant (`tenant.service.deleteTenant`) removes rows table by table; a new
   tenant table needs a line there (the "no row behind" test in `test/tenants.test.ts`
   catches a forgotten one).

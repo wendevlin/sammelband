@@ -38,10 +38,12 @@ import { shareRoutes } from "./routes/shares";
 import { sectionImportRoutes, sourceRoutes } from "./routes/sources";
 import { spaRoutes } from "./routes/spa";
 import { tenantRoutes } from "./routes/tenant";
+import { videoRoutes } from "./routes/videos";
 import { wsRoutes } from "./routes/ws";
 import { resumeExports } from "./services/export.service";
 import { initOnboarding } from "./services/onboarding.service";
 import { reconcileStorage } from "./services/tenant.service";
+import { resumeVideos } from "./services/video.service";
 
 mkdirSync(join(config.UPLOADS_PATH, "tenants"), { recursive: true });
 
@@ -49,6 +51,7 @@ await migrate();
 await reconcileStorage();
 await initOnboarding();
 await resumeExports();
+await resumeVideos();
 void checkMailOnStartup();
 
 const app = new Hono();
@@ -138,6 +141,7 @@ app.route("/api/sections", sectionImportRoutes);
 app.route("/api/sources", sourceRoutes);
 app.route("/api/photos", photoRoutes);
 app.route("/api/images", imageRoutes);
+app.route("/api/videos", videoRoutes);
 app.route("/api/shares", shareRoutes);
 app.route("/api/public", publicRoutes);
 app.route("/api/admin/users", adminUserRoutes);

@@ -1,4 +1,5 @@
-import { mkdirSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { deflateSync } from "node:zlib";
 import { sql } from "kysely";
@@ -99,4 +100,73 @@ export function png(
     ...chunk("IEND", new Uint8Array()),
   ]);
   return new File([bytes], name, { type: "image/png" });
+}
+
+const videos = new Map<string, Promise<Uint8Array>>();
+
+/**
+ * A short test video made with ffmpeg (cached per set of options): a moving
+ * test pattern of `seconds` with a tone, H.264 unless `codec` says otherwise.
+ * `hue` makes different content, hence a different hash.
+ */
+export function testVideo({
+  seconds = 2,
+  width = 320,
+  height = 240,
+  hue = 0,
+  codec = "libx264",
+  bitrate = "",
+}: {
+  seconds?: number;
+  width?: number;
+  height?: number;
+  hue?: number;
+  codec?: string;
+  bitrate?: string;
+} = {}): Promise<Uint8Array> {
+  const key = JSON.stringify([seconds, width, height, hue, codec, bitrate]);
+  let made = videos.get(key);
+  if (!made) {
+    made = (async () => {
+      const dir = mkdtempSync(join(tmpdir(), "sammelband-video-"));
+      const out = join(dir, "test.mp4");
+      const proc = Bun.spawn(
+        [
+          "ffmpeg",
+          "-v",
+          "error",
+          "-f",
+          "lavfi",
+          "-i",
+          `testsrc2=size=${width}x${height}:rate=25,hue=h=${hue}`,
+          "-f",
+          "lavfi",
+          "-i",
+          "sine=frequency=440",
+          "-t",
+          String(seconds),
+          "-c:v",
+          codec,
+          ...(bitrate ? ["-b:v", bitrate] : []),
+          "-pix_fmt",
+          "yuv420p",
+          "-c:a",
+          "aac",
+          out,
+        ],
+        { stderr: "pipe" },
+      );
+      if ((await proc.exited) !== 0) throw new Error(await new Response(proc.stderr).text());
+      const bytes = await Bun.file(out).bytes();
+      rmSync(dir, { recursive: true, force: true });
+      return bytes;
+    })();
+    videos.set(key, made);
+  }
+  return made;
+}
+
+/** Bytes as a request body stream, as an upload arrives. */
+export function streamOf(bytes: Uint8Array): ReadableStream<Uint8Array> {
+  return new Blob([new Uint8Array(bytes)]).stream();
 }

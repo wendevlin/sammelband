@@ -14,16 +14,20 @@ export const AVATAR_BODY_LIMIT = 6 * MB;
  * stays at the former global cap, and always fits one photo of MAX_UPLOAD_MB.
  */
 export const PHOTO_UPLOAD_BODY_LIMIT = Math.max(512 * MB, config.MAX_UPLOAD_BYTES + MB);
+/** Video uploads: one video per request, streamed to disk. */
+export const VIDEO_UPLOAD_BODY_LIMIT = config.MAX_VIDEO_UPLOAD_BYTES;
 /** The largest of them, Bun's hard cap for every request. */
 export const MAX_BODY_LIMIT = Math.max(
   DEFAULT_BODY_LIMIT,
   AVATAR_BODY_LIMIT,
   PHOTO_UPLOAD_BODY_LIMIT,
+  VIDEO_UPLOAD_BODY_LIMIT,
 );
 
 /** The multipart upload routes, the only ones with more than the default. */
 const UPLOAD_ROUTES: [method: string, path: RegExp, limit: number][] = [
   ["POST", /^\/api\/sections\/[^/]+\/photos$/, PHOTO_UPLOAD_BODY_LIMIT],
+  ["POST", /^\/api\/sections\/[^/]+\/videos$/, VIDEO_UPLOAD_BODY_LIMIT],
   ["POST", /^\/api\/profile\/avatar$/, AVATAR_BODY_LIMIT],
   ["POST", /^\/api\/admin\/users\/[^/]+\/avatar$/, AVATAR_BODY_LIMIT],
 ];

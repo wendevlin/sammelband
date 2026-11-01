@@ -14,6 +14,7 @@ import { errorText } from "#lib/i18n.ts";
 import { m } from "#lib/paraglide/messages.js";
 import { sharePath } from "#lib/public.ts";
 import { refreshAll } from "$app/navigation";
+import SharedVideos from "./shared-videos.svelte";
 
 /** A public link page: password prompt, shared folder or shared album. */
 let { token, view }: { token: string; view: SharedView } = $props();
@@ -39,13 +40,17 @@ async function unlock(e: SubmitEvent) {
 const title = $derived(
   view.status !== "ok"
     ? m.public_shared_with_you()
-    : view.kind === "album"
-      ? view.album.title
-      : view.folder.name,
+    : view.kind === "folder"
+      ? view.folder.name
+      : view.album.title,
 );
 // Breadcrumb inside a folder link: everything but the current folder links back.
 const crumbs = $derived(
-  view.status === "ok" ? (view.kind === "folder" ? view.trail.slice(0, -1) : view.trail) : [],
+  view.status === "ok" && view.kind !== "videos"
+    ? view.kind === "folder"
+      ? view.trail.slice(0, -1)
+      : view.trail
+    : [],
 );
 const crumbHref = (i: number, id: string) =>
   i === 0 ? sharePath(token) : sharePath(token, `/folders/${id}`);
@@ -98,7 +103,9 @@ const crumbHref = (i: number, id: string) =>
     </Breadcrumb.Root>
   {/if}
 
-  {#if view.kind === "album"}
+  {#if view.kind === "videos"}
+    <SharedVideos album={view.album} videos={view.videos} />
+  {:else if view.kind === "album"}
     <article class="mx-auto max-w-4xl">
       <div class="bleed">
         <h1 class="font-heading text-4xl leading-tight sm:text-5xl">{view.album.title}</h1>

@@ -3,6 +3,7 @@ import MessageSquareText from "@lucide/svelte/icons/message-square-text";
 import { justify, type Photo } from "@sammelband/shared";
 import { imageUrls } from "#lib/images.ts";
 import { cn } from "#lib/utils.ts";
+import VideoBadge from "./video-badge.svelte";
 
 /**
  * A section's photos in justified rows (like Google Photos): every photo keeps
@@ -65,6 +66,9 @@ let loaded = $state<Record<string, boolean>>({});
               class="relative block size-full object-cover"
               onload={() => (loaded[p.id] = true)}
             >
+            {#if p.kind === "video"}
+              <VideoBadge photo={p} class="absolute bottom-1.5 left-1.5" />
+            {/if}
             {#if p.caption?.trim()}
               <!-- The caption is shown in the lightbox; the image's alt text carries it here. -->
               <span

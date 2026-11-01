@@ -1,8 +1,9 @@
 # Sammelband
 
 Self-hosted digital photo books. Folders hold albums; an album is a sequence of
-sections, each with a title, text and photos (shown in justified rows), and
-optionally highlighted. Photos are deduplicated on disk and resized on demand.
+sections, each with a title, text and photos and videos (shown in justified
+rows), and optionally highlighted. Photos are deduplicated on disk and resized
+on demand; videos are converted into a small format that plays everywhere.
 
 One installation can host several independent **Sammelbände**, e.g. one per
 family or group of friends (off by default, enable with `MULTI_TENANT=true`).
@@ -54,6 +55,9 @@ bun run check:web              # svelte-check
 bun run test                   # service tests, SQLite in memory
 ```
 
+Videos need `ffmpeg` and `ffprobe` on the `PATH` (the Docker image has them),
+also for their tests. Without them the app works and only refuses videos.
+
 To run the tests against Postgres, point `DATABASE_URL` at a throwaway database
 (every table is emptied before each test):
 
@@ -103,11 +107,12 @@ Put a reverse proxy with TLS in front (Caddy, Traefik, nginx). Set
 there; the app doesn't send it. If more than one proxy adds to
 `X-Forwarded-For` (e.g. a CDN in front of Caddy), set `TRUST_PROXY_HOPS` to
 their number. The editor uploads all selected photos in one request of up to
-512 MB (more if `MAX_UPLOAD_MB` is larger), so let the proxy accept that much
-(nginx: `client_max_body_size 512m;`). Other requests are limited to 1 MB.
+512 MB (more if `MAX_UPLOAD_MB` is larger), and each video in a request of its
+own of up to `MAX_VIDEO_UPLOAD_MB` (2 GB), so let the proxy accept that much
+(nginx: `client_max_body_size 2g;`). Other requests are limited to 1 MB.
 
 Run a single instance, also with PostgreSQL. Rate limits, live updates, the PDF
-export queue, Nextcloud sign-ins in progress and the setup state live in the
+export and video queues, Nextcloud sign-ins in progress and the setup state live in the
 server process. A second replica wouldn't share them: each would keep its own
 rate limits, live updates would get lost and exports could run twice.
 
@@ -127,6 +132,7 @@ rate limits, live updates would get lost and exports could run twice.
 | `TRUST_PROXY`                 | `false`                          | Use `X-Forwarded-For` for rate limiting. Only behind a proxy that sets it                                                        |
 | `TRUST_PROXY_HOPS`            | `1`                              | Number of reverse proxies in front that append to `X-Forwarded-For`; the client address is read that many entries from the right |
 | `MAX_UPLOAD_MB`               | `50`                             | Largest accepted photo, in MB (a positive number)                                                                                |
+| `MAX_VIDEO_UPLOAD_MB`         | `2048`                           | Largest accepted video, in MB. Uploads go straight to disk and are converted afterwards                                          |
 | `MULTI_TENANT`                | `false`                          | Host several Sammelbände; the owner manages them under Admin settings                                                            |
 | `SOURCES_ALLOW_PRIVATE_HOSTS` | `false`                          | Let photo sources (Nextcloud) live on private addresses: home network, Tailscale, the same host                                  |
 | `SMTP_HOST`                   | unset                            | SMTP server for email. Without it no mail is sent and "Forgot password?" is hidden                                               |
@@ -146,8 +152,8 @@ Back up three things:
 
 - `/data`: the SQLite database `sammelband.db` with its `-wal` and `-shm` files.
   With PostgreSQL, use `pg_dump` instead.
-- `/uploads`: under `tenants/<id>/` the photos (`originals`), PDF exports
-  (`exports`) and avatars. `variants` holds resized copies that are made again
+- `/uploads`: under `tenants/<id>/` the photos and video stills (`originals`),
+  the videos (`videos`), PDF exports (`exports`) and avatars. `variants` holds resized copies that are made again
   when needed, so you can leave it out.
 - `SECRET_KEY` from `.env`. Without it, everyone has to sign in again and every
   connected Nextcloud account has to be connected again.
@@ -239,6 +245,29 @@ dialog and download it later from "Exports" in the same menu. Exports there can
 be renamed and deleted. They stay until someone deletes them or the album, and
 they count toward the storage limit. Public links never offer exports.
 
+Videos are printed as their still image with a QR code (and play when the photo
+is clicked in a PDF viewer). The codes lead to a public link that the PDF gets
+when it is made: it shows only the album's videos, needs no account and never
+expires, so a printed book keeps playing them. It is listed under Share, marked
+as the PDF's, and goes with the PDF: deleting the PDF asks whether to delete the
+link too or keep it (printed copies keep working; it can still be deleted later
+under Share).
+
+## Videos
+
+Videos are added like photos (pick or drop them in the editor) and shown like
+photos, with a play mark and their length; they get captions too and play in
+the full-screen view, also on public links. An upload is stored at once with a
+still image from its first second, then converted in the background, one video
+at a time: H.264 and AAC in MP4, at most 1080p and 30 frames per second, at a
+quality that looks good on a screen at a few Mbit/s, prepared to start playing
+before it has fully loaded. Videos that are already like that are only
+repackaged. HDR videos from phones are converted to normal colours. The
+converted file replaces the upload, so storage counts the smaller one. In the
+editor, "Choose thumbnail" takes the still image from any moment of the video;
+it is the video's thumbnail, the album cover if the video is the first item,
+and its picture in the PDF.
+
 ## Database
 
 SQLite is the default; set `DATABASE_URL` to use PostgreSQL. Queries go through
@@ -263,6 +292,8 @@ its trigger.
   location many cameras and phones record. Every member of the Sammelband can
   download them.
 - Public links only ever serve resized copies, and those carry no metadata.
+- Videos are kept only as converted, without their metadata (such as the
+  place they were filmed); the upload itself is deleted after the conversion.
 - Deleting a user keeps the albums and photos they added.
 - Revoking a public link stops new access, but visitors' browsers may keep the
   images they already loaded (they are cached for up to a year).

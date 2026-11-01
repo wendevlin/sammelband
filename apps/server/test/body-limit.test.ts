@@ -8,6 +8,7 @@ import {
   DEFAULT_BODY_LIMIT,
   MAX_BODY_LIMIT,
   PHOTO_UPLOAD_BODY_LIMIT,
+  VIDEO_UPLOAD_BODY_LIMIT,
 } from "../src/middleware/body-limit.middleware";
 
 const MB = 1024 * 1024;
@@ -72,8 +73,11 @@ describe("request body limits", () => {
     // One photo of the largest allowed size always fits in an upload.
     expect(PHOTO_UPLOAD_BODY_LIMIT).toBeGreaterThan(config.MAX_UPLOAD_BYTES);
     expect(AVATAR_BODY_LIMIT).toBeGreaterThan(5 * MB);
+    // One video per request, of the largest allowed size.
+    expect(VIDEO_UPLOAD_BODY_LIMIT).toBe(config.MAX_VIDEO_UPLOAD_BYTES);
+    expect(bodyLimitFor("POST", "/api/sections/abc/videos")).toBe(VIDEO_UPLOAD_BODY_LIMIT);
     // Bun's hard cap leaves room for every route's limit.
-    expect(MAX_BODY_LIMIT).toBe(PHOTO_UPLOAD_BODY_LIMIT);
+    expect(MAX_BODY_LIMIT).toBe(Math.max(PHOTO_UPLOAD_BODY_LIMIT, VIDEO_UPLOAD_BODY_LIMIT));
   });
 
   test("over the default: 413 payload_too_large, declared or chunked", async () => {

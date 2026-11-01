@@ -78,6 +78,38 @@ export const del = <T = unknown>(path: string, body?: unknown) =>
   api<T>(path, { method: "DELETE", body });
 
 /**
+ * POST a file as the request body, reporting how much is sent (0–1): fetch
+ * can't, so this uses XMLHttpRequest. Errors are ApiErrors like `api`'s.
+ */
+export function upload<T = unknown>(
+  path: string,
+  file: Blob,
+  onProgress: (share: number) => void,
+): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", `/api${path}`);
+    xhr.withCredentials = true;
+    xhr.setRequestHeader("content-type", file.type || "application/octet-stream");
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable) onProgress(e.loaded / e.total);
+    };
+    xhr.onload = () => {
+      let payload: unknown = xhr.responseText;
+      try {
+        payload = JSON.parse(xhr.responseText);
+      } catch {
+        /* keep text */
+      }
+      if (xhr.status >= 200 && xhr.status < 300) resolve(payload as T);
+      else reject(new ApiError(xhr.status, payload));
+    };
+    xhr.onerror = () => reject(new ApiError(0, null));
+    xhr.send(file);
+  });
+}
+
+/**
  * Login page URL that returns to `target` after sign-in. Only same-origin
  * paths survive (see `safeNext`), so `next` can't become an open redirect.
  */

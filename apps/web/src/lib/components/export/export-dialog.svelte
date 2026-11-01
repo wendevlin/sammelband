@@ -160,6 +160,9 @@ function preview(f: ExportFormat) {
       <div class="grid gap-4 py-2" aria-live="polite">
         {#if started.status === "done"}
           <p class="font-medium">{m.export_ready()}</p>
+          {#if started.video_link}
+            <p class="text-sm text-muted-foreground">{m.export_ready_video_link()}</p>
+          {/if}
           <p class="text-sm text-muted-foreground">
             {formatLabel(started.format)}
             {#if started.page_count}

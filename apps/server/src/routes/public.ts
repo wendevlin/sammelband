@@ -11,6 +11,8 @@ import * as publicService from "../services/public.service";
 const viewLimit = rateLimit({ name: "public-view", windowMs: 10 * 60 * 1000, max: 300 });
 const unlockLimit = rateLimit({ name: "public-unlock", windowMs: 10 * 60 * 1000, max: 10 });
 const imageLimit = rateLimit({ name: "public-image", windowMs: 10 * 60 * 1000, max: 3000 });
+// Players fetch a video in many parts (and again when seeking).
+const videoLimit = rateLimit({ name: "public-video", windowMs: 10 * 60 * 1000, max: 3000 });
 // Wrong passwords per link, from all IPs together: bounds guessing spread over
 // many addresses. Right ones don't count, so a link shared widely keeps working.
 const unlockLinkLimit = rateLimit({
@@ -66,4 +68,8 @@ export const publicRoutes = new Hono()
       const { w, format } = c.req.valid("query");
       return publicService.image(access, c.req.param("filename"), w, format ?? "webp");
     },
-  );
+  )
+  .get("/:token/videos/:filename", videoLimit, async (c) => {
+    const access = await publicService.access(c.req.param("token"), (name) => getCookie(c, name));
+    return publicService.video(access, c.req.param("filename"), c.req.header("range"));
+  });

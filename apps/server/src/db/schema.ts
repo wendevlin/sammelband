@@ -2,7 +2,7 @@
 // tables themselves are created by src/db/migrations (domain) and better-auth's
 // migrator (user, session, account, verification).
 
-import type { Role, SortMode } from "@sammelband/shared";
+import type { MediaKind, Role, SortMode, VideoStatus } from "@sammelband/shared";
 
 export type Folder = {
   id: string;
@@ -54,6 +54,16 @@ export type ImageFile = {
   file_size: number;
   placeholder: string;
   created_at: number;
+  /** "image", or "video": then `filename` is its poster frame. */
+  kind: MediaKind;
+  duration_ms: number | null;
+  /** The converted video, once `video_status` is "ready". */
+  video_filename: string | null;
+  video_status: VideoStatus | null;
+  /** The uploaded file, kept until it is converted. */
+  video_source: string | null;
+  /** Where in the video the poster is from. */
+  poster_ms: number | null;
 };
 
 export type Photo = {
@@ -182,6 +192,12 @@ export type ShareLink = {
   expires_at: number | null;
   created_by: string | null;
   created_at: number;
+  /** The PDF export whose QR codes lead here; the link goes with it. */
+  export_id: string | null;
+  /** 0/1: shows only the album's videos (links of PDF exports). */
+  videos_only: number;
+  /** What the link was for, once its PDF is deleted. */
+  label: string | null;
 };
 
 /** The columns of better-auth's tables that app code touches directly. */

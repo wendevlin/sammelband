@@ -5,6 +5,7 @@ import { validate } from "../lib/validate";
 import { type AuthEnv, requireAuth } from "../middleware/auth.middleware";
 import { uploadRateLimit } from "../middleware/rate-limit.middleware";
 import * as imageService from "../services/image.service";
+import * as videoService from "../services/video.service";
 
 /** Mounted under /api/sections: photos are uploaded straight into a section. */
 export const sectionPhotoRoutes = new Hono<AuthEnv>()
@@ -23,6 +24,18 @@ export const sectionPhotoRoutes = new Hono<AuthEnv>()
     }
     return c.json({ uploaded }, 201);
   })
+  // One video per request, the file itself as the body: streamed to disk.
+  .post("/:sectionId/videos", uploadRateLimit, async (c) =>
+    c.json(
+      await videoService.uploadVideo(
+        c.req.raw.body,
+        c.req.param("sectionId"),
+        c.get("user").id,
+        Number(c.req.header("content-length")) || undefined,
+      ),
+      201,
+    ),
+  )
   .post(
     "/:sectionId/photos/reorder",
     validate(
@@ -43,6 +56,12 @@ export const photoRoutes = new Hono<AuthEnv>()
     validate("json", z.object({ caption: z.string().max(2000).nullable() })),
     async (c) =>
       c.json(await imageService.updateCaption(c.req.param("photoId"), c.req.valid("json").caption)),
+  )
+  .post(
+    "/:photoId/poster",
+    validate("json", z.object({ ms: z.number().int().min(0) })),
+    async (c) =>
+      c.json(await videoService.setPoster(c.req.param("photoId"), c.req.valid("json").ms)),
   )
   .post(
     "/:photoId/move",
