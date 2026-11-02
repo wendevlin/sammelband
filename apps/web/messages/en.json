@@ -621,5 +621,17 @@
   "video_status_length": "Length",
   "video_status_unknown": "unknown",
   "video_status_ready": "It plays now.",
-  "video_status_failed": "The conversion failed. Uploading the same file again tries once more."
+  "video_status_failed": "The conversion failed. Uploading the same file again tries once more.",
+  "photo_edit": "Edit photo",
+  "photo_edit_hint": "Drag the corners or edges to crop, the frame to move it. The original stays, so you can change it again any time.",
+  "photo_edit_rotate_left": "Rotate left",
+  "photo_edit_rotate_right": "Rotate right",
+  "photo_edit_aspect": "Aspect ratio",
+  "photo_edit_free": "Free",
+  "photo_edit_original": "Original",
+  "photo_edit_reset": "Back to the original",
+  "photo_edit_frame": "Crop frame, move with the arrow keys",
+  "photo_edit_loading": "Loading the original…",
+  "photo_edit_saving": "Saving…",
+  "photo_edit_saved": "Photo saved"
 }

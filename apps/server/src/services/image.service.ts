@@ -1,6 +1,9 @@
 import { mkdirSync, rmSync } from "node:fs";
+import type { PhotoEdit } from "@sammelband/shared";
+import type { Transaction } from "kysely";
+import { z } from "zod";
 import { config, SRCSET_WIDTHS } from "../config";
-import type { Album, ImageFile, Photo } from "../db/schema";
+import type { Album, Database, ImageFile, Photo } from "../db/schema";
 import { fail, must } from "../lib/errors";
 import { emit, emitAlbumPatch, type PhotoWithImage, topics } from "../lib/events";
 import { imageDecoding } from "../lib/semaphore";
@@ -69,7 +72,7 @@ export async function albumChanged(albumId: string): Promise<void> {
 }
 
 /** Photos joined with their image metadata, ordered by sort_order. */
-export function photosWithImage(filter: {
+export async function photosWithImage(filter: {
   albumId?: string;
   sectionId?: string;
   ids?: string[];
@@ -77,8 +80,10 @@ export function photosWithImage(filter: {
   let q = tdb()
     .selectFrom("photos as p")
     .innerJoin("image_files as i", "i.id", "p.image_file_id")
+    .leftJoin("image_files as s", "s.id", "p.source_image_file_id")
     .selectAll("p")
     .select([
+      "s.filename as source_filename",
       "i.filename",
       "i.width",
       "i.height",
@@ -93,8 +98,33 @@ export function photosWithImage(filter: {
   if (filter.albumId) q = q.where("p.album_id", "=", filter.albumId);
   if (filter.sectionId) q = q.where("p.section_id", "=", filter.sectionId);
   if (filter.ids) q = q.where("p.id", "in", filter.ids);
-  return q.execute();
+  return (await q.execute()).map((p) => ({ ...p, edit: parseEdit(p.edit) }));
 }
+
+/** A stored edit (JSON), or null if there is none or it doesn't parse. */
+function parseEdit(json: string | null): PhotoEdit | null {
+  if (!json) return null;
+  try {
+    return editSchema.parse(JSON.parse(json));
+  } catch {
+    return null;
+  }
+}
+
+/** A valid edit: a quarter turn, then a crop inside the turned image. */
+export const editSchema = z
+  .object({
+    rotate: z.union([z.literal(0), z.literal(90), z.literal(180), z.literal(270)]),
+    crop: z.object({
+      x: z.number().min(0).max(1),
+      y: z.number().min(0).max(1),
+      w: z.number().gt(0).max(1),
+      h: z.number().gt(0).max(1),
+    }),
+  })
+  .refine((e) => e.crop.x + e.crop.w <= 1.0001 && e.crop.y + e.crop.h <= 1.0001, {
+    message: "The crop must lie inside the photo",
+  });
 
 const photoWithImage = (id: string) => photosWithImage({ ids: [id] });
 
@@ -149,8 +179,12 @@ export async function uploadPhoto(
   // Photos belong to a section; the album is derived from it.
   const albumId = await sectionAlbum(sectionId);
 
-  const buf = Buffer.from(await file.arrayBuffer());
+  const { imageFile, deduplicated } = await storeOrReuse(Buffer.from(await file.arrayBuffer()));
+  return addPhoto(albumId, sectionId, imageFile, uploaderId, deduplicated);
+}
 
+/** Store an image, or find the same bytes stored already (one file for both). */
+async function storeOrReuse(buf: Buffer): Promise<{ imageFile: ImageFile; deduplicated: boolean }> {
   const hasher = new Bun.CryptoHasher("sha256");
   hasher.update(buf);
   const contentHash = hasher.digest("hex");
@@ -162,22 +196,18 @@ export async function uploadPhoto(
       .where("content_hash", "=", contentHash)
       .executeTakeFirst();
 
-  let imageFile = await storedFile();
-  let deduplicated = imageFile !== undefined;
-
-  if (!imageFile) {
-    try {
-      imageFile = await storeImageFile(buf, contentHash);
-    } catch (err) {
-      // The same bytes uploaded at the same moment: the other upload stored
-      // them first, and the unique (tenant_id, content_hash) index refused
-      // this copy (storeImageFile already removed it and gave its storage back).
-      imageFile = await storedFile();
-      if (!imageFile) throw err;
-      deduplicated = true;
-    }
+  const existing = await storedFile();
+  if (existing) return { imageFile: existing, deduplicated: true };
+  try {
+    return { imageFile: await storeImageFile(buf, contentHash), deduplicated: false };
+  } catch (err) {
+    // The same bytes uploaded at the same moment: the other upload stored
+    // them first, and the unique (tenant_id, content_hash) index refused
+    // this copy (storeImageFile already removed it and gave its storage back).
+    const other = await storedFile();
+    if (!other) throw err;
+    return { imageFile: other, deduplicated: true };
   }
-  return addPhoto(albumId, sectionId, imageFile, uploaderId, deduplicated);
 }
 
 /** A new photo (or video) at the end of a section, for a stored file. */
@@ -204,6 +234,8 @@ export async function addPhoto(
     caption: null,
     uploaded_by: uploaderId,
     uploaded_at: Date.now(),
+    source_image_file_id: null,
+    edit: null,
   };
   await tdb().insertInto("photos").values(photo).execute();
   // One small event per photo, so other viewers see a batch arrive one by one.
@@ -323,23 +355,119 @@ async function deletePhotoRows(photos: Photo[]): Promise<void> {
           photos.map((p) => p.id),
         )
         .execute();
-      const imageFileIds = [...new Set(photos.map((p) => p.image_file_id))];
-      const stillUsed = new Set(
-        (
-          await trx
-            .selectFrom("photos")
-            .select("image_file_id")
-            .where("image_file_id", "in", imageFileIds)
-            .execute()
-        ).map((r) => r.image_file_id),
+      return deleteUnused(
+        trx,
+        photos.flatMap((p) =>
+          p.source_image_file_id ? [p.image_file_id, p.source_image_file_id] : [p.image_file_id],
+        ),
       );
-      const unusedIds = imageFileIds.filter((id) => !stillUsed.has(id));
-      if (unusedIds.length === 0) return [];
-      return trx.deleteFrom("image_files").where("id", "in", unusedIds).returningAll().execute();
     });
-  // Only touch the disk and the quota once the rows are gone for good.
-  for (const file of unused) removeImageFileFromDisk(file);
-  await releaseStorage(unused.reduce((sum, f) => sum + f.file_size, 0));
+  await removeFiles(unused);
+}
+
+type Trx = Transaction<Database>;
+
+/**
+ * Delete the image_files rows among `ids` that no photo uses any more, as its
+ * image or as the original of an edit. Returns them, for `removeFiles`.
+ */
+async function deleteUnused(trx: Trx, ids: string[]): Promise<ImageFile[]> {
+  const candidates = [...new Set(ids)];
+  if (candidates.length === 0) return [];
+  const used = await trx
+    .selectFrom("photos")
+    .select(["image_file_id", "source_image_file_id"])
+    .where((eb) =>
+      eb.or([eb("image_file_id", "in", candidates), eb("source_image_file_id", "in", candidates)]),
+    )
+    .execute();
+  const stillUsed = new Set(used.flatMap((r) => [r.image_file_id, r.source_image_file_id]));
+  const unusedIds = candidates.filter((id) => !stillUsed.has(id));
+  if (unusedIds.length === 0) return [];
+  return trx.deleteFrom("image_files").where("id", "in", unusedIds).returningAll().execute();
+}
+
+/** Only touch the disk and the quota once the rows are gone for good. */
+async function removeFiles(files: ImageFile[]): Promise<void> {
+  for (const file of files) removeImageFileFromDisk(file);
+  await releaseStorage(files.reduce((sum, f) => sum + Number(f.file_size), 0));
+  if (files.length > 0) emit({ topic: topics.storageStats(), kind: "updated" });
+}
+
+// --- Editing ----------------------------------------------------------------------
+
+/**
+ * Show a photo edited: `file` is the result (made in the browser from the
+ * original), `edit` what was done, kept to edit again from the original.
+ * The result is stored like an upload (deduplicated, counted in the quota).
+ */
+export async function editPhoto(
+  photoId: string,
+  file: File,
+  edit: PhotoEdit,
+): Promise<PhotoWithImage> {
+  const photo = await getPhoto(photoId);
+  if (!photo) throw fail("photo_not_found");
+  if (file.size > config.MAX_UPLOAD_BYTES) {
+    throw fail("file_too_large", { maxMb: config.MAX_UPLOAD_BYTES / 1024 / 1024 });
+  }
+  if (!file.type.startsWith("image/")) throw fail("only_images");
+  const source = photo.source_image_file_id ?? photo.image_file_id;
+  const original = await tdb()
+    .selectFrom("image_files")
+    .select("kind")
+    .where("id", "=", source)
+    .executeTakeFirst();
+  // Videos have their own still image (setPoster).
+  if (original?.kind !== "image") throw fail("only_images");
+
+  const { imageFile } = await storeOrReuse(Buffer.from(await file.arrayBuffer()));
+  // Edited back to the original (same bytes): no edit to keep.
+  const unchanged = imageFile.id === source;
+  return replaceImage(photo, imageFile.id, unchanged ? null : source, unchanged ? null : edit);
+}
+
+/** Show the original again. */
+export async function resetPhoto(photoId: string): Promise<PhotoWithImage> {
+  const photo = await getPhoto(photoId);
+  if (!photo) throw fail("photo_not_found");
+  if (!photo.source_image_file_id) return must((await photoWithImage(photoId))[0], "Photo");
+  return replaceImage(photo, photo.source_image_file_id, null, null);
+}
+
+async function replaceImage(
+  photo: Photo,
+  imageFileId: string,
+  sourceId: string | null,
+  edit: PhotoEdit | null,
+): Promise<PhotoWithImage> {
+  const unused = await tdb()
+    .transaction()
+    .execute(async (trx) => {
+      // What it shows now, read here: another edit may have changed it meanwhile.
+      const before = await trx
+        .selectFrom("photos")
+        .select("image_file_id")
+        .where("id", "=", photo.id)
+        .executeTakeFirst();
+      await trx
+        .updateTable("photos")
+        .set({
+          image_file_id: imageFileId,
+          source_image_file_id: sourceId,
+          edit: edit ? JSON.stringify(edit) : null,
+        })
+        .where("id", "=", photo.id)
+        .execute();
+      // The image shown before, if nothing else needs it now.
+      return deleteUnused(trx, [photo.image_file_id, before?.image_file_id ?? photo.image_file_id]);
+    });
+  await removeFiles(unused);
+  await albumChanged(photo.album_id);
+  const [updated] = await photoWithImage(photo.id);
+  emitAlbumPatch(photo.album_id, { photos: updated ? [updated] : [] });
+  emit({ topic: topics.photoPool(photo.album_id), kind: "updated", id: photo.id });
+  return must(updated, "Photo");
 }
 
 export async function deletePhoto(photoId: string): Promise<void> {

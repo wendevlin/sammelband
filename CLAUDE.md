@@ -116,6 +116,12 @@ where `.env`, the dev SQLite file, `uploads/` and `dist/` live.
   print with margins, print shop edge to edge with bleed and TrimBox, screen), ready for a
   print service later. Progress reaches the web app as `album-exports:<id>`
   events carrying the full row.
+- Photo edits (turn, crop): the browser draws the result from the original
+  (`#lib/photo-edit.ts`, `editor/photo-edit-dialog.svelte`) and uploads it
+  (`POST /api/photos/:id/edit`); it is stored like an upload and becomes the photo's
+  `image_file_id`, so nothing else needs to know. `photos.source_image_file_id` keeps the
+  original and `photos.edit` what was done, to edit again from the original or reset.
+  An image file is in use while any photo points to it in either column (`deleteUnused`).
 - Videos (`services/video.service.ts`, ffmpeg via `lib/video.ts`) are `image_files` rows
   with `kind = "video"`: `filename` is a still frame (the poster), so everything that
   shows images (thumbnails, covers, the PDF) works unchanged; only playing needs the

@@ -621,5 +621,17 @@
   "video_status_length": "Länge",
   "video_status_unknown": "unbekannt",
   "video_status_ready": "Es lässt sich jetzt abspielen.",
-  "video_status_failed": "Die Umwandlung ist fehlgeschlagen. Lädst du dieselbe Datei nochmal hoch, wird es erneut versucht."
+  "video_status_failed": "Die Umwandlung ist fehlgeschlagen. Lädst du dieselbe Datei nochmal hoch, wird es erneut versucht.",
+  "photo_edit": "Foto bearbeiten",
+  "photo_edit_hint": "Zieh an den Ecken oder Kanten zum Zuschneiden, am Rahmen zum Verschieben. Das Original bleibt erhalten, du kannst es jederzeit wieder ändern.",
+  "photo_edit_rotate_left": "Nach links drehen",
+  "photo_edit_rotate_right": "Nach rechts drehen",
+  "photo_edit_aspect": "Seitenverhältnis",
+  "photo_edit_free": "Frei",
+  "photo_edit_original": "Original",
+  "photo_edit_reset": "Zurück zum Original",
+  "photo_edit_frame": "Zuschnitt-Rahmen, mit den Pfeiltasten verschieben",
+  "photo_edit_loading": "Original wird geladen…",
+  "photo_edit_saving": "Wird gespeichert…",
+  "photo_edit_saved": "Foto gespeichert"
 }

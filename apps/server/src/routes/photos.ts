@@ -57,6 +57,26 @@ export const photoRoutes = new Hono<AuthEnv>()
     async (c) =>
       c.json(await imageService.updateCaption(c.req.param("photoId"), c.req.valid("json").caption)),
   )
+  // Rotated and cropped in the browser: the result as `file`, what was done as `edit` (JSON).
+  .post("/:photoId/edit", uploadRateLimit, async (c) => {
+    const body = await c.req.parseBody();
+    const file = body.file;
+    if (!(file instanceof File)) throw fail("no_files");
+    let edit: unknown;
+    try {
+      edit = JSON.parse(typeof body.edit === "string" ? body.edit : "");
+    } catch {
+      throw fail("invalid_input", { details: "edit: not JSON" });
+    }
+    const parsed = imageService.editSchema.safeParse(edit);
+    if (!parsed.success) {
+      throw fail("invalid_input", { details: `edit: ${parsed.error.issues[0]?.message ?? ""}` });
+    }
+    return c.json(await imageService.editPhoto(c.req.param("photoId"), file, parsed.data));
+  })
+  .delete("/:photoId/edit", async (c) =>
+    c.json(await imageService.resetPhoto(c.req.param("photoId"))),
+  )
   .get("/:photoId/video", async (c) =>
     c.json(await videoService.videoProgress(c.req.param("photoId"))),
   )

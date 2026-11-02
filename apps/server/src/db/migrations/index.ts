@@ -7,6 +7,7 @@ import * as sourceStartLocation from "./0005_source_start_location";
 import * as albumExports from "./0006_album_exports";
 import * as exportAlbumVersion from "./0007_export_album_version";
 import * as videos from "./0008_videos";
+import * as photoEdits from "./0009_photo_edits";
 
 /**
  * All migrations, in order. Listed statically (instead of read from disk) so
@@ -22,4 +23,5 @@ export const migrations: Record<string, Migration> = {
   "0006_album_exports": albumExports,
   "0007_export_album_version": exportAlbumVersion,
   "0008_videos": videos,
+  "0009_photo_edits": photoEdits,
 };

@@ -94,6 +94,15 @@ export type Section = {
   updated_at: number;
 };
 
+/**
+ * How a photo was edited, from its original: turned clockwise by `rotate`,
+ * then cut to `crop` (fractions 0–1 of the turned image).
+ */
+export type PhotoEdit = {
+  rotate: 0 | 90 | 180 | 270;
+  crop: { x: number; y: number; w: number; h: number };
+};
+
 /** What an album item is. Videos are shown like photos, by a still frame (the poster). */
 export type MediaKind = "image" | "video";
 
@@ -126,6 +135,9 @@ export type Photo = {
   video_status: VideoStatus | null;
   /** Where in the video the poster frame is from. */
   poster_ms: number | null;
+  /** Edited photos: what was done, and the original it was made from. */
+  edit: PhotoEdit | null;
+  source_filename: string | null;
 };
 
 /** GET /api/photos/:id/video: how far a video is with its conversion. */
