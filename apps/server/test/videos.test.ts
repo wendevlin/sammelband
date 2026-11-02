@@ -1,8 +1,14 @@
 import { describe, expect, test } from "bun:test";
-import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import { db } from "../src/db/client";
 import { parseRange } from "../src/lib/range";
-import { exportPath, originalPath, videoPath, videosDir } from "../src/lib/storage-paths";
+import {
+  exportPath,
+  originalPath,
+  originalsDir,
+  videoPath,
+  videosDir,
+} from "../src/lib/storage-paths";
 import { currentTenantId, runInTenant } from "../src/lib/tenant-context";
 import { probe } from "../src/lib/video";
 import * as albumService from "../src/services/album.service";
@@ -12,6 +18,7 @@ import { formatDuration } from "../src/services/pdf/qr";
 import * as publicService from "../src/services/public.service";
 import * as sectionService from "../src/services/section.service";
 import * as shareService from "../src/services/share.service";
+import * as storageService from "../src/services/storage.service";
 import * as tenantService from "../src/services/tenant.service";
 import * as videoService from "../src/services/video.service";
 import { createTenant, createUser, inTenant, png, streamOf, testVideo } from "./helpers";
@@ -67,6 +74,8 @@ describe("videos", () => {
       const onDisk = Bun.file(stored).size + Bun.file(originalPath(row.filename)).size;
       expect(Number(row.file_size)).toBe(onDisk);
       expect(await used()).toBe(onDisk);
+      const stats = await storageService.getStorageStats();
+      expect(stats.videos).toEqual({ file_count: 1, size_bytes: Bun.file(stored).size });
 
       const [shown] = await imageService.photosWithImage({ ids: [photo.id] });
       expect(shown).toMatchObject({
@@ -108,6 +117,41 @@ describe("videos", () => {
       expect(second.imageFile.id).toBe(first.imageFile.id);
       expect(await used()).toBe(before);
       expect(videoFiles()).toHaveLength(1);
+    }),
+  );
+
+  test(
+    "uploading a video whose conversion failed tries again",
+    inTenant(async () => {
+      const { user, section } = await album();
+      const bytes = await testVideo({ hue: 45 });
+      const { imageFile } = await videoService.uploadVideo(streamOf(bytes), section.id, user.id);
+      await videoService.videosIdle();
+      // As if the conversion had failed: no video, only the poster counted.
+      const row = await fileRow(imageFile.id);
+      const videoSize = Bun.file(videoPath(row.video_filename ?? "")).size;
+      rmSync(videoPath(row.video_filename ?? ""));
+      await db
+        .updateTable("image_files")
+        .set({ video_status: "failed", video_filename: null, file_size: row.file_size - videoSize })
+        .where("id", "=", imageFile.id)
+        .execute();
+      await tenantService.reconcileStorage(currentTenantId());
+
+      const again = await videoService.uploadVideo(streamOf(bytes), section.id, user.id);
+      expect(again).toMatchObject({
+        deduplicated: true,
+        imageFile: { video_status: "processing" },
+      });
+      await videoService.videosIdle();
+      const fixed = await fileRow(imageFile.id);
+      expect(fixed.video_status).toBe("ready");
+      expect(Number(fixed.file_size)).toBe(
+        Bun.file(videoPath(fixed.video_filename ?? "")).size +
+          Bun.file(originalPath(fixed.filename)).size,
+      );
+      expect(await used()).toBe(Number(fixed.file_size));
+      expect(videoFiles()).toEqual([fixed.video_filename ?? ""]);
     }),
   );
 
@@ -174,6 +218,19 @@ describe("videos", () => {
 
       const { photo: still } = await imageService.uploadPhoto(png(), section.id, user.id);
       await expect(videoService.setPoster(still.id, 0)).rejects.toThrow("not a video");
+
+      // Two changes at once: one wins, and no file or byte is left over.
+      await Promise.all([
+        videoService.setPoster(photo.id, 500),
+        videoService.setPoster(photo.id, 1500),
+      ]);
+      const after = await fileRow(imageFile.id);
+      expect(readdirSync(originalsDir(currentTenantId())).sort()).toEqual(
+        [after.filename, (await fileRow(still.image_file_id)).filename].sort(),
+      );
+      expect(await used()).toBe(
+        Number(after.file_size) + Number((await fileRow(still.image_file_id)).file_size),
+      );
     }),
   );
 

@@ -58,11 +58,26 @@ export type VideoInfo = {
 /** Error output of a failed run, for the log. */
 export class VideoToolError extends Error {}
 
-/** Run a tool and return its standard output; throws with its error output on failure. */
-async function run(tool: "ffmpeg" | "ffprobe", args: string[]): Promise<string> {
+/** How long probing a file or taking a frame may take; a broken file must not hang. */
+const QUICK_TIMEOUT = 60_000;
+
+/**
+ * Run a tool and return its standard output; throws with its error output on
+ * failure, or when it runs longer than `timeout` ms (it is killed then).
+ */
+async function run(
+  tool: "ffmpeg" | "ffprobe",
+  args: string[],
+  timeout = QUICK_TIMEOUT,
+): Promise<string> {
   // A conversion can take minutes: give the requests of the web app priority.
   const nice = tool === "ffmpeg" && Bun.which("nice") ? ["nice", "-n", "10"] : [];
-  const proc = Bun.spawn([...nice, tool, ...args], { stdout: "pipe", stderr: "pipe" });
+  const proc = Bun.spawn([...nice, tool, ...args], {
+    stdout: "pipe",
+    stderr: "pipe",
+    timeout,
+    killSignal: "SIGKILL",
+  });
   const [stdout, stderr, code] = await Promise.all([
     new Response(proc.stdout).text(),
     new Response(proc.stderr).text(),
@@ -177,6 +192,9 @@ export function playableAsIs(info: VideoInfo): boolean {
 
 /** Store `source` as an MP4 at `out` (see the top of the file). */
 export async function convert(source: string, out: string, info: VideoInfo): Promise<void> {
+  // Generous even for a small server, but a file that makes ffmpeg hang must
+  // not block the queue for ever.
+  const timeout = Math.max(60 * 60_000, info.durationMs * 10);
   const common = [
     "-map",
     "0:v:0",
@@ -190,37 +208,41 @@ export async function convert(source: string, out: string, info: VideoInfo): Pro
     "mp4",
   ];
   if (playableAsIs(info)) {
-    await run("ffmpeg", ["-v", "error", "-y", "-i", source, "-c", "copy", ...common, out]);
+    await run("ffmpeg", ["-v", "error", "-y", "-i", source, "-c", "copy", ...common, out], timeout);
     return;
   }
   const filters = [...(await toneMap(info)), fit(MAX_SIDE), "setsar=1", "format=yuv420p"];
-  await run("ffmpeg", [
-    "-v",
-    "error",
-    "-y",
-    "-i",
-    source,
-    "-vf",
-    filters.join(","),
-    "-fpsmax",
-    String(MAX_FPS),
-    "-c:v",
-    "libx264",
-    "-preset",
-    PRESET,
-    "-crf",
-    String(CRF),
-    "-profile:v",
-    "high",
-    "-c:a",
-    "aac",
-    "-b:a",
-    AUDIO_BITRATE,
-    "-ac",
-    "2",
-    ...common,
-    out,
-  ]);
+  await run(
+    "ffmpeg",
+    [
+      "-v",
+      "error",
+      "-y",
+      "-i",
+      source,
+      "-vf",
+      filters.join(","),
+      "-fpsmax",
+      String(MAX_FPS),
+      "-c:v",
+      "libx264",
+      "-preset",
+      PRESET,
+      "-crf",
+      String(CRF),
+      "-profile:v",
+      "high",
+      "-c:a",
+      "aac",
+      "-b:a",
+      AUDIO_BITRATE,
+      "-ac",
+      "2",
+      ...common,
+      out,
+    ],
+    timeout,
+  );
 }
 
 /** A still frame at `ms` as JPEG bytes (the poster), the first frame if `ms` is past the end. */
@@ -250,7 +272,7 @@ export async function frameAt(path: string, ms: number, info: VideoInfo): Promis
             "mjpeg",
             "pipe:1",
           ],
-          { stdout: "pipe", stderr: "ignore" },
+          { stdout: "pipe", stderr: "ignore", timeout: QUICK_TIMEOUT, killSignal: "SIGKILL" },
         ).stdout,
       ).arrayBuffer(),
     );

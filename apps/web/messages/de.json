@@ -597,5 +597,9 @@
   "public_videos_of": "Videos aus",
   "public_videos_none": "Hier gibt es keine Videos.",
   "video_play": "Video abspielen",
-  "public_video_unmute": "Für Ton tippen"
+  "public_video_unmute": "Für Ton tippen",
+  "storage_videos": "Videos",
+  "upload_video_refused": "Der Server hat eine so große Datei abgelehnt, womöglich ein Proxy davor.",
+  "upload_interrupted": "Die Verbindung ist abgebrochen. Prüf sie und versuch es noch einmal.",
+  "upload_failed": "Hochladen fehlgeschlagen"
 }

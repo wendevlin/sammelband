@@ -35,6 +35,11 @@ const tiles = $derived([
     hint: m.storage_files({ count: data.stats.originals.file_count }),
   },
   {
+    label: m.storage_videos(),
+    value: formatBytes(data.stats.videos.size_bytes),
+    hint: m.storage_files({ count: data.stats.videos.file_count }),
+  },
+  {
     label: m.storage_cache(),
     value: formatBytes(data.stats.variants.size_bytes),
     hint: m.storage_files({ count: data.stats.variants.file_count }),

@@ -129,6 +129,7 @@ $effect(() => {
               !playable(v) && "cursor-default",
             )}
             onclick={() => open(v)}
+            disabled={!playable(v)}
             aria-label={v.caption ?? m.video_play()}
           >
             <img

@@ -597,5 +597,9 @@
   "public_videos_of": "Videos from",
   "public_videos_none": "No videos here.",
   "video_play": "Play video",
-  "public_video_unmute": "Tap for sound"
+  "public_video_unmute": "Tap for sound",
+  "storage_videos": "Videos",
+  "upload_video_refused": "The server refused a file this large, possibly a proxy in front of it.",
+  "upload_interrupted": "The connection broke off. Check it and try again.",
+  "upload_failed": "Upload failed"
 }

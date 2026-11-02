@@ -68,8 +68,30 @@ export async function uploadVideo(
         .where("content_hash", "=", contentHash)
         .executeTakeFirst();
     const existing = await stored();
+    if (existing?.video_status === "failed") {
+      // Its conversion failed before: try again with this upload.
+      await reserveStorage(size);
+      const result = await tdb()
+        .updateTable("image_files")
+        .set((eb) => ({
+          video_status: "processing",
+          video_source: source,
+          file_size: eb("file_size", "+", size),
+        }))
+        .where("id", "=", existing.id)
+        .where("video_status", "=", "failed")
+        .executeTakeFirst();
+      if (Number(result.numUpdatedRows) === 1) {
+        keepSource = true;
+        queue.enqueue({ tenantId: currentTenantId(), imageFileId: existing.id });
+        await imageService.imageFileChanged(existing.id);
+      } else {
+        await releaseStorage(size);
+      }
+    }
     if (existing) {
-      return imageService.addPhoto(albumId, sectionId, existing, uploaderId, true);
+      const current = must(await stored(), "Image");
+      return imageService.addPhoto(albumId, sectionId, current, uploaderId, true);
     }
 
     const info = await videoTools.run(() => probe(sourcePath));
@@ -191,8 +213,13 @@ export function videosIdle(): Promise<void> {
   return queue.idle();
 }
 
-/** Startup: queue the conversions a restart interrupted, in every tenant. */
+/**
+ * Startup: queue the conversions a restart interrupted, in every tenant.
+ * Without ffmpeg they wait for a start that has it, rather than fail and
+ * lose their uploads.
+ */
 export async function resumeVideos(): Promise<void> {
+  if (!videoToolsAvailable()) return;
   const rows = await db
     .selectFrom("image_files")
     .select(["id", "tenant_id"])
@@ -223,12 +250,13 @@ async function convertVideo(id: string): Promise<void> {
     renameSync(part, videoPath(filename));
     const result = await tdb()
       .updateTable("image_files")
-      .set({
+      .set((eb) => ({
         video_filename: filename,
         video_status: "ready",
         video_source: null,
-        file_size: Number(row.file_size) - sourceSize + size,
-      })
+        // Relative: a new poster may have changed the size meanwhile.
+        file_size: eb("file_size", "+", size - sourceSize),
+      }))
       .where("id", "=", id)
       .where("video_status", "=", "processing")
       .executeTakeFirst();
@@ -244,11 +272,11 @@ async function convertVideo(id: string): Promise<void> {
     rmSync(part, { force: true });
     const result = await tdb()
       .updateTable("image_files")
-      .set({
+      .set((eb) => ({
         video_status: "failed",
         video_source: null,
-        file_size: Number(row.file_size) - sourceSize,
-      })
+        file_size: eb("file_size", "-", sourceSize),
+      }))
       .where("id", "=", id)
       .where("video_status", "=", "processing")
       .executeTakeFirst();
@@ -286,24 +314,34 @@ export async function setPoster(photoId: string, ms: number): Promise<PhotoWithI
   const newSize = frame.bytes.byteLength;
   if (newSize > oldSize) await reserveStorage(newSize - oldSize);
   const filename = `${Bun.randomUUIDv7()}.bin`;
+  let replaced: boolean;
   try {
     await Bun.write(originalPath(filename), frame.bytes);
-    await tdb()
+    const result = await tdb()
       .updateTable("image_files")
-      .set({
+      .set((eb) => ({
         filename,
         width: frame.width,
         height: frame.height,
         placeholder: frame.placeholder,
         poster_ms: at,
-        file_size: Number(file.file_size) - oldSize + newSize,
-      })
+        file_size: eb("file_size", "+", newSize - oldSize),
+      }))
       .where("id", "=", file.id)
-      .execute();
+      // Two changes at once: the first one wins, this one is dropped.
+      .where("filename", "=", file.filename)
+      .executeTakeFirst();
+    replaced = Number(result.numUpdatedRows) === 1;
   } catch (err) {
     rmSync(originalPath(filename), { force: true });
     if (newSize > oldSize) await releaseStorage(newSize - oldSize);
     throw err;
+  }
+  if (!replaced) {
+    rmSync(originalPath(filename), { force: true });
+    if (newSize > oldSize) await releaseStorage(newSize - oldSize);
+    const [current] = await imageService.photosWithImage({ ids: [photoId] });
+    return must(current, "Photo");
   }
   if (newSize < oldSize) await releaseStorage(oldSize - newSize);
   imageService.removeImageFromDisk(file.filename);

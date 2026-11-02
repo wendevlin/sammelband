@@ -346,9 +346,10 @@ async function runExport(id: string): Promise<void> {
     );
 
     const size = statSync(partial).size;
-    // Deleted while it was being made: nothing to keep.
+    // Deleted while it was being made: nothing to keep, not even its video link.
     if (!(await getRow(id))) {
       rmSync(partial, { force: true });
+      await shareService.releaseVideoLink(row, false);
       return;
     }
     await reserveStorage(size);
@@ -366,12 +367,15 @@ async function runExport(id: string): Promise<void> {
       // Deleted in the last moment.
       rmSync(exportPath(filename), { force: true });
       await releaseStorage(size);
+      await shareService.releaseVideoLink(row, false);
     }
     emit({ topic: topics.storageStats(), kind: "updated" });
   } catch (err) {
     rmSync(partial, { force: true });
     const code = err instanceof AppError ? err.code : "export_failed";
     if (!(err instanceof AppError)) console.error("[export] failed", { id, err });
+    // No PDF, so no QR codes that would need its video link.
+    await shareService.releaseVideoLink(row, false);
     await update(id, { status: "failed", error_code: code, finished_at: Date.now() });
   }
 }

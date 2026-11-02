@@ -173,6 +173,8 @@ export type StorageStats = {
   variants: { file_count: number; size_bytes: number };
   /** PDF exports of albums; they count against the quota like originals. */
   exports: { file_count: number; size_bytes: number };
+  /** Videos (converted, or uploads waiting for it); counted like originals. */
+  videos: { file_count: number; size_bytes: number };
   orphans: { missing_on_disk: number; unknown_on_disk: number };
 };
 

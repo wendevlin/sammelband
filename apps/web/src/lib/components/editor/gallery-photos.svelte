@@ -105,10 +105,22 @@ async function uploadVideos(list: File[]) {
       if (res.deduplicated) reused++;
     }
   } catch (e) {
-    if (e instanceof ApiError && e.status === 413) {
+    if (e instanceof ApiError && (e.status === 413 || e.status === 0)) {
+      // Without a code, a proxy in front (or Bun's own cap) refused the size,
+      // or the connection broke off: no message from the app to show.
+      const reason = e.code
+        ? errorText(e)
+        : e.status === 413
+          ? m.upload_video_refused()
+          : m.upload_interrupted();
       notice = {
-        title: e.code === "quota_exceeded" ? m.upload_storage_full() : m.upload_video_too_large(),
-        description: done > 0 ? m.upload_videos_partial({ reason: errorText(e) }) : errorText(e),
+        title:
+          e.code === "quota_exceeded"
+            ? m.upload_storage_full()
+            : e.status === 0
+              ? m.upload_failed()
+              : m.upload_video_too_large(),
+        description: done > 0 ? m.upload_videos_partial({ reason }) : reason,
       };
       noticeOpen = true;
     } else {
@@ -124,6 +136,14 @@ async function uploadVideos(list: File[]) {
       (reused ? ` ${m.upload_reused({ count: reused })}` : ""),
   );
 }
+
+// Leaving the page would cancel an upload in progress: videos take a while.
+$effect(() => {
+  if (uploading === 0) return;
+  const warn = (e: BeforeUnloadEvent) => e.preventDefault();
+  window.addEventListener("beforeunload", warn);
+  return () => window.removeEventListener("beforeunload", warn);
+});
 
 async function uploadImages(list: File[]) {
   const fd = new FormData();
