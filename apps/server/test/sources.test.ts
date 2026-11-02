@@ -12,6 +12,7 @@ import * as albumService from "../src/services/album.service";
 import * as imageService from "../src/services/image.service";
 import * as sectionService from "../src/services/section.service";
 import * as sourceService from "../src/services/source.service";
+import * as videoService from "../src/services/video.service";
 import {
   cleanPath,
   type NextcloudConfig,
@@ -19,7 +20,7 @@ import {
   startLogin,
   verifyAccount,
 } from "../src/sources/nextcloud";
-import { createTenant, createUser, inTenant, png } from "./helpers";
+import { createTenant, createUser, inTenant, png, testVideo } from "./helpers";
 
 // A small stand-in for Nextcloud: status, OCS user, WebDAV PROPFIND/GET,
 // previews and Login Flow v2, for one user "anna" with app password "secret".
@@ -148,9 +149,16 @@ beforeAll(async () => {
       id: 13,
     },
     { path: "/Photos/Lisbon/notes.md", type: "text/markdown", bytes: new Uint8Array([1]), id: 14 },
+    {
+      path: "/Photos/Lisbon/tram.mp4",
+      type: "video/mp4",
+      bytes: new Uint8Array(await testVideo({ hue: 200 })),
+      id: 16,
+    },
     { path: "/Photos/Lisbon/.hidden.jpg", type: "image/jpeg", bytes: new Uint8Array([1]), id: 15 },
   ];
-});
+  // Making the test video with ffmpeg takes a moment.
+}, 30_000);
 afterAll(() => {
   server.stop(true);
   other.stop(true);
@@ -296,8 +304,15 @@ describe("photo sources", () => {
       const lisbon = await sourceService.browse(user.id, account.id, "/Photos/Lisbon");
       expect(lisbon.crumbs.map((c) => c.ref)).toEqual(["/", "/Photos", "/Photos/Lisbon"]);
       // Natural order; HEIC with a preview counts, RAW without one, text and hidden files don't.
-      expect(lisbon.images.map((i) => i.name)).toEqual(["IMG_2.jpg", "IMG_10.jpg", "live.heic"]);
+      // Videos too, with or without a preview.
+      expect(lisbon.images.map((i) => [i.name, i.kind])).toEqual([
+        ["IMG_2.jpg", "image"],
+        ["IMG_10.jpg", "image"],
+        ["live.heic", "image"],
+        ["tram.mp4", "video"],
+      ]);
       expect(lisbon.images[0]).toMatchObject({ ref: "/Photos/Lisbon/IMG_2.jpg", thumb: "10" });
+      expect(lisbon.images[3]?.thumb).toBeNull();
 
       // Browsing doesn't move where the picker opens…
       expect((await sourceService.browse(user.id, account.id, null)).location).toBe("/");
@@ -358,6 +373,15 @@ describe("photo sources", () => {
       await expect(
         sourceService.importPhotos(user.id, account.id, section.id, ["/Photos/Lisbon/notes.md"]),
       ).rejects.toThrow("Only images");
+
+      // A video comes in like a video upload: streamed, then converted.
+      const [video] = await sourceService.importPhotos(user.id, account.id, section.id, [
+        "/Photos/Lisbon/tram.mp4",
+      ]);
+      expect(video?.imageFile).toMatchObject({ kind: "video", video_status: "processing" });
+      await videoService.videosIdle();
+      const [shown] = await imageService.photosWithImage({ ids: [video?.photo.id ?? ""] });
+      expect(shown).toMatchObject({ kind: "video", video_status: "ready" });
       await expect(
         sourceService.importPhotos(user.id, account.id, "nope", ["/Photos/Lisbon/IMG_10.jpg"]),
       ).rejects.toThrow("Section not found");

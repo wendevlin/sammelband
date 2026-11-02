@@ -199,7 +199,8 @@ everyone connects their own accounts in their profile (they sign in to Nextcloud
 allow access, or enter an app password). Each person can connect several accounts, on
 the default server or any other, and give them names like "Family" or "Work". In the
 album editor, "Add photos" then offers one entry per account: browse the folders,
-pick photos, and they are copied into the album like uploads.
+pick photos and videos, and they are copied into the album like uploads (videos
+only where the server has ffmpeg).
 Sammelband never serves anything from Nextcloud itself, so public links keep working
 when files move there. The picker opens in the folder you used last in that account.
 
@@ -266,6 +267,9 @@ quality that looks good on a screen at a few Mbit/s, prepared to start playing
 before it has fully loaded. Videos that are already like that are only
 repackaged. HDR videos from phones are converted to normal colours. The
 converted file replaces the upload, so storage counts the smaller one. In the
+editor, clicking "Preparing…" on a video shows where it is: how many videos
+are ahead of it, or how far the conversion is, how fast, and the CPU and
+memory it takes. In the
 editor, "Choose thumbnail" takes the still image from any moment of the video;
 it is the video's thumbnail, the album cover if the video is the first item,
 and its picture in the PDF.

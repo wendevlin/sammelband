@@ -57,6 +57,9 @@ export const photoRoutes = new Hono<AuthEnv>()
     async (c) =>
       c.json(await imageService.updateCaption(c.req.param("photoId"), c.req.valid("json").caption)),
   )
+  .get("/:photoId/video", async (c) =>
+    c.json(await videoService.videoProgress(c.req.param("photoId"))),
+  )
   .post(
     "/:photoId/poster",
     validate("json", z.object({ ms: z.number().int().min(0) })),

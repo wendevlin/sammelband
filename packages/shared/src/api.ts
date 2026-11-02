@@ -128,6 +128,32 @@ export type Photo = {
   poster_ms: number | null;
 };
 
+/** GET /api/photos/:id/video: how far a video is with its conversion. */
+export type VideoProgress = {
+  status: VideoStatus;
+  /** Still waiting: the conversions before it, the running one included (0 = next). */
+  waiting: number | null;
+  /** Being converted right now. */
+  running: {
+    /** "copy": only repackaged; "encode": converted. */
+    mode: "copy" | "encode";
+    /** 0–1, or null until ffmpeg reports. */
+    progress: number | null;
+    elapsed_ms: number;
+    remaining_ms: number | null;
+    /** Times real time. */
+    speed: number | null;
+    /** Of one core: up to 100 × `cores`. Null where the server can't tell. */
+    cpu_percent: number | null;
+    memory_bytes: number | null;
+  } | null;
+  /** CPU cores of the server. */
+  cores: number;
+  duration_ms: number | null;
+  /** The uploaded file, while it waits for its conversion. */
+  upload_bytes: number | null;
+};
+
 export type AlbumDetail = {
   album: Album;
   sections: Section[];
@@ -297,6 +323,8 @@ export type SourceImage = {
   thumb: string | null;
   size: number | null;
   modified: number | null;
+  /** Videos are imported like video uploads (and only listed where the server takes videos). */
+  kind: MediaKind;
 };
 
 /** One folder of a source: where it is, what's inside. */

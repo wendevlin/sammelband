@@ -105,6 +105,57 @@ describe("videos", () => {
   );
 
   test(
+    "the status shows the queue, the progress and what the conversion takes",
+    inTenant(async () => {
+      const { user, section } = await album();
+      const first = await videoService.uploadVideo(
+        streamOf(
+          await testVideo({ width: 1920, height: 1080, codec: "mpeg4", seconds: 4, hue: 10 }),
+        ),
+        section.id,
+        user.id,
+      );
+      const second = await videoService.uploadVideo(
+        streamOf(await testVideo({ hue: 20 })),
+        section.id,
+        user.id,
+      );
+      let sawRunning = false;
+      let sawWaiting = false;
+      for (let i = 0; i < 400; i++) {
+        const now = await videoService.videoProgress(first.photo.id);
+        const next = await videoService.videoProgress(second.photo.id);
+        if (now.running) {
+          sawRunning = true;
+          expect(now.running.mode).toBe("encode");
+          expect(now.waiting).toBeNull();
+          // The second waits behind it: one ahead, the running one.
+          if (next.status === "processing") {
+            sawWaiting = true;
+            expect(next.waiting).toBe(1);
+          }
+        }
+        if (now.status === "ready") break;
+        await Bun.sleep(25);
+      }
+      expect(sawRunning).toBe(true);
+      expect(sawWaiting).toBe(true);
+      await videoService.videosIdle();
+      const done = await videoService.videoProgress(first.photo.id);
+      expect(done).toMatchObject({
+        status: "ready",
+        waiting: null,
+        running: null,
+        upload_bytes: null,
+      });
+      expect(done.cores).toBeGreaterThan(0);
+
+      const { photo: still } = await imageService.uploadPhoto(png(), section.id, user.id);
+      await expect(videoService.videoProgress(still.id)).rejects.toThrow("not a video");
+    }),
+  );
+
+  test(
     "the same video again reuses the stored one",
     inTenant(async () => {
       const { user, section } = await album();

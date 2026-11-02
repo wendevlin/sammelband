@@ -31,6 +31,7 @@ import { dropPhoto, photoDrag, photoTargetAt, registerGallery } from "./photo-dr
 import PosterDialog from "./poster-dialog.svelte";
 import SourcePicker from "./source-picker.svelte";
 import { touchDrag } from "./touch-drag";
+import VideoStatusDialog from "./video-status-dialog.svelte";
 
 /**
  * Photo manager for one section: upload, caption, reorder, delete, view full
@@ -62,6 +63,8 @@ let uploading = $state(0);
 let videoProgress = $state<number | null>(null);
 let posterTarget = $state<Photo | null>(null);
 let posterOpen = $state(false);
+let statusTarget = $state<Photo | null>(null);
+let statusOpen = $state(false);
 const urls = imageUrls();
 let dropTarget = $state<{ id: string; after: boolean } | null>(null);
 let deleteTarget = $state<Photo | null>(null);
@@ -309,7 +312,16 @@ $effect(() => () => {
             draggable="false"
           >
           {#if p.kind === "video"}
-            <VideoBadge photo={p} class="absolute bottom-1.5 left-1.5" />
+            <VideoBadge
+              photo={p}
+              class="absolute bottom-1.5 left-1.5"
+              onclick={p.video_status === "ready"
+                ? undefined
+                : () => {
+                    statusTarget = p;
+                    statusOpen = true;
+                  }}
+            />
           {/if}
           <!-- Both buttons: always there on touch screens, on hover with a mouse. -->
           <Button
@@ -463,6 +475,7 @@ $effect(() => () => {
 />
 
 <PosterDialog bind:open={posterOpen} photo={posterTarget} />
+<VideoStatusDialog bind:open={statusOpen} photo={statusTarget} />
 
 <NoticeDialog
   bind:open={noticeOpen}

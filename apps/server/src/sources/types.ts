@@ -3,6 +3,15 @@ import type { SourceId, SourceListing } from "@sammelband/shared";
 /** A downloaded original (or the largest rendition a source offers). */
 export type SourceFile = { bytes: Uint8Array<ArrayBuffer>; name: string; type: string };
 
+/** A video to import: streamed as it arrives, since videos are large. */
+export type SourceVideo = {
+  kind: "video";
+  body: ReadableStream<Uint8Array>;
+  /** Bytes, if the source says. */
+  size: number | null;
+  name: string;
+};
+
 /**
  * A place photos can be imported from besides uploads. Admins switch it on per
  * Sammelband, with a default `Config` (e.g. the server address); users connect
@@ -31,8 +40,12 @@ export interface PhotoSource<Config = unknown, Credentials = unknown> {
     thumb: string,
     size: number,
   ): Promise<SourceFile>;
-  /** The photo to import. */
-  download(config: Config, credentials: Credentials, ref: string): Promise<SourceFile>;
+  /** The photo or video to import. */
+  download(
+    config: Config,
+    credentials: Credentials,
+    ref: string,
+  ): Promise<SourceFile | SourceVideo>;
   /** Best effort: revoke the credentials at the source when an account is removed. */
   revoke?(config: Config, credentials: Credentials): Promise<void>;
 }

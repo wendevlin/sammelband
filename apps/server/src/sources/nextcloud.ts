@@ -3,7 +3,7 @@ import { XMLParser } from "fast-xml-parser";
 import { config as appConfig } from "../config";
 import { fail } from "../lib/errors";
 import { readLimited, remoteFetch } from "../lib/remote-fetch";
-import type { PhotoSource, SourceFile } from "./types";
+import type { PhotoSource, SourceFile, SourceVideo } from "./types";
 
 // Nextcloud over WebDAV. Folders and files come from PROPFIND on the user's
 // files (/remote.php/dav/files/<user>), previews from /index.php/core/preview,
@@ -20,6 +20,8 @@ const DIRECT_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/gi
 const LARGE_PREVIEW = 4096;
 const MAX_LISTING_BYTES = 8 * 1024 * 1024;
 const MAX_THUMBNAIL_BYTES = 4 * 1024 * 1024;
+/** A video download may take long; the default timeout is for small requests. */
+const VIDEO_TIMEOUT_MS = 60 * 60_000;
 
 const auth = (c: NextcloudCredentials) =>
   `Basic ${Buffer.from(`${c.loginName}:${c.appPassword}`).toString("base64")}`;
@@ -238,13 +240,16 @@ async function browse(
     }
     const type = e.prop.getcontenttype ?? "";
     const preview = e.prop["has-preview"] === "true";
-    if (!type.startsWith("image/") || (!DIRECT_TYPES.has(type) && !preview)) continue;
+    const video = type.startsWith("video/");
+    if (!video && (!type.startsWith("image/") || (!DIRECT_TYPES.has(type) && !preview))) continue;
     images.push({
       ref: e.path,
       name,
+      // Videos have one where Nextcloud makes previews of them (with ffmpeg).
       thumb: preview && e.prop.fileid ? e.prop.fileid : null,
       size: count(e.prop.getcontentlength),
       modified: date(e.prop.getlastmodified),
+      kind: video ? "video" : "image",
     });
   }
   const segments = path.split("/").filter(Boolean);
@@ -284,13 +289,29 @@ async function download(
   config: NextcloudConfig,
   c: NextcloudCredentials,
   ref: string,
-): Promise<SourceFile> {
+): Promise<SourceFile | SourceVideo> {
   const path = cleanPath(ref);
   if (path === "/") throw fail("source_item_not_found");
   const [entry] = await propfind(config, c, path, 0);
   if (!entry || entry.folder) throw fail("source_item_not_found");
   const type = entry.prop.getcontenttype ?? "";
   const name = baseName(path);
+  if (type.startsWith("video/")) {
+    // Streamed into the video upload, which checks the size as it goes.
+    const size = count(entry.prop.getcontentlength);
+    const max = appConfig.MAX_VIDEO_UPLOAD_BYTES;
+    if (size !== null && size > max) {
+      throw fail("video_too_large", { maxMb: Math.round(max / 1024 / 1024) });
+    }
+    const res = await request(
+      `${davBase(config, c)}${encodePath(path)}`,
+      { signal: AbortSignal.timeout(VIDEO_TIMEOUT_MS) },
+      c,
+    );
+    if (res.status === 404) throw fail("source_item_not_found");
+    if (!res.ok || !res.body) throw fail("source_unreachable");
+    return { kind: "video", body: res.body, size, name };
+  }
   if (!DIRECT_TYPES.has(type)) {
     // HEIC and the like: Nextcloud's largest preview is a JPEG we can store.
     if (entry.prop["has-preview"] !== "true" || !entry.prop.fileid) throw fail("only_images");
