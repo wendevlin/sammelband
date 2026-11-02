@@ -76,6 +76,10 @@ export type Photo = {
   caption: string | null;
   uploaded_by: string | null;
   uploaded_at: number;
+  /** Edited photos: the original the shown image (`image_file_id`) was made from. */
+  source_image_file_id: string | null;
+  /** Edited photos: what was done, JSON (PhotoEdit). */
+  edit: string | null;
 };
 
 /** A Sammelband: an isolated set of users, folders, albums and photos. */

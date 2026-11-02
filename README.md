@@ -256,6 +256,15 @@ as the PDF's, and goes with the PDF: deleting the PDF asks whether to delete the
 link too or keep it (printed copies keep working; it can still be deleted later
 under Share).
 
+## Editing photos
+
+In the editor, the pencil on a photo turns it in quarter turns and crops it,
+freely or to a shape (original, 1:1, 4:3, 3:4, 16:9, 9:16). The original stays:
+editing again starts from it, so nothing is lost, and "Back to the original"
+undoes the edit. The browser makes the edited image at full size (up to about
+16 megapixels, which phones can still draw) and it is stored like an upload;
+the album, its cover, the PDF and public links show it.
+
 ## Videos
 
 Videos are added like photos (pick or drop them in the editor) and shown like

@@ -28,6 +28,7 @@ export const MAX_BODY_LIMIT = Math.max(
 const UPLOAD_ROUTES: [method: string, path: RegExp, limit: number][] = [
   ["POST", /^\/api\/sections\/[^/]+\/photos$/, PHOTO_UPLOAD_BODY_LIMIT],
   ["POST", /^\/api\/sections\/[^/]+\/videos$/, VIDEO_UPLOAD_BODY_LIMIT],
+  ["POST", /^\/api\/photos\/[^/]+\/edit$/, PHOTO_UPLOAD_BODY_LIMIT],
   ["POST", /^\/api\/profile\/avatar$/, AVATAR_BODY_LIMIT],
   ["POST", /^\/api\/admin\/users\/[^/]+\/avatar$/, AVATAR_BODY_LIMIT],
 ];

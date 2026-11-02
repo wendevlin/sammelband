@@ -2,6 +2,7 @@
 import Expand from "@lucide/svelte/icons/expand";
 import ImagePlay from "@lucide/svelte/icons/image-play";
 import ImagePlus from "@lucide/svelte/icons/image-plus";
+import Pencil from "@lucide/svelte/icons/pencil";
 import Upload from "@lucide/svelte/icons/upload";
 import X from "@lucide/svelte/icons/x";
 import type { Photo, SourceAccount } from "@sammelband/shared";
@@ -28,6 +29,7 @@ import { sources } from "#lib/stores/sources.svelte.ts";
 import { cn } from "#lib/utils.ts";
 import { goto } from "$app/navigation";
 import { dropPhoto, photoDrag, photoTargetAt, registerGallery } from "./photo-drag.svelte";
+import PhotoEditDialog from "./photo-edit-dialog.svelte";
 import PosterDialog from "./poster-dialog.svelte";
 import SourcePicker from "./source-picker.svelte";
 import { touchDrag } from "./touch-drag";
@@ -63,6 +65,8 @@ let uploading = $state(0);
 let videoProgress = $state<number | null>(null);
 let posterTarget = $state<Photo | null>(null);
 let posterOpen = $state(false);
+let editTarget = $state<Photo | null>(null);
+let editOpen = $state(false);
 let statusTarget = $state<Photo | null>(null);
 let statusOpen = $state(false);
 const urls = imageUrls();
@@ -345,6 +349,20 @@ $effect(() => () => {
           >
             <Expand class="size-4" />
           </button>
+          {#if p.kind === "image"}
+            <button
+              type="button"
+              class="absolute top-1.5 left-1.5 flex size-8 items-center justify-center rounded-full bg-black/55 text-white shadow transition-opacity group-hover:opacity-100 after:absolute after:-inset-1.5 hover:bg-black/75 focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none [@media(hover:hover)_and_(pointer:fine)]:size-7 [@media(hover:hover)_and_(pointer:fine)]:opacity-0"
+              aria-label={m.photo_edit()}
+              title={m.photo_edit()}
+              onclick={() => {
+                editTarget = p;
+                editOpen = true;
+              }}
+            >
+              <Pencil class="size-4" />
+            </button>
+          {/if}
           {#if p.kind === "video" && p.video_status === "ready"}
             <button
               type="button"
@@ -475,6 +493,7 @@ $effect(() => () => {
 />
 
 <PosterDialog bind:open={posterOpen} photo={posterTarget} />
+<PhotoEditDialog bind:open={editOpen} photo={editTarget} />
 <VideoStatusDialog bind:open={statusOpen} photo={statusTarget} />
 
 <NoticeDialog
