@@ -1,5 +1,6 @@
-import { mkdirSync, renameSync, rmSync, statSync } from "node:fs";
-import type { Photo as PhotoWithImage } from "@sammelband/shared";
+import { mkdirSync, readFileSync, renameSync, rmSync, statSync } from "node:fs";
+import { availableParallelism } from "node:os";
+import type { Photo as PhotoWithImage, VideoProgress } from "@sammelband/shared";
 import { config } from "../config";
 import { db } from "../db/client";
 import type { ImageFile } from "../db/schema";
@@ -14,6 +15,7 @@ import {
   convert,
   defaultPosterMs,
   frameAt,
+  playableAsIs,
   probe,
   type VideoInfo,
   videoTools,
@@ -83,7 +85,7 @@ export async function uploadVideo(
         .executeTakeFirst();
       if (Number(result.numUpdatedRows) === 1) {
         keepSource = true;
-        queue.enqueue({ tenantId: currentTenantId(), imageFileId: existing.id });
+        enqueue({ tenantId: currentTenantId(), imageFileId: existing.id });
         await imageService.imageFileChanged(existing.id);
       } else {
         await releaseStorage(size);
@@ -115,7 +117,7 @@ export async function uploadVideo(
       uploaderId,
       deduplicated,
     );
-    if (!deduplicated) queue.enqueue({ tenantId: currentTenantId(), imageFileId: imageFile.id });
+    if (!deduplicated) enqueue({ tenantId: currentTenantId(), imageFileId: imageFile.id });
     return uploaded;
   } finally {
     if (!keepSource) rmSync(sourcePath, { force: true });
@@ -208,6 +210,61 @@ const queue = createJobQueue<Job>("video", (job) =>
   runInTenant(job.tenantId, () => convertVideo(job.imageFileId)),
 );
 
+// What the queue is doing, for the status dialog: the videos waiting (in
+// order, all tenants), and the one being converted with its progress and the
+// resources its ffmpeg uses. Only in memory, like the queue.
+const waiting = new Set<string>();
+type Running = {
+  id: string;
+  mode: "copy" | "encode";
+  durationMs: number;
+  startedAt: number;
+  doneMs: number;
+  speed: number | null;
+  pid: number | null;
+  cpuPercent: number | null;
+  memoryBytes: number | null;
+  /** The last CPU reading: ffmpeg's CPU time (s) at a moment (ms). */
+  cpuSample: { seconds: number; at: number } | null;
+};
+let running: Running | null = null;
+
+function enqueue(job: Job): void {
+  waiting.add(job.imageFileId);
+  queue.enqueue(job);
+}
+
+/** Linux reports CPU time in these ticks (USER_HZ, 100 nearly everywhere). */
+const TICKS_PER_SECOND = 100;
+/** How often the resources are read while a conversion runs. */
+const SAMPLE_MS = 1000;
+
+/** Read the CPU and memory ffmpeg uses from /proc (Linux; elsewhere they stay unknown). */
+function sampleResources(r: Running): void {
+  if (r.pid === null) return;
+  try {
+    const stat = readFileSync(`/proc/${r.pid}/stat`, "utf8");
+    // After "pid (name) ": state is field 0, utime 11, stime 12.
+    const fields = stat.slice(stat.lastIndexOf(")") + 2).split(" ");
+    const seconds = (Number(fields[11]) + Number(fields[12])) / TICKS_PER_SECOND;
+    const now = Date.now();
+    // CPU time comes in 10 ms ticks: over less than a second the share jumps
+    // about, so a reading in between (a status request) keeps the last one.
+    if (!r.cpuSample || now - r.cpuSample.at >= SAMPLE_MS) {
+      if (r.cpuSample) {
+        r.cpuPercent = Math.round(
+          ((seconds - r.cpuSample.seconds) / ((now - r.cpuSample.at) / 1000)) * 100,
+        );
+      }
+      r.cpuSample = { seconds, at: now };
+    }
+    const rss = /VmRSS:\s+(\d+) kB/.exec(readFileSync(`/proc/${r.pid}/status`, "utf8"));
+    r.memoryBytes = rss ? Number(rss[1]) * 1024 : null;
+  } catch {
+    // Finished meanwhile, or no /proc.
+  }
+}
+
 /** Wait until queued conversions are done (tests). */
 export function videosIdle(): Promise<void> {
   return queue.idle();
@@ -226,7 +283,7 @@ export async function resumeVideos(): Promise<void> {
     .where("video_status", "=", "processing")
     .orderBy("created_at")
     .execute();
-  for (const row of rows) queue.enqueue({ tenantId: row.tenant_id, imageFileId: row.id });
+  for (const row of rows) enqueue({ tenantId: row.tenant_id, imageFileId: row.id });
 }
 
 const getFile = async (id: string) =>
@@ -234,6 +291,7 @@ const getFile = async (id: string) =>
   null;
 
 async function convertVideo(id: string): Promise<void> {
+  waiting.delete(id);
   const row = await getFile(id);
   if (row?.video_status !== "processing" || !row.video_source) return;
   const sourcePath = videoPath(row.video_source);
@@ -243,7 +301,35 @@ async function convertVideo(id: string): Promise<void> {
   try {
     const info = await videoTools.run(() => probe(sourcePath));
     if (!info) throw fail("unreadable_video");
-    await convert(sourcePath, part, info);
+    const live: Running = {
+      id,
+      mode: playableAsIs(info) ? "copy" : "encode",
+      durationMs: info.durationMs,
+      startedAt: Date.now(),
+      doneMs: 0,
+      speed: null,
+      pid: null,
+      cpuPercent: null,
+      memoryBytes: null,
+      cpuSample: null,
+    };
+    running = live;
+    const sampler = setInterval(() => sampleResources(live), SAMPLE_MS);
+    try {
+      await convert(sourcePath, part, info, {
+        onStart: (pid) => {
+          live.pid = pid;
+          sampleResources(live);
+        },
+        onProgress: ({ doneMs, speed }) => {
+          live.doneMs = doneMs;
+          live.speed = speed;
+        },
+      });
+    } finally {
+      clearInterval(sampler);
+      running = null;
+    }
     const size = statSync(part).size;
     // Converted files are nearly always smaller; a larger one needs the room.
     if (size > sourceSize) await reserveStorage(size - sourceSize);
@@ -288,6 +374,46 @@ async function convertVideo(id: string): Promise<void> {
   }
   await imageService.imageFileChanged(id);
   emit({ topic: topics.storageStats(), kind: "updated" });
+}
+
+/** How far a video is: waiting, being converted (with the resources it takes), or done. */
+export async function videoProgress(photoId: string): Promise<VideoProgress> {
+  const photo = await tdb()
+    .selectFrom("photos")
+    .select("image_file_id")
+    .where("id", "=", photoId)
+    .executeTakeFirst();
+  if (!photo) throw fail("photo_not_found");
+  const file = must(await getFile(photo.image_file_id), "Image");
+  if (file.kind !== "video") throw fail("not_a_video");
+  const ahead = [...waiting].indexOf(file.id);
+  const live = running?.id === file.id ? running : null;
+  if (live) sampleResources(live);
+  const elapsed = live ? Date.now() - live.startedAt : 0;
+  const share = live && live.durationMs > 0 ? Math.min(1, live.doneMs / live.durationMs) : null;
+  return {
+    status: file.video_status ?? "processing",
+    // Waiting: the videos before it, plus the one being converted now.
+    waiting:
+      file.video_status === "processing" && !live ? Math.max(0, ahead) + (running ? 1 : 0) : null,
+    running: live
+      ? {
+          mode: live.mode,
+          progress: share,
+          elapsed_ms: elapsed,
+          // From the pace so far, once there is one.
+          remaining_ms: share && share > 0.02 ? Math.round((elapsed / share) * (1 - share)) : null,
+          speed: live.speed,
+          cpu_percent: live.cpuPercent,
+          memory_bytes: live.memoryBytes,
+        }
+      : null,
+    cores: availableParallelism(),
+    duration_ms: file.duration_ms === null ? null : Number(file.duration_ms),
+    upload_bytes: file.video_source
+      ? (statSync(videoPath(file.video_source), { throwIfNoEntry: false })?.size ?? null)
+      : null,
+  };
 }
 
 // --- The poster -------------------------------------------------------------------

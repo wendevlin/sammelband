@@ -9,20 +9,21 @@ import { cn } from "#lib/utils.ts";
 
 /**
  * On a video's thumbnail: a play mark with its length, or that it is still
- * being prepared (converted after the upload), or that that failed.
+ * being prepared (converted after the upload), or that that failed. With
+ * `onclick` (the editor, while not ready) it is a button that shows details.
  */
 let {
   photo,
   class: className,
-}: { photo: Pick<Photo, "duration_ms" | "video_status">; class?: string } = $props();
+  onclick,
+}: {
+  photo: Pick<Photo, "duration_ms" | "video_status">;
+  class?: string;
+  onclick?: () => void;
+} = $props();
 </script>
 
-<span
-  class={cn(
-    "pointer-events-none flex items-center gap-1 rounded-full bg-black/60 py-0.5 pr-2 pl-1.5 text-xs font-medium text-white tabular-nums",
-    className,
-  )}
->
+{#snippet content()}
   {#if photo.video_status === "processing"}
     <LoaderCircle class="size-3.5 animate-spin" />
     {m.video_processing()}
@@ -33,4 +34,27 @@ let {
     <Play class="size-3 fill-current" />
     {formatDuration(photo.duration_ms ?? 0)}
   {/if}
-</span>
+{/snippet}
+
+{#if onclick}
+  <button
+    type="button"
+    class={cn(
+      "flex items-center gap-1 rounded-full bg-black/60 py-0.5 pr-2 pl-1.5 text-xs font-medium text-white tabular-nums hover:bg-black/80 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+      className,
+    )}
+    title={m.video_status_open()}
+    {onclick}
+  >
+    {@render content()}
+  </button>
+{:else}
+  <span
+    class={cn(
+      "pointer-events-none flex items-center gap-1 rounded-full bg-black/60 py-0.5 pr-2 pl-1.5 text-xs font-medium text-white tabular-nums",
+      className,
+    )}
+  >
+    {@render content()}
+  </span>
+{/if}

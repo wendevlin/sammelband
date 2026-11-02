@@ -1,7 +1,9 @@
 <script lang="ts">
 import Check from "@lucide/svelte/icons/check";
 import Expand from "@lucide/svelte/icons/expand";
+import Film from "@lucide/svelte/icons/film";
 import ImageIcon from "@lucide/svelte/icons/image";
+import Play from "@lucide/svelte/icons/play";
 import type { SourceAccount, SourceImage, SourceListing } from "@sammelband/shared";
 import { SvelteMap } from "svelte/reactivity";
 import { toast } from "svelte-sonner";
@@ -131,8 +133,17 @@ async function add() {
   try {
     const sectionId = await ensureSection();
     if (!sectionId) return;
-    for (let i = 0; i < refs.length; i += BATCH) {
-      const batch = refs.slice(i, i + BATCH);
+    // Photos in batches; each video alone, since fetching one takes a while.
+    const batches: string[][] = [];
+    for (const ref of refs) {
+      const last = batches.at(-1);
+      const video = selected.get(ref)?.kind === "video";
+      if (!video && last && last.length < BATCH && selected.get(last[0] ?? "")?.kind !== "video") {
+        last.push(ref);
+      } else batches.push([ref]);
+    }
+    let done = 0;
+    for (const batch of batches) {
       try {
         await post(`/sections/${sectionId}/import`, { account: account.id, refs: batch });
         added += batch.length;
@@ -140,13 +151,24 @@ async function add() {
         failed += batch.length;
         lastError = err;
       }
-      importing = { done: Math.min(i + BATCH, refs.length), count: refs.length };
+      done += batch.length;
+      importing = { done, count: refs.length };
     }
   } finally {
     importing = null;
   }
+  // Only videos: say so, and that they play once they're prepared.
+  const onlyVideos = refs.every((ref) => selected.get(ref)?.kind === "video");
   if (added > 0)
-    toast.success(added === 1 ? m.upload_done_one() : m.upload_done_other({ count: added }));
+    toast.success(
+      onlyVideos
+        ? added === 1
+          ? m.upload_videos_done_one()
+          : m.upload_videos_done_other({ count: added })
+        : added === 1
+          ? m.upload_done_one()
+          : m.upload_done_other({ count: added }),
+    );
   if (failed > 0) toast.error(m.picker_failed({ count: failed, reason: errorText(lastError) }));
   if (failed === 0) open = false;
 }
@@ -222,7 +244,19 @@ async function add() {
                     >
                   {:else}
                     <span class="flex size-full items-center justify-center text-muted-foreground">
-                      <ImageIcon class="size-6" />
+                      {#if image.kind === "video"}
+                        <Film class="size-6" />
+                      {:else}
+                        <ImageIcon class="size-6" />
+                      {/if}
+                    </span>
+                  {/if}
+                  {#if image.kind === "video"}
+                    <span
+                      class="absolute bottom-1.5 left-1.5 flex size-6 items-center justify-center rounded-full bg-black/60 text-white"
+                      aria-hidden="true"
+                    >
+                      <Play class="size-3 fill-current" />
                     </span>
                   {/if}
                   {#if selected.has(image.ref)}

@@ -61,30 +61,70 @@ export class VideoToolError extends Error {}
 /** How long probing a file or taking a frame may take; a broken file must not hang. */
 const QUICK_TIMEOUT = 60_000;
 
+/** How far a conversion is: the position in the video it reached, and how fast. */
+export type ConvertProgress = { doneMs: number; speed: number | null };
+
+/** Follows a conversion: its process (for the resources it uses) and progress. */
+export type ConvertWatch = {
+  onStart?: (pid: number) => void;
+  onProgress?: (progress: ConvertProgress) => void;
+};
+
 /**
  * Run a tool and return its standard output; throws with its error output on
- * failure, or when it runs longer than `timeout` ms (it is killed then).
+ * failure, or when it runs longer than `timeout` ms (it is killed then). With
+ * `watch`, the output is ffmpeg's `-progress` report instead, passed on as it comes.
  */
 async function run(
   tool: "ffmpeg" | "ffprobe",
   args: string[],
   timeout = QUICK_TIMEOUT,
+  watch?: ConvertWatch,
 ): Promise<string> {
   // A conversion can take minutes: give the requests of the web app priority.
+  // `nice` replaces itself with the tool, so the process id stays the tool's.
   const nice = tool === "ffmpeg" && Bun.which("nice") ? ["nice", "-n", "10"] : [];
-  const proc = Bun.spawn([...nice, tool, ...args], {
+  const progressArgs = watch ? ["-progress", "pipe:1", "-nostats"] : [];
+  const proc = Bun.spawn([...nice, tool, ...progressArgs, ...args], {
     stdout: "pipe",
     stderr: "pipe",
     timeout,
     killSignal: "SIGKILL",
   });
+  watch?.onStart?.(proc.pid);
   const [stdout, stderr, code] = await Promise.all([
-    new Response(proc.stdout).text(),
+    watch ? followProgress(proc.stdout, watch) : new Response(proc.stdout).text(),
     new Response(proc.stderr).text(),
     proc.exited,
   ]);
   if (code !== 0) throw new VideoToolError(`${tool} failed (${code}): ${stderr.slice(-2000)}`);
   return stdout;
+}
+
+/** Read ffmpeg's `-progress` lines ("out_time_us=…", "speed=1.5x", "progress=continue"). */
+async function followProgress(out: ReadableStream<Uint8Array>, watch: ConvertWatch) {
+  const decoder = new TextDecoder();
+  let rest = "";
+  let doneMs = 0;
+  let speed: number | null = null;
+  for await (const chunk of out) {
+    const lines = (rest + decoder.decode(chunk, { stream: true })).split("\n");
+    rest = lines.pop() ?? "";
+    for (const line of lines) {
+      const [key, value = ""] = line.trim().split("=");
+      if (key === "out_time_us" || key === "out_time_ms") {
+        // Both are microseconds (out_time_ms is misnamed).
+        const us = Number(value);
+        if (Number.isFinite(us) && us >= 0) doneMs = us / 1000;
+      } else if (key === "speed") {
+        const x = Number.parseFloat(value);
+        speed = Number.isFinite(x) ? x : null;
+      } else if (key === "progress") {
+        watch.onProgress?.({ doneMs, speed });
+      }
+    }
+  }
+  return "";
 }
 
 type ProbeStream = {
@@ -191,7 +231,12 @@ export function playableAsIs(info: VideoInfo): boolean {
 }
 
 /** Store `source` as an MP4 at `out` (see the top of the file). */
-export async function convert(source: string, out: string, info: VideoInfo): Promise<void> {
+export async function convert(
+  source: string,
+  out: string,
+  info: VideoInfo,
+  watch?: ConvertWatch,
+): Promise<void> {
   // Generous even for a small server, but a file that makes ffmpeg hang must
   // not block the queue for ever.
   const timeout = Math.max(60 * 60_000, info.durationMs * 10);
@@ -208,7 +253,12 @@ export async function convert(source: string, out: string, info: VideoInfo): Pro
     "mp4",
   ];
   if (playableAsIs(info)) {
-    await run("ffmpeg", ["-v", "error", "-y", "-i", source, "-c", "copy", ...common, out], timeout);
+    await run(
+      "ffmpeg",
+      ["-v", "error", "-y", "-i", source, "-c", "copy", ...common, out],
+      timeout,
+      watch,
+    );
     return;
   }
   const filters = [...(await toneMap(info)), fit(MAX_SIDE), "setsar=1", "format=yuv420p"];
@@ -242,6 +292,7 @@ export async function convert(source: string, out: string, info: VideoInfo): Pro
       out,
     ],
     timeout,
+    watch,
   );
 }
 

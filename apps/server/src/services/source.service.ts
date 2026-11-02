@@ -9,9 +9,11 @@ import type { SourceAccount as AccountRow } from "../db/schema";
 import { fail } from "../lib/errors";
 import { open, seal } from "../lib/secret-box";
 import { currentTenantId, tdb } from "../lib/tenant-context";
+import { videoToolsAvailable } from "../lib/video";
 import { isSourceId, SOURCES } from "../sources";
 import type { SourceFile } from "../sources/types";
 import * as imageService from "./image.service";
+import * as videoService from "./video.service";
 
 // Photo sources of the current Sammelband: admins switch them on with a default
 // server, users connect accounts (several, on any allowed server, with an
@@ -240,12 +242,16 @@ export async function browse(
 ): Promise<SourceListing> {
   const { source, config, credentials, account } = await connection(userId, accountId);
   const target = location ?? account.start_location;
+  let listing: SourceListing;
   try {
-    return await source.browse(config, credentials, target);
+    listing = await source.browse(config, credentials, target);
   } catch (err) {
     if (location !== null || target === null) throw err;
-    return source.browse(config, credentials, null);
+    listing = await source.browse(config, credentials, null);
   }
+  // Videos only where this server can take them.
+  if (videoToolsAvailable()) return listing;
+  return { ...listing, images: listing.images.filter((i) => i.kind !== "video") };
 }
 
 export async function thumbnail(
@@ -258,7 +264,7 @@ export async function thumbnail(
   return source.thumbnail(config, credentials, thumb, size);
 }
 
-/** Fetch photos from an account and add them to a section, like uploads. */
+/** Fetch photos and videos from an account and add them to a section, like uploads. */
 export async function importPhotos(
   userId: string,
   accountId: string,
@@ -276,6 +282,18 @@ export async function importPhotos(
   // In order, so the photos keep the order they were picked in.
   for (const ref of refs) {
     const file = await source.download(config, credentials, ref);
+    if ("body" in file) {
+      try {
+        imported.push(
+          await videoService.uploadVideo(file.body, sectionId, userId, file.size ?? undefined),
+        );
+      } catch (err) {
+        // Refused before reading it all: let the source's connection go.
+        await file.body.cancel().catch(() => {});
+        throw err;
+      }
+      continue;
+    }
     const upload = new File([file.bytes], file.name, { type: file.type });
     imported.push(await imageService.uploadPhoto(upload, sectionId, userId));
   }
