@@ -236,6 +236,8 @@ function enqueue(job: Job): void {
 
 /** Linux reports CPU time in these ticks (USER_HZ, 100 nearly everywhere). */
 const TICKS_PER_SECOND = 100;
+/** How often the resources are read while a conversion runs. */
+const SAMPLE_MS = 1000;
 
 /** Read the CPU and memory ffmpeg uses from /proc (Linux; elsewhere they stay unknown). */
 function sampleResources(r: Running): void {
@@ -246,12 +248,16 @@ function sampleResources(r: Running): void {
     const fields = stat.slice(stat.lastIndexOf(")") + 2).split(" ");
     const seconds = (Number(fields[11]) + Number(fields[12])) / TICKS_PER_SECOND;
     const now = Date.now();
-    if (r.cpuSample && now > r.cpuSample.at) {
-      r.cpuPercent = Math.round(
-        ((seconds - r.cpuSample.seconds) / ((now - r.cpuSample.at) / 1000)) * 100,
-      );
+    // CPU time comes in 10 ms ticks: over less than a second the share jumps
+    // about, so a reading in between (a status request) keeps the last one.
+    if (!r.cpuSample || now - r.cpuSample.at >= SAMPLE_MS) {
+      if (r.cpuSample) {
+        r.cpuPercent = Math.round(
+          ((seconds - r.cpuSample.seconds) / ((now - r.cpuSample.at) / 1000)) * 100,
+        );
+      }
+      r.cpuSample = { seconds, at: now };
     }
-    r.cpuSample = { seconds, at: now };
     const rss = /VmRSS:\s+(\d+) kB/.exec(readFileSync(`/proc/${r.pid}/status`, "utf8"));
     r.memoryBytes = rss ? Number(rss[1]) * 1024 : null;
   } catch {
@@ -308,7 +314,7 @@ async function convertVideo(id: string): Promise<void> {
       cpuSample: null,
     };
     running = live;
-    const sampler = setInterval(() => sampleResources(live), 1000);
+    const sampler = setInterval(() => sampleResources(live), SAMPLE_MS);
     try {
       await convert(sourcePath, part, info, {
         onStart: (pid) => {

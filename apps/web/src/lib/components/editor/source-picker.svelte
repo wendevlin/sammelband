@@ -157,8 +157,18 @@ async function add() {
   } finally {
     importing = null;
   }
+  // Only videos: say so, and that they play once they're prepared.
+  const onlyVideos = refs.every((ref) => selected.get(ref)?.kind === "video");
   if (added > 0)
-    toast.success(added === 1 ? m.upload_done_one() : m.upload_done_other({ count: added }));
+    toast.success(
+      onlyVideos
+        ? added === 1
+          ? m.upload_videos_done_one()
+          : m.upload_videos_done_other({ count: added })
+        : added === 1
+          ? m.upload_done_one()
+          : m.upload_done_other({ count: added }),
+    );
   if (failed > 0) toast.error(m.picker_failed({ count: failed, reason: errorText(lastError) }));
   if (failed === 0) open = false;
 }

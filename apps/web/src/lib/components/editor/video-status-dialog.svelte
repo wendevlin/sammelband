@@ -1,6 +1,6 @@
 <script lang="ts">
 import type { Photo, VideoProgress } from "@sammelband/shared";
-import { api } from "#lib/api.ts";
+import { ApiError, api } from "#lib/api.ts";
 import * as Dialog from "#lib/components/ui/dialog/index.ts";
 import { errorText } from "#lib/i18n.ts";
 import { formatBytes, formatDuration } from "#lib/images.ts";
@@ -29,6 +29,8 @@ $effect(() => {
       problem = null;
     } catch (e) {
       problem = errorText(e);
+      // Deleted meanwhile: asking again won't change that.
+      if (e instanceof ApiError && e.status === 404) return;
     }
     // Once done there's nothing more to follow.
     if (!stopped && info?.status !== "ready" && info?.status !== "failed") {
