@@ -1,12 +1,12 @@
 <script lang="ts">
 import Logo from "#lib/components/app/logo.svelte";
-import { setImageBase } from "#lib/images.ts";
+import { setMediaBase } from "#lib/images.ts";
 import { page } from "$app/state";
 
 let { children } = $props();
 
-// Images of a shared album come through the link's own route.
-setImageBase(`/api/public/${page.params.token}/images`);
+// Images and videos of a shared album come through the link's own routes.
+setMediaBase(`/api/public/${page.params.token}`);
 </script>
 
 <svelte:head><meta name="robots" content="noindex, nofollow"></svelte:head>

@@ -4,7 +4,7 @@ import type { Album, ImageFile, Photo } from "../db/schema";
 import { fail, must } from "../lib/errors";
 import { emit, emitAlbumPatch, type PhotoWithImage, topics } from "../lib/events";
 import { imageDecoding } from "../lib/semaphore";
-import { originalPath, originalsDir, variantPath } from "../lib/storage-paths";
+import { originalPath, originalsDir, variantPath, videoPath } from "../lib/storage-paths";
 import { currentTenantId, tdb } from "../lib/tenant-context";
 import { releaseStorage, reserveStorage } from "./tenant.service";
 
@@ -78,7 +78,17 @@ export function photosWithImage(filter: {
     .selectFrom("photos as p")
     .innerJoin("image_files as i", "i.id", "p.image_file_id")
     .selectAll("p")
-    .select(["i.filename", "i.width", "i.height", "i.placeholder"])
+    .select([
+      "i.filename",
+      "i.width",
+      "i.height",
+      "i.placeholder",
+      "i.kind",
+      "i.duration_ms",
+      "i.video_filename",
+      "i.video_status",
+      "i.poster_ms",
+    ])
     .orderBy("p.sort_order");
   if (filter.albumId) q = q.where("p.album_id", "=", filter.albumId);
   if (filter.sectionId) q = q.where("p.section_id", "=", filter.sectionId);
@@ -87,6 +97,33 @@ export function photosWithImage(filter: {
 }
 
 const photoWithImage = (id: string) => photosWithImage({ ids: [id] });
+
+/**
+ * Tell open album pages about changed image metadata (a converted video, a new
+ * poster): every photo that shows this file, in every album.
+ */
+export async function imageFileChanged(imageFileId: string): Promise<void> {
+  const photos = await tdb()
+    .selectFrom("photos")
+    .select(["id", "album_id"])
+    .where("image_file_id", "=", imageFileId)
+    .execute();
+  for (const albumId of new Set(photos.map((p) => p.album_id))) {
+    const ids = photos.filter((p) => p.album_id === albumId).map((p) => p.id);
+    emitAlbumPatch(albumId, { photos: await photosWithImage({ ids }) });
+  }
+}
+
+/** The album of a section, which uploads go into. */
+export async function sectionAlbum(sectionId: string): Promise<string> {
+  const section = await tdb()
+    .selectFrom("sections")
+    .select("album_id")
+    .where("id", "=", sectionId)
+    .executeTakeFirst();
+  if (!section) throw fail("section_not_found");
+  return section.album_id;
+}
 
 async function getPhoto(id: string): Promise<Photo | null> {
   return (
@@ -110,13 +147,7 @@ export async function uploadPhoto(
     throw fail("only_images");
   }
   // Photos belong to a section; the album is derived from it.
-  const section = await tdb()
-    .selectFrom("sections")
-    .select("album_id")
-    .where("id", "=", sectionId)
-    .executeTakeFirst();
-  if (!section) throw fail("section_not_found");
-  const albumId = section.album_id;
+  const albumId = await sectionAlbum(sectionId);
 
   const buf = Buffer.from(await file.arrayBuffer());
 
@@ -146,7 +177,17 @@ export async function uploadPhoto(
       deduplicated = true;
     }
   }
+  return addPhoto(albumId, sectionId, imageFile, uploaderId, deduplicated);
+}
 
+/** A new photo (or video) at the end of a section, for a stored file. */
+export async function addPhoto(
+  albumId: string,
+  sectionId: string,
+  imageFile: ImageFile,
+  uploaderId: string,
+  deduplicated: boolean,
+): Promise<UploadedPhoto> {
   const { max } = await tdb()
     .selectFrom("photos")
     .select((eb) => eb.fn.max("sort_order").as("max"))
@@ -209,6 +250,12 @@ async function storeImageFile(buf: Buffer, contentHash: string): Promise<ImageFi
       file_size: buf.byteLength,
       placeholder,
       created_at: Date.now(),
+      kind: "image",
+      duration_ms: null,
+      video_filename: null,
+      video_status: null,
+      video_source: null,
+      poster_ms: null,
     };
     await tdb().insertInto("image_files").values(imageFile).execute();
     return imageFile;
@@ -229,15 +276,26 @@ export async function updateCaption(photoId: string, caption: string | null): Pr
   return updated;
 }
 
-// Remove an image_file's original AND every cached variant from disk.
-// Best-effort: file removal can fail (already gone, permissions); DB stays consistent.
-function removeImageFileFromDisk(file: ImageFile): void {
-  const paths = [originalPath(file.filename)];
+/** An image's original and every cached variant, from disk. */
+export function removeImageFromDisk(filename: string): void {
+  const paths = [originalPath(filename)];
   for (const w of SRCSET_WIDTHS) {
     for (const fmt of ["webp", "jpeg"] as const) {
-      paths.push(variantPath(file.filename, w, fmt));
+      paths.push(variantPath(filename, w, fmt));
     }
   }
+  removePaths(paths);
+}
+
+// Remove an image_file's files from disk: the image (a video's poster) with
+// its variants, and the video. Best-effort: file removal can fail (already
+// gone, permissions); DB stays consistent.
+function removeImageFileFromDisk(file: ImageFile): void {
+  removeImageFromDisk(file.filename);
+  removePaths([file.video_filename, file.video_source].flatMap((f) => (f ? [videoPath(f)] : [])));
+}
+
+function removePaths(paths: string[]): void {
   for (const p of paths) {
     try {
       rmSync(p, { force: true });

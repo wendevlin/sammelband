@@ -19,6 +19,7 @@ import * as imageService from "./image.service";
 import type { LayoutPhoto } from "./pdf/layout";
 import { renderAlbumPdf } from "./pdf/render";
 import * as sectionService from "./section.service";
+import * as shareService from "./share.service";
 import { releaseStorage, reserveStorage } from "./tenant.service";
 
 // PDF exports of albums. Creating one queues a job; the job lays out and
@@ -26,6 +27,10 @@ import { releaseStorage, reserveStorage } from "./tenant.service";
 // exports/ and counts it against the quota. The file stays until someone
 // deletes it, or the album. Progress goes out as change events, so the
 // export dialog and the list of exports follow along.
+//
+// Videos are printed as their poster with a QR code. The codes lead to a
+// public link that the export gets when it is rendered (share.service.ts:
+// one per PDF, showing only the album's videos), so a printed book can play them.
 
 // `options` JSON. Exports made before the purposes had a `quality` instead:
 // "print" meant a PDF with margins (now "home"), "screen" the same as now.
@@ -42,7 +47,28 @@ const optionsSchema = z
     }),
   );
 
-function toExport(row: AlbumExportRow): AlbumExport {
+type LinkRow = { id: string; token: string; export_id: string | null };
+
+/** The video links of these exports, by export id. */
+async function videoLinks(rows: AlbumExportRow[]): Promise<Map<string, LinkRow>> {
+  if (rows.length === 0) return new Map();
+  const links = await tdb()
+    .selectFrom("share_links")
+    .select(["id", "token", "export_id"])
+    .where(
+      "export_id",
+      "in",
+      rows.map((r) => r.id),
+    )
+    .execute();
+  return new Map(links.map((l) => [l.export_id ?? "", l]));
+}
+
+async function present(row: AlbumExportRow): Promise<AlbumExport> {
+  return toExport(row, (await videoLinks([row])).get(row.id));
+}
+
+function toExport(row: AlbumExportRow, link?: LinkRow): AlbumExport {
   let options: ExportOptions;
   try {
     options = optionsSchema.parse(JSON.parse(row.options));
@@ -64,6 +90,7 @@ function toExport(row: AlbumExportRow): AlbumExport {
     created_at: Number(row.created_at),
     finished_at: row.finished_at === null ? null : Number(row.finished_at),
     album_updated_at: row.album_updated_at === null ? null : Number(row.album_updated_at),
+    video_link: link ? { id: link.id, url: shareService.shareUrl(link.token) } : null,
   };
 }
 
@@ -90,8 +117,12 @@ async function requireAlbum(albumId: string) {
   return album;
 }
 
-function changed(row: AlbumExportRow, kind: "created" | "updated" | "deleted" = "updated") {
-  emit({ topic: topics.albumExports(row.album_id), kind, id: row.id, data: toExport(row) });
+async function changed(
+  row: AlbumExportRow,
+  kind: "created" | "updated" | "deleted" = "updated",
+): Promise<void> {
+  const data = kind === "deleted" ? toExport(row) : await present(row);
+  emit({ topic: topics.albumExports(row.album_id), kind, id: row.id, data });
 }
 
 async function update(
@@ -100,7 +131,7 @@ async function update(
 ): Promise<AlbumExportRow | null> {
   await tdb().updateTable("album_exports").set(changes).where("id", "=", id).execute();
   const row = await getRow(id);
-  if (row) changed(row);
+  if (row) await changed(row);
   return row;
 }
 
@@ -113,7 +144,8 @@ export async function listExports(albumId: string): Promise<AlbumExport[]> {
     .where("album_id", "=", albumId)
     .orderBy("created_at", "desc")
     .execute();
-  return rows.map(toExport);
+  const links = await videoLinks(rows);
+  return rows.map((r) => toExport(r, links.get(r.id)));
 }
 
 async function exportEnabled(): Promise<boolean> {
@@ -161,7 +193,7 @@ export async function createExport(
     album_updated_at: null,
   };
   await tdb().insertInto("album_exports").values(row).execute();
-  changed(row, "created");
+  await changed(row, "created");
   queue.enqueue({ tenantId: row.tenant_id, id: row.id });
   return toExport(row);
 }
@@ -170,15 +202,19 @@ export async function renameExport(id: string, name: string): Promise<AlbumExpor
   const trimmed = name.trim();
   if (!trimmed) throw fail("name_required");
   await requireRow(id);
-  return toExport(must(await update(id, { name: trimmed }), "Export"));
+  return present(must(await update(id, { name: trimmed }), "Export"));
 }
 
-/** Remove the row and its file; a running job notices and throws its work away. */
-export async function deleteExport(id: string): Promise<void> {
+/**
+ * Remove the row and its file; a running job notices and throws its work away.
+ * Its video link goes too, unless `keepVideoLink` (printed copies keep working).
+ */
+export async function deleteExport(id: string, keepVideoLink = false): Promise<void> {
   const row = await requireRow(id);
+  await shareService.releaseVideoLink(row, keepVideoLink);
   await tdb().deleteFrom("album_exports").where("id", "=", id).execute();
   await removeFile(row);
-  changed(row, "deleted");
+  await changed(row, "deleted");
 }
 
 /** Every export of an album (the album is being deleted). */
@@ -252,7 +288,7 @@ async function runExport(id: string): Promise<void> {
   const row = await getRow(id);
   if (!row || row.status === "done") return;
   const format = PAGE_FORMATS[row.format as ExportFormat];
-  const options = toExport(row).options;
+  const { options } = toExport(row);
   const filename = `${Bun.randomUUIDv7()}.pdf`;
   const partial = exportPath(`${filename}.part`);
   try {
@@ -268,6 +304,18 @@ async function runExport(id: string): Promise<void> {
       caption: p.caption,
     });
     const coverPhoto = photos.find((p) => p.filename === album.cover_filename);
+    // Videos get a QR code to the PDF's video link.
+    const videos = new Map<string, { url: string; durationMs: number }>();
+    if (photos.some((p) => p.kind === "video")) {
+      const link = await shareService.videoLinkFor(row);
+      for (const p of photos) {
+        if (p.kind !== "video") continue;
+        videos.set(p.id, {
+          url: shareService.videoUrl(link.token, p.id),
+          durationMs: Number(p.duration_ms ?? 0),
+        });
+      }
+    }
 
     mkdirSync(exportsDir(currentTenantId()), { recursive: true });
     let lastUpdate = 0;
@@ -286,6 +334,7 @@ async function runExport(id: string): Promise<void> {
         captions: options.captions,
         purpose: PURPOSES[options.purpose],
         original: (photoId) => originalPath(must(filenames.get(photoId), "Photo")),
+        videos,
         onProgress: async (share) => {
           const now = Date.now();
           if (now - lastUpdate < PROGRESS_INTERVAL) return;
@@ -297,9 +346,10 @@ async function runExport(id: string): Promise<void> {
     );
 
     const size = statSync(partial).size;
-    // Deleted while it was being made: nothing to keep.
+    // Deleted while it was being made: nothing to keep, not even its video link.
     if (!(await getRow(id))) {
       rmSync(partial, { force: true });
+      await shareService.releaseVideoLink(row, false);
       return;
     }
     await reserveStorage(size);
@@ -317,12 +367,15 @@ async function runExport(id: string): Promise<void> {
       // Deleted in the last moment.
       rmSync(exportPath(filename), { force: true });
       await releaseStorage(size);
+      await shareService.releaseVideoLink(row, false);
     }
     emit({ topic: topics.storageStats(), kind: "updated" });
   } catch (err) {
     rmSync(partial, { force: true });
     const code = err instanceof AppError ? err.code : "export_failed";
     if (!(err instanceof AppError)) console.error("[export] failed", { id, err });
+    // No PDF, so no QR codes that would need its video link.
+    await shareService.releaseVideoLink(row, false);
     await update(id, { status: "failed", error_code: code, finished_at: Date.now() });
   }
 }

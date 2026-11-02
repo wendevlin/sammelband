@@ -1,7 +1,10 @@
 <script lang="ts">
+import Check from "@lucide/svelte/icons/check";
+import Copy from "@lucide/svelte/icons/copy";
 import Download from "@lucide/svelte/icons/download";
 import FileText from "@lucide/svelte/icons/file-text";
 import Pencil from "@lucide/svelte/icons/pencil";
+import QrCode from "@lucide/svelte/icons/qr-code";
 import Trash from "@lucide/svelte/icons/trash-2";
 import TriangleAlert from "@lucide/svelte/icons/triangle-alert";
 import type { AlbumExport } from "@sammelband/shared";
@@ -10,6 +13,7 @@ import { del, patch } from "#lib/api.ts";
 import { attempt } from "#lib/attempt.ts";
 import ConfirmDialog from "#lib/components/dialogs/confirm-dialog.svelte";
 import PromptDialog from "#lib/components/dialogs/prompt-dialog.svelte";
+import * as AlertDialog from "#lib/components/ui/alert-dialog/index.ts";
 import { Button } from "#lib/components/ui/button/index.ts";
 import * as Dialog from "#lib/components/ui/dialog/index.ts";
 import { errorCodeText, getLocale } from "#lib/i18n.ts";
@@ -19,7 +23,9 @@ import { formatLabel, purposeLabel } from "./format-label";
 
 /**
  * An album's PDF exports: download, rename, delete. Exports the album has
- * changed since are marked as outdated.
+ * changed since are marked as outdated. A PDF with videos has a video link
+ * (its QR codes lead there); deleting the PDF asks whether to keep it, so
+ * printed copies keep playing their videos.
  */
 let {
   open = $bindable(false),
@@ -61,11 +67,27 @@ async function rename(name: string) {
   return Boolean(updated);
 }
 
-async function remove() {
+async function remove(keepVideoLink = false) {
   const target = deleting;
   if (!target) return;
-  const ok = await attempt(() => del(`/exports/${target.id}`), m.export_deleted());
+  busy = true;
+  const ok = await attempt(
+    () => del(`/exports/${target.id}?keepVideoLink=${keepVideoLink}`),
+    keepVideoLink ? m.export_deleted_link_kept() : m.export_deleted(),
+  );
+  busy = false;
+  deleteOpen = false;
   if (ok) exports.list = exports.list.filter((x) => x.id !== target.id);
+}
+
+let busy = $state(false);
+let copied = $state<string | null>(null);
+
+async function copyLink(x: AlbumExport) {
+  if (!x.video_link) return;
+  await navigator.clipboard.writeText(x.video_link.url).catch(() => {});
+  copied = x.id;
+  setTimeout(() => (copied = null), 2000);
 }
 </script>
 
@@ -98,6 +120,25 @@ async function remove() {
               <p class="mt-0.5 flex items-start gap-1 text-xs text-amber-700 dark:text-amber-400">
                 <TriangleAlert class="mt-px size-3.5 shrink-0" />
                 {m.export_outdated({ date: date(x.created_at) })}
+              </p>
+            {/if}
+            {#if x.video_link}
+              <p class="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+                <QrCode class="size-3.5 shrink-0" />
+                <span class="truncate">{m.export_video_link()}</span>
+                <button
+                  type="button"
+                  class="ml-0.5 inline-flex shrink-0 items-center gap-1 rounded px-1 text-primary hover:underline"
+                  onclick={() => x && copyLink(x)}
+                >
+                  {#if copied === x.id}
+                    <Check class="size-3" />
+                    {m.common_copied()}
+                  {:else}
+                    <Copy class="size-3" />
+                    {m.common_copy_link()}
+                  {/if}
+                </button>
               </p>
             {/if}
           </div>
@@ -151,9 +192,30 @@ async function remove() {
   value={renaming?.name ?? ""}
   onsubmit={rename}
 />
-<ConfirmDialog
-  bind:open={deleteOpen}
-  title={m.export_delete_confirm({ name: deleting?.name ?? "" })}
-  description={m.export_delete_description()}
-  onconfirm={remove}
-/>
+{#if deleting?.video_link}
+  <AlertDialog.Root bind:open={deleteOpen}>
+    <!-- Wider than a plain confirmation: three choices. -->
+    <AlertDialog.Content class="data-[size=default]:sm:max-w-2xl">
+      <AlertDialog.Header>
+        <AlertDialog.Title>{m.export_delete_confirm({ name: deleting.name })}</AlertDialog.Title>
+        <AlertDialog.Description>{m.export_delete_with_link_description()}</AlertDialog.Description>
+      </AlertDialog.Header>
+      <AlertDialog.Footer class="sm:flex-wrap">
+        <AlertDialog.Cancel>{m.common_cancel()}</AlertDialog.Cancel>
+        <Button variant="outline" disabled={busy} onclick={() => remove(true)}>
+          {m.export_delete_keep_link()}
+        </Button>
+        <Button variant="destructive" disabled={busy} onclick={() => remove(false)}>
+          {m.export_delete_with_link()}
+        </Button>
+      </AlertDialog.Footer>
+    </AlertDialog.Content>
+  </AlertDialog.Root>
+{:else}
+  <ConfirmDialog
+    bind:open={deleteOpen}
+    title={m.export_delete_confirm({ name: deleting?.name ?? "" })}
+    description={m.export_delete_description()}
+    onconfirm={() => remove()}
+  />
+{/if}

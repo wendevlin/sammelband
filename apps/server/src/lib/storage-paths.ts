@@ -28,6 +28,16 @@ export function variantPath(filename: string, width: number, format: string): st
   return join(variantsDir(currentTenantId()), `${filename}_${width}.${format}`);
 }
 
+/** Videos: converted files, and uploads until they are converted. */
+export function videosDir(tenantId: string): string {
+  return join(tenantDir(tenantId), "videos");
+}
+
+/** A video file in the current tenant. */
+export function videoPath(filename: string): string {
+  return join(videosDir(currentTenantId()), filename);
+}
+
 export function exportsDir(tenantId: string): string {
   return join(tenantDir(tenantId), "exports");
 }

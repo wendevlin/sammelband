@@ -59,6 +59,16 @@ const maxUploadMb = (() => {
   return mb;
 })();
 
+// Largest accepted video upload. Videos are streamed to disk, not held in
+// memory, and converted to a smaller file afterwards.
+const maxVideoUploadMb = (() => {
+  const mb = Number(optional("MAX_VIDEO_UPLOAD_MB") ?? 2048);
+  if (!Number.isFinite(mb) || mb <= 0) {
+    throw new Error("MAX_VIDEO_UPLOAD_MB must be a positive number");
+  }
+  return mb;
+})();
+
 // Outgoing email over SMTP (password reset links). Optional: without SMTP_HOST
 // the app sends no mail and hides "Forgot password?".
 const smtp = (() => {
@@ -103,6 +113,8 @@ export const config = {
   SOURCES_ALLOW_PRIVATE_HOSTS: process.env.SOURCES_ALLOW_PRIVATE_HOSTS === "true",
   /** Largest accepted photo upload. */
   MAX_UPLOAD_BYTES: maxUploadMb * 1024 * 1024,
+  /** Largest accepted video upload. */
+  MAX_VIDEO_UPLOAD_BYTES: maxVideoUploadMb * 1024 * 1024,
   // postgres://… selects PostgreSQL; otherwise SQLite at DATABASE_PATH.
   DATABASE_URL: optional("DATABASE_URL"),
   DATABASE_PATH: process.env.DATABASE_PATH ?? "./sammelband.db",

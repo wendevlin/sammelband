@@ -86,4 +86,9 @@ export type AlbumExport = {
    * exports from before this was recorded).
    */
   album_updated_at: number | null;
+  /**
+   * The public link the PDF's QR codes lead to: the album's videos. Made with
+   * the PDF when the album has videos, deleted with it (or kept, if asked).
+   */
+  video_link: { id: string; url: string } | null;
 };

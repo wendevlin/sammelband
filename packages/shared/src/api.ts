@@ -94,7 +94,16 @@ export type Section = {
   updated_at: number;
 };
 
-/** A photo of an album: its row plus the image's metadata. */
+/** What an album item is. Videos are shown like photos, by a still frame (the poster). */
+export type MediaKind = "image" | "video";
+
+/** A video is converted after the upload; it plays once it is "ready". */
+export type VideoStatus = "processing" | "ready" | "failed";
+
+/**
+ * A photo or video of an album: its row plus the image's metadata. For a
+ * video, `filename`, `width` and `height` are its poster's.
+ */
 export type Photo = {
   id: string;
   album_id: string;
@@ -109,6 +118,14 @@ export type Photo = {
   height: number;
   /** Tiny blurred preview, shown while the image loads. */
   placeholder: string;
+  kind: MediaKind;
+  /** Videos only (null for photos). */
+  duration_ms: number | null;
+  /** The playable file, once `video_status` is "ready". */
+  video_filename: string | null;
+  video_status: VideoStatus | null;
+  /** Where in the video the poster frame is from. */
+  poster_ms: number | null;
 };
 
 export type AlbumDetail = {
@@ -156,6 +173,8 @@ export type StorageStats = {
   variants: { file_count: number; size_bytes: number };
   /** PDF exports of albums; they count against the quota like originals. */
   exports: { file_count: number; size_bytes: number };
+  /** Videos (converted, or uploads waiting for it); counted like originals. */
+  videos: { file_count: number; size_bytes: number };
   orphans: { missing_on_disk: number; unknown_on_disk: number };
 };
 
@@ -167,6 +186,12 @@ export type ShareLinkInfo = {
   expires_at: number | null;
   created_at: number;
   created_by_name: string | null;
+  /** Shows only the album's videos: the link the QR codes of a PDF lead to. */
+  videos_only: boolean;
+  /** The PDF it belongs to; it can only be deleted together with it. */
+  export: { id: string; name: string } | null;
+  /** The name of its PDF, once that is deleted and the link was kept. */
+  label: string | null;
 };
 
 // --- Public links (GET /api/public/:token): trimmed rows, no user or tenant ids.
@@ -175,7 +200,18 @@ export type SharedAlbum = Pick<Album, "id" | "title" | "description" | "short_id
 export type SharedSection = Pick<Section, "id" | "sort_order" | "title" | "text" | "highlight">;
 export type SharedPhoto = Pick<
   Photo,
-  "id" | "section_id" | "sort_order" | "caption" | "filename" | "width" | "height" | "placeholder"
+  | "id"
+  | "section_id"
+  | "sort_order"
+  | "caption"
+  | "filename"
+  | "width"
+  | "height"
+  | "placeholder"
+  | "kind"
+  | "duration_ms"
+  | "video_filename"
+  | "video_status"
 >;
 export type SharedTile = Pick<
   FolderTile,
@@ -195,6 +231,13 @@ export type SharedView =
       photos: SharedPhoto[];
       /** Folders from the shared folder down to this album (folder shares only). */
       trail: Crumb[];
+    }
+  | {
+      status: "ok";
+      /** A PDF's video link: the album's videos, nothing else. */
+      kind: "videos";
+      album: SharedAlbum;
+      videos: SharedPhoto[];
     }
   | {
       status: "ok";

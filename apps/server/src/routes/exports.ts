@@ -37,8 +37,14 @@ export const exportRoutes = new Hono<AuthEnv>()
     async (c) =>
       c.json(await exportService.renameExport(c.req.param("id"), c.req.valid("json").name)),
   )
-  .delete("/:id", async (c) => {
-    await exportService.deleteExport(c.req.param("id"));
-    return c.json({ ok: true });
-  })
+  // ?keepVideoLink=true keeps the link its QR codes lead to.
+  .delete(
+    "/:id",
+    validate("query", z.object({ keepVideoLink: z.enum(["true", "false"]).optional() })),
+    async (c) => {
+      const keep = c.req.valid("query").keepVideoLink === "true";
+      await exportService.deleteExport(c.req.param("id"), keep);
+      return c.json({ ok: true });
+    },
+  )
   .get("/:id/file", (c) => exportService.downloadExport(c.req.param("id")));

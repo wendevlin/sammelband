@@ -1,5 +1,6 @@
 <script lang="ts">
 import Expand from "@lucide/svelte/icons/expand";
+import ImagePlay from "@lucide/svelte/icons/image-play";
 import ImagePlus from "@lucide/svelte/icons/image-plus";
 import Upload from "@lucide/svelte/icons/upload";
 import X from "@lucide/svelte/icons/x";
@@ -8,8 +9,9 @@ import PhotoSwipeLightbox from "photoswipe/lightbox";
 import "photoswipe/style.css";
 import { onMount } from "svelte";
 import { toast } from "svelte-sonner";
-import { ApiError, api, del, patch, post } from "#lib/api.ts";
+import { ApiError, api, del, patch, post, upload as uploadFile } from "#lib/api.ts";
 import { attempt } from "#lib/attempt.ts";
+import VideoBadge from "#lib/components/album/video-badge.svelte";
 import SourceIcon from "#lib/components/app/source-icon.svelte";
 import ConfirmDialog from "#lib/components/dialogs/confirm-dialog.svelte";
 import NoticeDialog from "#lib/components/dialogs/notice-dialog.svelte";
@@ -17,14 +19,16 @@ import { Button } from "#lib/components/ui/button/index.ts";
 import * as DropdownMenu from "#lib/components/ui/dropdown-menu/index.ts";
 import { Input } from "#lib/components/ui/input/index.ts";
 import { errorText } from "#lib/i18n.ts";
-import { imageSrc, srcset } from "#lib/images.ts";
+import { imageSrc, imageUrls } from "#lib/images.ts";
 import { lightboxOptions } from "#lib/lightbox.ts";
+import { enableVideos, slideOf } from "#lib/lightbox-video.ts";
 import { m } from "#lib/paraglide/messages.js";
 import { accountTitle } from "#lib/sources.ts";
 import { sources } from "#lib/stores/sources.svelte.ts";
 import { cn } from "#lib/utils.ts";
 import { goto } from "$app/navigation";
 import { dropPhoto, photoDrag, photoTargetAt, registerGallery } from "./photo-drag.svelte";
+import PosterDialog from "./poster-dialog.svelte";
 import SourcePicker from "./source-picker.svelte";
 import { touchDrag } from "./touch-drag";
 
@@ -54,6 +58,11 @@ function openPicker(account: SourceAccount, title: string) {
   pickerOpen = true;
 }
 let uploading = $state(0);
+/** While a video is sent: how much of it (0–1). */
+let videoProgress = $state<number | null>(null);
+let posterTarget = $state<Photo | null>(null);
+let posterOpen = $state(false);
+const urls = imageUrls();
 let dropTarget = $state<{ id: string; after: boolean } | null>(null);
 let deleteTarget = $state<Photo | null>(null);
 let deleteOpen = $state(false);
@@ -62,9 +71,81 @@ let input = $state<HTMLInputElement | null>(null);
 let notice = $state<{ title: string; description: string } | null>(null);
 let noticeOpen = $state(false);
 
+/** Videos by type, or by name when the browser doesn't know the type (e.g. some .mkv). */
+const VIDEO_NAME = /\.(mp4|m4v|mov|webm|mkv|avi|3gp|mts|m2ts)$/i;
+const isVideo = (f: File) => f.type.startsWith("video/") || (!f.type && VIDEO_NAME.test(f.name));
+
 async function upload(files: FileList | File[]) {
-  const list = Array.from(files).filter((f) => f.type.startsWith("image/"));
-  if (list.length === 0) return;
+  const all = Array.from(files);
+  const images = all.filter((f) => f.type.startsWith("image/"));
+  const videos = all.filter(isVideo);
+  if (images.length > 0) await uploadImages(images);
+  if (videos.length > 0) await uploadVideos(videos);
+}
+
+/**
+ * Videos one at a time, each as the body of its own request (they're large),
+ * with the progress shown. A failure stops the rest; earlier ones are kept.
+ */
+async function uploadVideos(list: File[]) {
+  uploading = list.length;
+  videoProgress = 0;
+  let done = 0;
+  let reused = 0;
+  try {
+    const id = sectionId ?? (await ensureSection());
+    if (!id) return;
+    for (const file of list) {
+      const res = await uploadFile<{ deduplicated: boolean }>(
+        `/sections/${id}/videos`,
+        file,
+        (share) => (videoProgress = (done + share) / list.length),
+      );
+      done++;
+      if (res.deduplicated) reused++;
+    }
+  } catch (e) {
+    if (e instanceof ApiError && (e.status === 413 || e.status === 0)) {
+      // Without a code, a proxy in front (or Bun's own cap) refused the size,
+      // or the connection broke off: no message from the app to show.
+      const reason = e.code
+        ? errorText(e)
+        : e.status === 413
+          ? m.upload_video_refused()
+          : m.upload_interrupted();
+      notice = {
+        title:
+          e.code === "quota_exceeded"
+            ? m.upload_storage_full()
+            : e.status === 0
+              ? m.upload_failed()
+              : m.upload_video_too_large(),
+        description: done > 0 ? m.upload_videos_partial({ reason }) : reason,
+      };
+      noticeOpen = true;
+    } else {
+      toast.error(errorText(e));
+    }
+  } finally {
+    uploading = 0;
+    videoProgress = null;
+  }
+  if (done === 0) return;
+  toast.success(
+    (done === 1 ? m.upload_videos_done_one() : m.upload_videos_done_other({ count: done })) +
+      (reused ? ` ${m.upload_reused({ count: reused })}` : ""),
+  );
+}
+
+// Leaving the page would cancel an upload in progress: videos take a while.
+$effect(() => {
+  if (uploading === 0) return;
+  const warn = (e: BeforeUnloadEvent) => e.preventDefault();
+  window.addEventListener("beforeunload", warn);
+  return () => window.removeEventListener("beforeunload", warn);
+});
+
+async function uploadImages(list: File[]) {
   const fd = new FormData();
   for (const f of list) fd.append("files", f);
   uploading = list.length;
@@ -170,17 +251,12 @@ let lightbox: PhotoSwipeLightbox | null = null;
 function view(index: number) {
   if (!lightbox) {
     lightbox = new PhotoSwipeLightbox(lightboxOptions());
+    enableVideos(lightbox);
     lightbox.init();
   }
   lightbox.loadAndOpen(
     index,
-    photos.map((p) => ({
-      src: imageSrc(p.filename, 1920),
-      srcset: srcset(p.filename),
-      width: p.width,
-      height: p.height,
-      alt: p.caption ?? "",
-    })),
+    photos.map((p) => slideOf(p, urls)),
   );
 }
 
@@ -232,6 +308,9 @@ $effect(() => () => {
             class="size-full object-cover"
             draggable="false"
           >
+          {#if p.kind === "video"}
+            <VideoBadge photo={p} class="absolute bottom-1.5 left-1.5" />
+          {/if}
           <!-- Both buttons: always there on touch screens, on hover with a mouse. -->
           <Button
             variant="secondary"
@@ -254,6 +333,20 @@ $effect(() => () => {
           >
             <Expand class="size-4" />
           </button>
+          {#if p.kind === "video" && p.video_status === "ready"}
+            <button
+              type="button"
+              class="absolute top-1.5 left-1.5 flex size-8 items-center justify-center rounded-full bg-black/55 text-white shadow transition-opacity group-hover:opacity-100 after:absolute after:-inset-1.5 hover:bg-black/75 focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none [@media(hover:hover)_and_(pointer:fine)]:size-7 [@media(hover:hover)_and_(pointer:fine)]:opacity-0"
+              aria-label={m.video_poster_title()}
+              title={m.video_poster_title()}
+              onclick={() => {
+                posterTarget = p;
+                posterOpen = true;
+              }}
+            >
+              <ImagePlay class="size-4" />
+            </button>
+          {/if}
         </div>
         <Input
           class="mt-1 h-8 text-xs"
@@ -296,9 +389,11 @@ $effect(() => () => {
   >
     <ImagePlus class="size-5" />
     {uploading > 0
-      ? uploading === 1
-        ? m.upload_progress_one()
-        : m.upload_progress_other({ count: uploading })
+      ? videoProgress !== null
+        ? m.upload_video_progress({ progress: Math.round(videoProgress * 100) })
+        : uploading === 1
+          ? m.upload_progress_one()
+          : m.upload_progress_other({ count: uploading })
       : draggingForeign
         ? m.upload_drop_move()
         : sources.list.length > 0
@@ -350,7 +445,7 @@ $effect(() => () => {
 <input
   bind:this={input}
   type="file"
-  accept="image/*"
+  accept="image/*,video/*"
   multiple
   class="hidden"
   onchange={(e) => {
@@ -366,6 +461,8 @@ $effect(() => () => {
   description={m.photo_delete_description()}
   onconfirm={() => deleteTarget && attempt(() => del(`/photos/${deleteTarget?.id}`))}
 />
+
+<PosterDialog bind:open={posterOpen} photo={posterTarget} />
 
 <NoticeDialog
   bind:open={noticeOpen}

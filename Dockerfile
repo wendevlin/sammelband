@@ -26,6 +26,10 @@ COPY apps/web/ apps/web/
 RUN bun run build
 
 FROM base AS production
+# ffmpeg converts uploaded videos (apps/server/src/lib/video.ts).
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends ffmpeg \
+  && rm -rf /var/lib/apt/lists/*
 # Set by the release workflow: "0.1.0-beta.1", "nightly-20260930", …
 ARG VERSION=dev
 ENV SAMMELBAND_VERSION=$VERSION

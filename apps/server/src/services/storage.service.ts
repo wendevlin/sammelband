@@ -2,7 +2,7 @@ import { mkdirSync, readdirSync, rmSync, statSync } from "node:fs";
 import { join } from "node:path";
 import type { StorageStats } from "@sammelband/shared";
 import { emit, topics } from "../lib/events";
-import { exportsDir, originalsDir, variantsDir } from "../lib/storage-paths";
+import { exportsDir, originalsDir, variantsDir, videosDir } from "../lib/storage-paths";
 import { currentTenantId, tdb } from "../lib/tenant-context";
 import { currentTenant, reconcileStorage } from "./tenant.service";
 
@@ -47,6 +47,7 @@ export async function getStorageStats(): Promise<StorageStats> {
     originals: dirStats(originals),
     variants: dirStats(variantsDir(currentTenantId())),
     exports: dirStats(exportsDir(currentTenantId())),
+    videos: dirStats(videosDir(currentTenantId())),
     orphans: {
       missing_on_disk: missingOnDisk,
       unknown_on_disk: unknownOnDisk,

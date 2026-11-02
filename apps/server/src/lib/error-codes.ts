@@ -153,6 +153,18 @@ export const ERRORS = {
   only_images: { status: 400, message: "Only images are allowed" },
   no_files: { status: 400, message: "Choose at least one image" },
   unreadable_image: { status: 400, message: "Unable to read the image" },
+  unreadable_video: { status: 400, message: "Unable to read the video" },
+  videos_unavailable: {
+    status: 501,
+    message: "This server can't take videos (ffmpeg isn't installed)",
+  },
+  video_too_large: {
+    status: 413,
+    message: (p: { maxMb: number }) => `Videos can be at most ${p.maxMb} MB`,
+  },
+  video_not_found: { status: 404, message: "Video not found" },
+  video_not_ready: { status: 409, message: "This video is still being prepared" },
+  not_a_video: { status: 400, message: "This is a photo, not a video" },
   file_too_large: {
     status: 413,
     message: (p: { maxMb: number }) => `Photos can be at most ${p.maxMb} MB`,
@@ -165,6 +177,10 @@ export const ERRORS = {
 
   // Share links
   share_link_not_found: { status: 404, message: "Share link not found" },
+  share_link_of_export: {
+    status: 409,
+    message: "This link belongs to a PDF: it is deleted together with the PDF",
+  },
   share_target_required: { status: 400, message: "Pass either albumId or folderId" },
   share_password_too_short: {
     status: 400,

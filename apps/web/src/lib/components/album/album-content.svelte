@@ -6,6 +6,7 @@ import type { Photo, Section } from "@sammelband/shared";
 import * as Dialog from "#lib/components/ui/dialog/index.ts";
 import { imageUrls } from "#lib/images.ts";
 import { lightboxOptions } from "#lib/lightbox.ts";
+import { enableVideos, slideOf } from "#lib/lightbox-video.ts";
 import { cn } from "#lib/utils.ts";
 import MarkdownText from "./markdown-text.svelte";
 import SectionGallery from "./section-gallery.svelte";
@@ -79,6 +80,7 @@ function followSlide(data: unknown) {
 function open(index: number) {
   if (!lightbox) {
     lightbox = new PhotoSwipeLightbox(lightboxOptions());
+    enableVideos(lightbox);
     lightbox.on("uiRegister", () => {
       const ui = lightbox?.pswp?.ui;
       ui?.registerElement({
@@ -124,9 +126,11 @@ function open(index: number) {
         onInit: (el, pswp) => {
           el.className = "pswp-caption";
           const update = () => {
-            const caption = (pswp.currSlide?.data as Slide | undefined)?.alt ?? "";
+            const data = pswp.currSlide?.data as (Slide & { type?: string }) | undefined;
+            const caption = data?.alt ?? "";
             el.textContent = caption;
             el.style.display = caption ? "" : "none";
+            el.classList.toggle("pswp-caption--video", data?.type === "video");
           };
           pswp.on("change", update);
           update();
@@ -151,11 +155,7 @@ function open(index: number) {
   lightbox.loadAndOpen(
     index,
     sequence.slides.map((p) => ({
-      src: images.src(p.filename, 1920),
-      srcset: images.srcset(p.filename),
-      width: p.width,
-      height: p.height,
-      alt: p.caption ?? "",
+      ...slideOf(p, images),
       sectionId: p.section_id,
       photoId: p.id,
     })),

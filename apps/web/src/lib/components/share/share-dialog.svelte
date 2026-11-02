@@ -1,6 +1,7 @@
 <script lang="ts">
 import Check from "@lucide/svelte/icons/check";
 import Copy from "@lucide/svelte/icons/copy";
+import FileText from "@lucide/svelte/icons/file-text";
 import KeyRound from "@lucide/svelte/icons/key-round";
 import Plus from "@lucide/svelte/icons/plus";
 import Trash from "@lucide/svelte/icons/trash-2";
@@ -18,7 +19,10 @@ import { auth } from "#lib/stores/auth.svelte.ts";
 import { endOfDayIn, formatInZone } from "#lib/timezone.ts";
 import { isExpired } from "./share-status";
 
-/** Public links of one album or folder: list, copy, revoke, create. */
+/**
+ * Public links of one album or folder: list, copy, revoke, create. The video
+ * links of PDF exports are listed too; they go with their PDF.
+ */
 let {
   open = $bindable(false),
   target,
@@ -130,6 +134,8 @@ async function revoke(link: ShareLinkInfo) {
                 size="icon-sm"
                 onclick={() => revoke(link)}
                 aria-label={m.share_revoke()}
+                title={link.export ? m.share_video_link_locked() : m.share_revoke()}
+                disabled={link.export !== null}
               >
                 <Trash />
               </Button>
@@ -140,6 +146,14 @@ async function revoke(link: ShareLinkInfo) {
               {/if}
               {#if link.has_password}
                 <Badge variant="secondary"><KeyRound /> {m.common_password()}</Badge>
+              {/if}
+              {#if link.videos_only}
+                <Badge variant="secondary"><FileText /> {m.share_video_link()}</Badge>
+                <span>
+                  {link.export
+                    ? m.share_video_link_of({ name: link.export.name })
+                    : m.share_video_link_was({ name: link.label ?? "PDF" })}
+                </span>
               {/if}
               <span>
                 {#if link.expires_at}

@@ -1,5 +1,5 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
-import type { Crumb, SharedAlbum, SharedView } from "@sammelband/shared";
+import type { Crumb, Photo, SharedAlbum, SharedPhoto, SharedView } from "@sammelband/shared";
 import { config } from "../config";
 import { db } from "../db/client";
 import type { Folder, ShareLink } from "../db/schema";
@@ -8,11 +8,14 @@ import { runInTenant, tdb } from "../lib/tenant-context";
 import * as albumService from "./album.service";
 import * as folderService from "./folder.service";
 import * as imageDelivery from "./image-delivery.service";
+import * as videoService from "./video.service";
 
 // The visitor side of public links: no account, access to exactly one album or
 // one folder subtree. Everything runs inside the link's tenant and returns
 // only what a viewer needs (no user ids, no tenant ids). Images are served as
-// resized versions only, never the originals.
+// resized versions only, never the originals; videos as converted, the only
+// form they are kept in. The video link of a PDF export (`videos_only`) shows
+// the album's videos and nothing else.
 
 const UNLOCK_DAYS = 7;
 
@@ -111,6 +114,42 @@ async function trailWithin(rootId: string, folderId: string | null): Promise<Cru
   return null;
 }
 
+const sharedPhoto = (p: Photo): SharedPhoto => ({
+  id: p.id,
+  section_id: p.section_id,
+  sort_order: p.sort_order,
+  caption: p.caption,
+  filename: p.filename,
+  width: p.width,
+  height: p.height,
+  placeholder: p.placeholder,
+  kind: p.kind,
+  duration_ms: p.duration_ms === null ? null : Number(p.duration_ms),
+  video_filename: p.video_status === "ready" ? p.video_filename : null,
+  video_status: p.video_status,
+});
+
+/** A PDF's video link: the album's videos in album order, nothing else. */
+async function videosView(albumId: string): Promise<SharedView> {
+  const album = await albumService.getAlbum(albumId);
+  if (!album) throw fail("not_in_share");
+  const { sections, photos } = await albumService.getAlbumDetail(album.short_id);
+  const section = new Map(sections.map((s, i) => [s.id, i]));
+  const videos = photos
+    .filter((p) => p.kind === "video")
+    .sort(
+      (a, b) =>
+        (section.get(a.section_id) ?? 0) - (section.get(b.section_id) ?? 0) ||
+        a.sort_order - b.sort_order,
+    );
+  return {
+    status: "ok",
+    kind: "videos",
+    album: publicAlbum(album),
+    videos: videos.map(sharedPhoto),
+  };
+}
+
 async function albumView(ref: string, trail: Crumb[]): Promise<SharedView> {
   const { album, sections, photos } = await albumService.getAlbumDetail(ref);
   return {
@@ -124,16 +163,7 @@ async function albumView(ref: string, trail: Crumb[]): Promise<SharedView> {
       text,
       highlight,
     })),
-    photos: photos.map((p) => ({
-      id: p.id,
-      section_id: p.section_id,
-      sort_order: p.sort_order,
-      caption: p.caption,
-      filename: p.filename,
-      width: p.width,
-      height: p.height,
-      placeholder: p.placeholder,
-    })),
+    photos: photos.map(sharedPhoto),
     trail,
   };
 }
@@ -148,6 +178,10 @@ export function view(
 ): Promise<SharedView> {
   if (!unlocked) return Promise.resolve({ status: "locked" });
   return runInTenant(share.tenant_id, async (): Promise<SharedView> => {
+    if (share.videos_only) {
+      if (!share.album_id || at.albumRef || at.folderId) throw fail("not_in_share");
+      return videosView(share.album_id);
+    }
     if (share.album_id) {
       const album = await albumService.getAlbum(share.album_id);
       if (!album || at.folderId || (at.albumRef && !sameAlbum(at.albumRef, album.short_id))) {
@@ -199,6 +233,25 @@ async function sharesAlbum(
   return false;
 }
 
+/**
+ * The albums a file is in. Uploads of the same bytes share one file, so it
+ * can be in several. Video links only ever show videos.
+ */
+function albumsWith(share: ShareLink, file: { filename: string } | { videoFilename: string }) {
+  let q = tdb()
+    .selectFrom("photos as p")
+    .innerJoin("image_files as i", "i.id", "p.image_file_id")
+    .innerJoin("albums as a", "a.id", "p.album_id")
+    .select(["a.id", "a.folder_id"])
+    .distinct();
+  q =
+    "filename" in file
+      ? q.where("i.filename", "=", file.filename)
+      : q.where("i.video_filename", "=", file.videoFilename);
+  if (share.videos_only) q = q.where("i.kind", "=", "video");
+  return q.execute();
+}
+
 /** A resized image, if it belongs to the shared album or folder subtree. */
 export function image(
   { share, unlocked }: ShareAccess,
@@ -208,17 +261,24 @@ export function image(
 ): Promise<Response> {
   if (!unlocked) throw fail("share_locked");
   return runInTenant(share.tenant_id, async () => {
-    // Uploads of the same bytes share one file, so it can be in several albums.
-    const albums = await tdb()
-      .selectFrom("photos as p")
-      .innerJoin("image_files as i", "i.id", "p.image_file_id")
-      .innerJoin("albums as a", "a.id", "p.album_id")
-      .select(["a.id", "a.folder_id"])
-      .distinct()
-      .where("i.filename", "=", filename)
-      .execute();
-    if (!(await sharesAlbum(share, albums))) throw fail("image_not_found");
+    if (!(await sharesAlbum(share, await albumsWith(share, { filename })))) {
+      throw fail("image_not_found");
+    }
     return imageDelivery.serveVariant(filename, width, format);
+  });
+}
+
+/** A video (in parts, see lib/range.ts), if it belongs to the shared album or folder subtree. */
+export function video(
+  { share, unlocked }: ShareAccess,
+  filename: string,
+  range: string | undefined,
+): Promise<Response> {
+  if (!unlocked) throw fail("share_locked");
+  return runInTenant(share.tenant_id, async () => {
+    const albums = await albumsWith(share, { videoFilename: filename });
+    if (!(await sharesAlbum(share, albums))) throw fail("video_not_found");
+    return videoService.serveVideo(filename, range);
   });
 }
 
@@ -269,6 +329,11 @@ export async function linkPreview(
       share.tenant_id,
       async () => (await albumService.getAlbum(shown.album.id))?.cover_filename ?? null,
     );
+  } else if (shown.kind === "videos") {
+    title = shown.album.title;
+    description = plural(shown.videos.length, "video");
+    // Video links show nothing but the videos: the first one's poster.
+    cover = shown.videos[0]?.filename ?? null;
   } else {
     title = shown.folder.name;
     const parts = [

@@ -214,6 +214,17 @@ label[for] {
     font-size: 1.125rem;
   }
 }
+/* On videos, above the player's controls. */
+.pswp-caption.pswp-caption--video {
+  bottom: 4.5rem;
+  background: none;
+}
+
+/* A video slide (lib/lightbox-video.ts): fitted into its box, letterboxed in black. */
+.pswp__video {
+  object-fit: contain;
+  background: #000;
+}
 
 /* Section title in PhotoSwipe's top bar, after the counter: a button that
    opens the full title and text. Only it shrinks (to an ellipsis) when space
