@@ -336,7 +336,7 @@ async function runExport(id: string): Promise<void> {
       }
     }
     // The back gets a QR code to the album.
-    const albumLink = options.album_link
+    const albumUrl = options.album_link
       ? shareService.shareUrl((await shareService.exportLinkFor(row, "album")).token)
       : null;
 
@@ -358,7 +358,7 @@ async function runExport(id: string): Promise<void> {
         purpose: PURPOSES[options.purpose],
         original: (photoId) => originalPath(must(filenames.get(photoId), "Photo")),
         videos,
-        albumLink,
+        albumUrl,
         onProgress: async (share) => {
           const now = Date.now();
           if (now - lastUpdate < PROGRESS_INTERVAL) return;
