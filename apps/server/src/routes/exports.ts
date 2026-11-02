@@ -19,6 +19,7 @@ export const albumExportRoutes = new Hono<AuthEnv>()
         format: z.enum(EXPORT_FORMATS),
         purpose: z.enum(EXPORT_PURPOSES),
         captions: z.boolean(),
+        albumLink: z.boolean().optional(),
       }),
     ),
     async (c) =>
@@ -37,12 +38,12 @@ export const exportRoutes = new Hono<AuthEnv>()
     async (c) =>
       c.json(await exportService.renameExport(c.req.param("id"), c.req.valid("json").name)),
   )
-  // ?keepVideoLink=true keeps the link its QR codes lead to.
+  // ?keepLinks=true keeps the links its QR codes lead to.
   .delete(
     "/:id",
-    validate("query", z.object({ keepVideoLink: z.enum(["true", "false"]).optional() })),
+    validate("query", z.object({ keepLinks: z.enum(["true", "false"]).optional() })),
     async (c) => {
-      const keep = c.req.valid("query").keepVideoLink === "true";
+      const keep = c.req.valid("query").keepLinks === "true";
       await exportService.deleteExport(c.req.param("id"), keep);
       return c.json({ ok: true });
     },

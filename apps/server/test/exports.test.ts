@@ -6,7 +6,9 @@ import { currentTenantId } from "../src/lib/tenant-context";
 import * as albumService from "../src/services/album.service";
 import * as exportService from "../src/services/export.service";
 import * as imageService from "../src/services/image.service";
+import * as publicService from "../src/services/public.service";
 import * as sectionService from "../src/services/section.service";
+import * as shareService from "../src/services/share.service";
 import * as tenantService from "../src/services/tenant.service";
 import { createUser, inTenant, png } from "./helpers";
 
@@ -68,7 +70,8 @@ describe("PDF export", () => {
       const before = await used();
       const queued = await exportService.createExport(album.id, user.id, options);
       expect(queued).toMatchObject({ status: "queued", name: "Summer", format: "a4" });
-      expect(queued.options).toEqual({ purpose: "print", captions: true });
+      expect(queued.options).toEqual({ purpose: "print", captions: true, album_link: false });
+      expect(queued.album_link).toBeNull();
       await exportService.exportsIdle();
 
       const [done] = await exportService.listExports(album.id);
@@ -126,7 +129,7 @@ describe("PDF export", () => {
           .where("id", "=", id)
           .execute();
         const [listed] = await exportService.listExports(album.id);
-        expect(listed?.options).toEqual({ purpose, captions: old.captions });
+        expect(listed?.options).toEqual({ purpose, captions: old.captions, album_link: false });
       }
     }),
   );
@@ -238,4 +241,59 @@ describe("PDF export", () => {
       expect((await exportRow(id)).status).toBe("done");
     }),
   );
+
+  describe("album link", () => {
+    const tokenOf = (url: string) => url.split("/s/")[1] ?? "";
+    const open = (token: string) => publicService.access(token, () => undefined);
+
+    async function make(album: { id: string }, userId: string) {
+      const queued = await exportService.createExport(album.id, userId, {
+        ...options,
+        albumLink: true,
+      });
+      expect(queued.options.album_link).toBe(true);
+      await exportService.exportsIdle();
+      const done = (await exportService.listExports(album.id)).find((e) => e.id === queued.id);
+      return { id: queued.id, done, token: tokenOf(done?.album_link?.url ?? "") };
+    }
+
+    test(
+      "prints a QR code to a link of the PDF's own that shows the whole album",
+      inTenant(async () => {
+        const { user, album } = await gallery();
+        const { id, done, token } = await make(album, user.id);
+        expect(done?.status).toBe("done");
+        expect(done?.video_link).toBeNull();
+        expect(token).not.toBe("");
+        const pdf = readFileSync(exportPath((await exportRow(id)).filename ?? "")).toString(
+          "latin1",
+        );
+        expect(pdf).toContain(`/s/${token}`);
+
+        const view = await publicService.view(await open(token), {});
+        expect(view.status === "ok" && view.kind).toBe("album");
+        const [link] = await shareService.listShares({ albumId: album.id });
+        expect(link).toMatchObject({ videos_only: false, export: { id, name: "Summer" } });
+        await expect(shareService.deleteShare(link?.id ?? "")).rejects.toThrow("belongs to a PDF");
+      }),
+    );
+
+    test(
+      "goes with the PDF, or stays as an ordinary link if asked",
+      inTenant(async () => {
+        const { user, album } = await gallery();
+        const dropped = await make(album, user.id);
+        await exportService.deleteExport(dropped.id);
+        await expect(open(dropped.token)).rejects.toThrow();
+
+        const kept = await make(album, user.id);
+        await exportService.deleteExport(kept.id, true);
+        expect((await publicService.view(await open(kept.token), {})).status).toBe("ok");
+        const [link] = await shareService.listShares({ albumId: album.id });
+        expect(link).toMatchObject({ videos_only: false, export: null, label: "Summer" });
+        await shareService.deleteShare(link?.id ?? "");
+        await expect(open(kept.token)).rejects.toThrow();
+      }),
+    );
+  });
 });

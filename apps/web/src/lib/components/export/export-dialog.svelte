@@ -42,6 +42,7 @@ let {
 let format = $state<ExportFormat>("a4");
 let purpose = $state<ExportPurpose>("print");
 let captions = $state(true);
+let albumLink = $state(false);
 let busy = $state(false);
 /** The export started from this dialog; the dialog then shows its progress. */
 let startedId = $state<string | null>(null);
@@ -55,7 +56,7 @@ $effect(() => {
 async function start() {
   busy = true;
   const created = await attempt(() =>
-    post<AlbumExport>(`/albums/${albumId}/exports`, { format, purpose, captions }),
+    post<AlbumExport>(`/albums/${albumId}/exports`, { format, purpose, captions, albumLink }),
   );
   busy = false;
   if (!created) return;
@@ -151,6 +152,14 @@ function preview(f: ExportFormat) {
           <Label for="export-captions">{m.export_captions()}</Label>
           <Switch id="export-captions" bind:checked={captions} />
         </div>
+
+        <div class="flex items-center justify-between gap-4">
+          <div class="grid gap-1">
+            <Label for="export-album-link">{m.export_album_link()}</Label>
+            <p class="text-xs text-muted-foreground">{m.export_album_link_hint()}</p>
+          </div>
+          <Switch id="export-album-link" bind:checked={albumLink} />
+        </div>
       </div>
       <Dialog.Footer>
         <Button variant="outline" onclick={() => (open = false)}>{m.common_cancel()}</Button>
@@ -162,6 +171,9 @@ function preview(f: ExportFormat) {
           <p class="font-medium">{m.export_ready()}</p>
           {#if started.video_link}
             <p class="text-sm text-muted-foreground">{m.export_ready_video_link()}</p>
+          {/if}
+          {#if started.album_link}
+            <p class="text-sm text-muted-foreground">{m.export_ready_album_link()}</p>
           {/if}
           <p class="text-sm text-muted-foreground">
             {formatLabel(started.format)}

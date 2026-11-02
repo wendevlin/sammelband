@@ -236,6 +236,22 @@ describe("PDF layout", () => {
     }
   });
 
+  test("the album link: a QR code between the gallery and the mark", () => {
+    const layout = layoutAlbum(album(sections, { albumLink: true }), measure);
+    const g = layout.geometry;
+    const back = layout.pages.at(-1);
+    if (back?.kind !== "back" || !back.code) throw new Error("no code on the back");
+    const { code } = back;
+    expect(code.size).toBeGreaterThanOrEqual(20 * (72 / 25.4) - 0.01);
+    expect(code.x + code.size / 2).toBeCloseTo(g.x + g.w / 2, 1);
+    expect(code.y + code.size).toBeLessThanOrEqual(back.markY);
+    expect(back.boxes).toHaveLength(sections.flatMap((s) => s.photos).length);
+    for (const box of back.boxes) expect(box.y + box.h).toBeLessThanOrEqual(code.y);
+
+    const without = layoutAlbum(album(sections), measure).pages.at(-1);
+    expect(without?.kind === "back" && without.code).toBeNull();
+  });
+
   test("corners: round outside with margins, square at the trim edge to edge, a little inside", () => {
     const only = [{ title: "", text: "", highlight: false, photos: photos(4) }];
     for (const purpose of ["home", "print"] as const) {

@@ -24,8 +24,9 @@ import { formatLabel, purposeLabel } from "./format-label";
 /**
  * An album's PDF exports: download, rename, delete. Exports the album has
  * changed since are marked as outdated. A PDF with videos has a video link
- * (its QR codes lead there); deleting the PDF asks whether to keep it, so
- * printed copies keep playing their videos.
+ * (its QR codes lead there), one with the album link option a link to the
+ * album (the QR code on its back); deleting the PDF asks whether to keep
+ * them, so printed copies keep working.
  */
 let {
   open = $bindable(false),
@@ -67,13 +68,18 @@ async function rename(name: string) {
   return Boolean(updated);
 }
 
-async function remove(keepVideoLink = false) {
+/** How many links a PDF has (video link, album link). */
+const linkCount = (x: AlbumExport | null) => (x?.video_link ? 1 : 0) + (x?.album_link ? 1 : 0);
+
+async function remove(keepLinks = false) {
   const target = deleting;
   if (!target) return;
   busy = true;
+  const kept =
+    linkCount(target) === 1 ? m.export_deleted_link_kept_one() : m.export_deleted_link_kept_other();
   const ok = await attempt(
-    () => del(`/exports/${target.id}?keepVideoLink=${keepVideoLink}`),
-    keepVideoLink ? m.export_deleted_link_kept() : m.export_deleted(),
+    () => del(`/exports/${target.id}?keepLinks=${keepLinks}`),
+    keepLinks ? kept : m.export_deleted(),
   );
   busy = false;
   deleteOpen = false;
@@ -83,11 +89,18 @@ async function remove(keepVideoLink = false) {
 let busy = $state(false);
 let copied = $state<string | null>(null);
 
-async function copyLink(x: AlbumExport) {
-  if (!x.video_link) return;
-  await navigator.clipboard.writeText(x.video_link.url).catch(() => {});
-  copied = x.id;
+async function copyLink(link: { id: string; url: string }) {
+  await navigator.clipboard.writeText(link.url).catch(() => {});
+  copied = link.id;
   setTimeout(() => (copied = null), 2000);
+}
+
+/** The links of a PDF, with what each is for. */
+function linksOf(x: AlbumExport) {
+  const links: { id: string; url: string; label: string }[] = [];
+  if (x.video_link) links.push({ ...x.video_link, label: m.export_video_link() });
+  if (x.album_link) links.push({ ...x.album_link, label: m.export_album_link_row() });
+  return links;
 }
 </script>
 
@@ -122,16 +135,16 @@ async function copyLink(x: AlbumExport) {
                 {m.export_outdated({ date: date(x.created_at) })}
               </p>
             {/if}
-            {#if x.video_link}
+            {#each linksOf(x) as link (link.id)}
               <p class="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
                 <QrCode class="size-3.5 shrink-0" />
-                <span class="truncate">{m.export_video_link()}</span>
+                <span class="truncate">{link.label}</span>
                 <button
                   type="button"
                   class="ml-0.5 inline-flex shrink-0 items-center gap-1 rounded px-1 text-primary hover:underline"
-                  onclick={() => x && copyLink(x)}
+                  onclick={() => copyLink(link)}
                 >
-                  {#if copied === x.id}
+                  {#if copied === link.id}
                     <Check class="size-3" />
                     {m.common_copied()}
                   {:else}
@@ -140,7 +153,7 @@ async function copyLink(x: AlbumExport) {
                   {/if}
                 </button>
               </p>
-            {/if}
+            {/each}
           </div>
           <div class="flex shrink-0 gap-1">
             {#if x.status === "done"}
@@ -192,18 +205,22 @@ async function copyLink(x: AlbumExport) {
   value={renaming?.name ?? ""}
   onsubmit={rename}
 />
-{#if deleting?.video_link}
+{#if linkCount(deleting) > 0}
   <AlertDialog.Root bind:open={deleteOpen}>
     <!-- Wider than a plain confirmation: three choices. -->
     <AlertDialog.Content class="data-[size=default]:sm:max-w-2xl">
       <AlertDialog.Header>
-        <AlertDialog.Title>{m.export_delete_confirm({ name: deleting.name })}</AlertDialog.Title>
+        <AlertDialog.Title
+          >{m.export_delete_confirm({ name: deleting?.name ?? "" })}</AlertDialog.Title
+        >
         <AlertDialog.Description>{m.export_delete_with_link_description()}</AlertDialog.Description>
       </AlertDialog.Header>
       <AlertDialog.Footer class="sm:flex-wrap">
         <AlertDialog.Cancel>{m.common_cancel()}</AlertDialog.Cancel>
         <Button variant="outline" disabled={busy} onclick={() => remove(true)}>
-          {m.export_delete_keep_link()}
+          {linkCount(deleting) === 1
+            ? m.export_delete_keep_link_one()
+            : m.export_delete_keep_link_other()}
         </Button>
         <Button variant="destructive" disabled={busy} onclick={() => remove(false)}>
           {m.export_delete_with_link()}

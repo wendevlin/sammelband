@@ -226,7 +226,10 @@ export type ShareLinkInfo = {
   created_by_name: string | null;
   /** Shows only the album's videos: the link the QR codes of a PDF lead to. */
   videos_only: boolean;
-  /** The PDF it belongs to; it can only be deleted together with it. */
+  /**
+   * The PDF it belongs to (its video link, or with `videos_only` false the
+   * album link on its back); it can only be deleted together with it.
+   */
   export: { id: string; name: string } | null;
   /** The name of its PDF, once that is deleted and the link was kept. */
   label: string | null;

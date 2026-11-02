@@ -6,6 +6,8 @@ import { COLORS } from "./theme";
 // code to the video, a play mark and how long it is. The code is drawn as
 // vector shapes, so it is sharp in print at any size. Its three corner squares
 // have rounded corners, like the card and the app.
+//
+// The album link on the back is the same kind of card, without the play mark.
 
 type Doc = PDFKit.PDFDocument;
 
@@ -85,6 +87,24 @@ export function drawVideoMark(
     .closePath()
     .fill(COLORS.primary);
   doc.fillColor(COLORS.text).text(text, rowX + icon + gap, rowY, { lineBreak: false });
+  doc.restore();
+}
+
+/**
+ * A card at (x, y), `size` square, with a QR code to `url` (the album link on
+ * the back), outlined so it stands out on white paper too.
+ */
+export function drawLinkCode(doc: Doc, url: string, x: number, y: number, size: number): void {
+  const qr = encode(url, { ecc: "M", border: 0 });
+  // Scanners need a light margin around the code: three modules of card.
+  const module = size / (qr.size + 6);
+  doc.link(x, y, size, size, url);
+  doc.save();
+  doc
+    .roundedRect(x, y, size, size, size * 0.1)
+    .lineWidth(0.75)
+    .fillAndStroke(COLORS.white, COLORS.border);
+  drawCode(doc, qr, x + 3 * module, y + 3 * module, module);
   doc.restore();
 }
 

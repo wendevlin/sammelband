@@ -154,6 +154,13 @@ async function revoke(link: ShareLinkInfo) {
                     ? m.share_video_link_of({ name: link.export.name })
                     : m.share_video_link_was({ name: link.label ?? "PDF" })}
                 </span>
+              {:else if link.export || link.label}
+                <Badge variant="secondary"><FileText /> {m.share_album_link()}</Badge>
+                <span>
+                  {link.export
+                    ? m.share_album_link_of({ name: link.export.name })
+                    : m.share_video_link_was({ name: link.label ?? "PDF" })}
+                </span>
               {/if}
               <span>
                 {#if link.expires_at}

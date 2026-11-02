@@ -131,7 +131,10 @@ where `.env`, the dev SQLite file, `uploads/` and `dist/` live.
   Videos are served with HTTP ranges (`lib/range.ts`), on public links too. A PDF of an
   album with videos prints QR codes to a `videos_only` share link that belongs to the
   export (`share_links.export_id`): it can't be deleted on its own, and deleting the
-  PDF deletes it or keeps it as an ordinary link (`label`).
+  PDF deletes it or keeps it as an ordinary link (`label`). The album link option
+  (`options.album_link`) prints a QR code on the back to a second link of the export
+  (`videos_only = 0`, the whole album) that behaves the same way
+  (`share.service.exportLinkFor`).
 - Deleting a tenant (`tenant.service.deleteTenant`) removes rows table by table; a new
   tenant table needs a line there (the "no row behind" test in `test/tenants.test.ts`
   catches a forgotten one).
