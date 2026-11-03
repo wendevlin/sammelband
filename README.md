@@ -256,6 +256,11 @@ as the PDF's, and goes with the PDF: deleting the PDF asks whether to delete the
 link too or keep it (printed copies keep working; it can still be deleted later
 under Share).
 
+With "QR code to the album on the back" switched on, the back page also gets a QR
+code to the whole album online. It leads to another public link of the PDF's own
+that behaves the same way: no account, no expiry, listed under Share, and deleted
+with the PDF or kept.
+
 ## Editing photos
 
 In the editor, the pencil on a photo turns it in quarter turns and crops it,

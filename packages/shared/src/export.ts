@@ -58,6 +58,8 @@ export type ExportOptions = {
   purpose: ExportPurpose;
   /** Photo captions with the photos. */
   captions: boolean;
+  /** A QR code on the back to the album online (a public link of the PDF's own). */
+  album_link: boolean;
 };
 
 export type ExportStatus = "queued" | "running" | "done" | "failed";
@@ -91,4 +93,10 @@ export type AlbumExport = {
    * the PDF when the album has videos, deleted with it (or kept, if asked).
    */
   video_link: { id: string; url: string } | null;
+  /**
+   * The public link the QR code on the back leads to: the whole album. Made
+   * with the PDF when asked for (`options.album_link`), and like the video
+   * link deleted with it, or kept.
+   */
+  album_link: { id: string; url: string } | null;
 };

@@ -20,7 +20,8 @@ import { COLORS } from "./theme";
 //     on each page is decided for the whole book at once (fewer, larger
 //     photos are better), and so that a printed book needs no blank pages.
 //  4. The back: every photo of the album as a small gallery, like the album
-//     page in the app, above Sammelband's mark.
+//     page in the app, above Sammelband's mark; with `albumLink`, a QR code
+//     to the album between them.
 //
 // Like the app, photos have rounded corners: the four outer corners of a
 // page's collage clearly, the corners between tiles just a little. Edge to
@@ -52,6 +53,8 @@ export type LayoutInput = {
   format: PageFormat;
   purpose: PurposeSpec;
   captions: boolean;
+  /** Room on the back for a QR code to the album online. */
+  albumLink?: boolean;
 };
 
 /** Corner radii in pt: top left, top right, bottom right, bottom left. */
@@ -88,8 +91,16 @@ export type Page =
   /** `number` is null edge to edge, where photos reach the bottom of the page. */
   | { kind: "content"; boxes: Box[]; number: number | null }
   | { kind: "blank" }
-  /** The back: all photos small, above the mark (at `markY`). */
-  | { kind: "back"; boxes: PhotoBox[]; markY: number };
+  /**
+   * The back: all photos small, above the mark (at `markY`), and between them
+   * the square for the QR code to the album (`code`, its side `size`).
+   */
+  | {
+      kind: "back";
+      boxes: PhotoBox[];
+      markY: number;
+      code: { x: number; y: number; size: number } | null;
+    };
 
 export type Geometry = {
   /** Trimmed page size. */
@@ -635,10 +646,20 @@ export function layoutAlbum(input: LayoutInput, measure: Measure): Layout {
   function back(): Page {
     const mark = 22 * g.scale;
     const markY = g.y + g.h - mark * 1.6;
+    // The code's card: large enough for phone cameras at arm's length.
+    const size = Math.min(26 * MM, Math.max(20 * MM, Math.min(g.w, g.h) * 0.14));
+    const code = input.albumLink
+      ? { x: g.x + (g.w - size) / 2, y: markY - mark * 0.6 - size, size }
+      : null;
+    const bottom = code ? code.y : markY;
     const all = input.sections.flatMap((s) => s.photos);
-    if (all.length === 0) return { kind: "back", boxes: [], markY };
+    if (all.length === 0) {
+      // Nothing above it: the code in the middle of the page.
+      if (code) code.y = g.y + (bottom - g.y) / 2;
+      return { kind: "back", boxes: [], markY, code };
+    }
     const gap = Math.max(2.5, g.gap * 0.6);
-    const room = markY - g.y - mark;
+    const room = bottom - g.y - mark;
     const ratios = all.map((p) => p.ratio);
     const heightOf = (rows: ReturnType<typeof justify>) =>
       sum(rows.map((r) => r.height)) + gap * (rows.length - 1);
@@ -672,7 +693,7 @@ export function layoutAlbum(input: LayoutInput, measure: Measure): Layout {
       }
       y += row.height + gap;
     }
-    return { kind: "back", boxes, markY };
+    return { kind: "back", boxes, markY, code };
   }
 }
 

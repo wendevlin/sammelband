@@ -13,7 +13,7 @@ import {
   type PhotoBox,
   type Radii,
 } from "./layout";
-import { drawVideoMark, type VideoMark } from "./qr";
+import { drawLinkCode, drawVideoMark, type VideoMark } from "./qr";
 import type { Line } from "./text";
 import { COLORS, FONT_FILES, type FontKey } from "./theme";
 
@@ -29,6 +29,8 @@ export type RenderInput = LayoutInput & {
   original: (photoId: string) => string;
   /** Videos, by photo id: drawn with a QR code to `url` (qr.ts). */
   videos?: Map<string, VideoMark>;
+  /** The album online: a QR code to it on the back (`albumLink` makes room for it). */
+  albumUrl?: string | null;
   /** 0–1. Preparing images is most of the work. */
   onProgress?: (share: number) => void | Promise<void>;
 };
@@ -60,7 +62,7 @@ function measurer(doc: Doc) {
 /** Lay out and write the album as one PDF: cover, interior, back. */
 export async function renderAlbumPdf(input: RenderInput, outPath: string): Promise<RenderResult> {
   const doc = newDocument(geometry(input.format, input.purpose), input.title);
-  const layout = layoutAlbum(input, measurer(doc));
+  const layout = layoutAlbum({ ...input, albumLink: Boolean(input.albumUrl) }, measurer(doc));
   const tmp = mkdtempSync(join(tmpdir(), "sammelband-pdf-"));
   try {
     const images = await prepareImages(layout, input, tmp);
@@ -74,7 +76,7 @@ export async function renderAlbumPdf(input: RenderInput, outPath: string): Promi
     const total = layout.pages.length;
     for (const [i, page] of layout.pages.entries()) {
       if (page.kind === "cover") renderCover(doc, layout.geometry, page, images);
-      else renderInterior(doc, layout.geometry, page, images, input.videos);
+      else renderInterior(doc, layout.geometry, page, images, input.videos, input.albumUrl);
       await input.onProgress?.(0.85 + (0.15 * (i + 1)) / total);
     }
     doc.end();
@@ -160,6 +162,7 @@ export function renderInterior(
   page: Exclude<Page, { kind: "cover" }>,
   images: Map<string, string>,
   videos: Map<string, VideoMark> = new Map(),
+  albumUrl?: string | null,
 ): void {
   addPage(doc, g);
   if (page.kind === "blank") return;
@@ -168,6 +171,10 @@ export function renderInterior(
     // here: their codes are on the pages before.
     for (const box of page.boxes) {
       drawPhoto(doc, g, box, images.get(box.id), videos.get(box.id), false);
+    }
+    if (page.code && albumUrl) {
+      const { x, y, size } = page.code;
+      drawLinkCode(doc, albumUrl, g.bleed + x, g.bleed + y, size);
     }
     const logo = 22 * g.scale;
     const x = g.bleed + (g.width - logo) / 2;

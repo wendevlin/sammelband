@@ -11,9 +11,11 @@ import { currentTenant } from "./tenant.service";
 //
 // Besides the links people create, every PDF export of an album with videos
 // gets one: its QR codes lead there, and it shows only the album's videos.
-// It belongs to the PDF (`export_id`): it can't be deleted on its own, and
-// goes with the PDF unless whoever deletes the PDF keeps it (printed copies
-// keep working), which makes it an ordinary link that can be deleted.
+// A PDF with the album link option gets another, to the whole album, for the
+// QR code on its back. They belong to the PDF (`export_id`): they can't be
+// deleted on their own, and go with the PDF unless whoever deletes the PDF
+// keeps them (printed copies keep working), which makes them ordinary links
+// that can be deleted.
 
 export type ShareTarget = { albumId: string } | { folderId: string };
 
@@ -126,18 +128,22 @@ export async function deleteShare(id: string): Promise<void> {
   await tdb().deleteFrom("share_links").where("id", "=", id).execute();
 }
 
-// --- The video links of PDF exports ---------------------------------------------------
+// --- The links of PDF exports ---------------------------------------------------
 
-/** The video link of a PDF export, made on first use. */
-export async function videoLinkFor(exp: {
-  id: string;
-  album_id: string;
-  created_by: string | null;
-}): Promise<{ id: string; token: string }> {
+/** What a PDF's link shows: its videos (the QR codes on them), or the whole album (the back). */
+export type ExportLinkKind = "videos" | "album";
+
+/** A link of a PDF export, made on first use: at most one of each kind. */
+export async function exportLinkFor(
+  exp: { id: string; album_id: string; created_by: string | null },
+  kind: ExportLinkKind,
+): Promise<{ id: string; token: string }> {
+  const videosOnly = kind === "videos" ? 1 : 0;
   const existing = await tdb()
     .selectFrom("share_links")
     .select(["id", "token"])
     .where("export_id", "=", exp.id)
+    .where("videos_only", "=", videosOnly)
     .executeTakeFirst();
   if (existing) return existing;
   const link = { id: Bun.randomUUIDv7(), token: randomBytes(24).toString("base64url") };
@@ -153,7 +159,7 @@ export async function videoLinkFor(exp: {
       created_by: exp.created_by,
       created_at: Date.now(),
       export_id: exp.id,
-      videos_only: 1,
+      videos_only: videosOnly,
       label: null,
     })
     .execute();
@@ -164,10 +170,10 @@ export async function videoLinkFor(exp: {
 export const videoUrl = (token: string, photoId: string) => `${shareUrl(token)}?v=${photoId}`;
 
 /**
- * Before its PDF is deleted: delete its video link, or keep it as an
- * ordinary link (named after the PDF) that can be deleted later.
+ * Before its PDF is deleted: delete its links, or keep them as ordinary
+ * links (named after the PDF) that can be deleted later.
  */
-export async function releaseVideoLink(
+export async function releaseExportLinks(
   exp: { id: string; name: string },
   keep: boolean,
 ): Promise<void> {
