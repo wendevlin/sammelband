@@ -12,7 +12,7 @@ const TOKEN = "AbC_123-xyzAbC_123-xyzAbC_123-xy";
 
 const redirect = (url: string) => {
   const u = new URL(url);
-  return domainRedirect(domains, u, u.host);
+  return domainRedirect(domains, u, u.host)?.location ?? null;
 };
 
 describe("domainRedirect", () => {
@@ -43,9 +43,20 @@ describe("domainRedirect", () => {
     expect(redirect("https://sb.example/robots.txt")).toBe("https://photos.example.com/robots.txt");
   });
 
+  test("never leaves the main address", () => {
+    expect(redirect("https://old.example.org//evil.example/x?a=1")).toBe(
+      "https://photos.example.com//evil.example/x?a=1",
+    );
+    expect(redirect("https://sb.example//evil.example")).toBe(
+      "https://photos.example.com//evil.example",
+    );
+  });
+
   test("hosts match regardless of case", () => {
     const u = new URL("https://old.example.org/x");
-    expect(domainRedirect(domains, u, "OLD.Example.org")).toBe("https://photos.example.com/x");
+    expect(domainRedirect(domains, u, "OLD.Example.org")?.location).toBe(
+      "https://photos.example.com/x",
+    );
   });
 
   test("without a share domain only aliases redirect", () => {
