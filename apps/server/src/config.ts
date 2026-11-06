@@ -40,6 +40,48 @@ if (!isDev && secretKey.length < 32) {
 
 const baseUrl = required("BASE_URL", isDev ? "http://localhost:3000" : undefined);
 
+/** An address given as a whole origin (no path), e.g. https://sb.example. */
+function originUrl(name: string, value: string): string {
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    throw new Error(`${name}: not a URL: ${value}`);
+  }
+  if (url.protocol !== "http:" && url.protocol !== "https:") {
+    throw new Error(`${name}: use http:// or https:// (${value})`);
+  }
+  if (url.pathname !== "/" || url.search || url.hash) {
+    throw new Error(`${name}: only scheme and host, no path (${value})`);
+  }
+  return url.origin;
+}
+
+// Optional short address for share links: <SHARE_URL>/<token> opens the share
+// page on BASE_URL. Share links and the QR codes in PDFs are handed out with it.
+const shareUrl = (() => {
+  const raw = optional("SHARE_URL");
+  return raw === undefined ? undefined : originUrl("SHARE_URL", raw.trim());
+})();
+
+// Former or additional addresses (comma-separated). Every request there is
+// redirected to the same path on BASE_URL, so links from before a move keep working.
+const aliasUrls = (optional("ALIAS_URLS") ?? "")
+  .split(",")
+  .map((s) => s.trim())
+  .filter(Boolean)
+  .map((s) => originUrl("ALIAS_URLS", s));
+
+{
+  const hosts = [baseUrl, ...(shareUrl ? [shareUrl] : []), ...aliasUrls].map((u) =>
+    new URL(u).host.toLowerCase(),
+  );
+  const twice = hosts.find((h, i) => hosts.indexOf(h) !== i);
+  if (twice) {
+    throw new Error(`${twice} is used twice in BASE_URL, SHARE_URL and ALIAS_URLS`);
+  }
+}
+
 // How many reverse proxies in front of the app append to X-Forwarded-For. The
 // client's address is the entry the outermost one added, this many from the end.
 const trustProxyHops = (() => {
@@ -94,6 +136,10 @@ export const config = {
   isDev,
   PORT: Number(process.env.PORT ?? 3000),
   BASE_URL: baseUrl,
+  /** Short address for share links (redirects to BASE_URL), if set. */
+  SHARE_URL: shareUrl,
+  /** Other addresses that redirect to BASE_URL. */
+  ALIAS_URLS: aliasUrls,
   TRUSTED_ORIGINS: trustedOrigins,
   /** Origins allowed to make state-changing requests and open the WebSocket. */
   ALLOWED_ORIGINS: [baseUrl, ...trustedOrigins].map((o) => new URL(o).origin),
