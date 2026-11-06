@@ -3,6 +3,7 @@ import type { PhotoEdit } from "@sammelband/shared";
 import type { Transaction } from "kysely";
 import { z } from "zod";
 import { config, SRCSET_WIDTHS } from "../config";
+import { dbType } from "../db/client";
 import type { Album, Database, ImageFile, Photo } from "../db/schema";
 import { fail, must } from "../lib/errors";
 import { emit, emitAlbumPatch, type PhotoWithImage, topics } from "../lib/events";
@@ -445,10 +446,13 @@ async function replaceImage(
     .transaction()
     .execute(async (trx) => {
       // What it shows now, read here: another edit may have changed it meanwhile.
+      // Postgres runs edits side by side: lock the row so a second edit waits
+      // and then reads this one's result (SQLite has one connection anyway).
       const before = await trx
         .selectFrom("photos")
         .select("image_file_id")
         .where("id", "=", photo.id)
+        .$if(dbType === "postgres", (q) => q.forUpdate())
         .executeTakeFirst();
       await trx
         .updateTable("photos")
