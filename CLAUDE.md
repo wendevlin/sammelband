@@ -56,6 +56,9 @@ where `.env`, the dev SQLite file, `uploads/` and `dist/` live.
   only and returns trimmed rows (no user/tenant ids). SPA pages live under `/s/<token>`;
   components that render there take image URLs from `imageUrls()` (`#lib/images`), not
   `imageSrc()`.
+- Domains: `BASE_URL` is the main address. `ALIAS_URLS` (e.g. after a move) redirect every
+  path there; `SHARE_URL` is a short domain whose `/<token>` redirects to `/s/<token>`
+  (`middleware/domain.middleware.ts`). Hand out share URLs only via `shareService.shareUrl()`.
 - Security headers and the CSP are set in `index.ts` (`secureHeaders`). A feature that
   loads from other hosts (e.g. map tiles) has to extend the CSP there. Don't add
   `{@html}`: section text is Markdown, rendered from marked's tokens as Svelte elements

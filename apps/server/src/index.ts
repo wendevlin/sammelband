@@ -15,6 +15,7 @@ import { AppError } from "./lib/errors";
 import { checkMailOnStartup } from "./lib/mail";
 import { resolveUser } from "./middleware/auth.middleware";
 import { apiBodyLimit, MAX_BODY_LIMIT } from "./middleware/body-limit.middleware";
+import { domainRedirects } from "./middleware/domain.middleware";
 import { requireMail } from "./middleware/mail.middleware";
 import { authRateLimit, passwordResetRateLimit } from "./middleware/rate-limit.middleware";
 import { adminInviteRoutes } from "./routes/admin/invites";
@@ -92,6 +93,16 @@ app.use(
 );
 
 app.get("/health", (c) => c.json({ ok: true }));
+
+// The share domain and former addresses (aliases) redirect to BASE_URL.
+app.use(
+  "*",
+  domainRedirects({
+    baseUrl: config.BASE_URL,
+    shareUrl: config.SHARE_URL,
+    aliasUrls: config.ALIAS_URLS,
+  }),
+);
 
 // A private app: ask every crawler not to index or train on anything. Public
 // share links keep their link previews (see robots.txt and routes/spa.ts).

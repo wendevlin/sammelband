@@ -1,6 +1,6 @@
 import { randomBytes } from "node:crypto";
 import type { ShareLinkInfo } from "@sammelband/shared";
-import { appUrl } from "../config";
+import { appUrl, config } from "../config";
 import { fail } from "../lib/errors";
 import { currentTenantId, tdb } from "../lib/tenant-context";
 import { endOfDayIn } from "../lib/timezone";
@@ -21,7 +21,8 @@ export type ShareTarget = { albumId: string } | { folderId: string };
 
 const MIN_PASSWORD = 8;
 
-export const shareUrl = (token: string) => appUrl(`/s/${token}`);
+export const shareUrl = (token: string) =>
+  config.SHARE_URL ? `${config.SHARE_URL}/${token}` : appUrl(`/s/${token}`);
 
 async function requireTarget(target: ShareTarget): Promise<void> {
   const found =

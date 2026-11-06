@@ -123,6 +123,8 @@ rate limits, live updates would get lost and exports could run twice.
 | `PORT`                        | `3000`                           | HTTP port of the server (the dev proxy follows it). Fixed to 3000 in the Docker image                                            |
 | `HOST_PORT`                   | `3000`                           | `docker compose` only: the host port mapped to the container's 3000                                                              |
 | `BASE_URL`                    | `http://localhost:3000`          | Public URL, used for the CSRF origin check                                                                                       |
+| `SHARE_URL`                   | unset                            | Short address for share links, e.g. `https://sb.example`; see [Domains](#domains)                                                |
+| `ALIAS_URLS`                  | unset                            | Former or other addresses (comma-separated) that redirect to `BASE_URL`; see [Domains](#domains)                                 |
 | `SECRET_KEY`                  | dev placeholder                  | Signs sessions and share-link cookies. Required in production, at least 32 characters                                            |
 | `DATABASE_URL`                | unset                            | `postgres://user:pass@host:5432/db` to use PostgreSQL instead of SQLite                                                          |
 | `DATABASE_PATH`               | `./sammelband.db`                | SQLite file (when `DATABASE_URL` is unset)                                                                                       |
@@ -145,6 +147,28 @@ With SMTP set up, users reset a forgotten password with a link by mail. It works
 once within an hour and signs them out everywhere. `BASE_URL` has to be the
 address people open, since the link points there. The server checks the SMTP
 connection at startup and logs the result.
+
+## Domains
+
+`BASE_URL` is the main address: the app is used there. Two optional variables
+add more:
+
+- `SHARE_URL`, a shorter domain for share links. Share links and the QR codes in
+  PDFs are then handed out as `https://sb.example/<token>`, which redirects to
+  the share page on `BASE_URL`. Other paths there redirect to the same path on
+  `BASE_URL`.
+- `ALIAS_URLS`, e.g. the address before a move. Every request there redirects
+  (308) to the same path on `BASE_URL`, so old share links, bookmarks and QR
+  codes in printed PDFs keep working.
+
+To move to a new domain: set `BASE_URL` to the new address, put the old one in
+`ALIAS_URLS` and point both at the app in the reverse proxy. Links created
+from then on use the new address (or `SHARE_URL`).
+
+The app tells the domains apart by the `Host` header, so the proxy has to pass
+it on (Caddy and Traefik do; nginx needs `proxy_set_header Host $host;`).
+Requests for any other host (the container's IP, health checks) are served as
+before. All addresses take only a scheme and host, no path.
 
 ## Backups
 
