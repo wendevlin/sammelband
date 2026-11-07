@@ -263,3 +263,29 @@ label[for] {
   top: calc(50% - 16px);
   left: calc(50% - 16px);
 }
+
+/* A section's title and text as a lightbox slide (album/section-slide.svelte),
+   centred, white on the black backdrop, clear of the top bar. Long text
+   scrolls inside the box. */
+.sb-section-slide {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  padding: 60px 1.5rem 2rem;
+  color: #fff;
+}
+.sb-section-slide__box {
+  width: 100%;
+  max-width: 42rem;
+  max-height: 100%;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+}
+@media (min-width: 40rem) {
+  .sb-section-slide {
+    padding-inline: 5rem;
+  }
+}

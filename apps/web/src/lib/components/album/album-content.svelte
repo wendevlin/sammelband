@@ -1,5 +1,6 @@
 <script lang="ts">
 import PhotoSwipeLightbox from "photoswipe/lightbox";
+import { mount, unmount } from "svelte";
 import { m } from "#lib/paraglide/messages.js";
 import "photoswipe/style.css";
 import type { Photo, Section } from "@sammelband/shared";
@@ -10,6 +11,7 @@ import { enableVideos, slideOf } from "#lib/lightbox-video.ts";
 import { cn } from "#lib/utils.ts";
 import MarkdownText from "./markdown-text.svelte";
 import SectionGallery from "./section-gallery.svelte";
+import SectionSlide from "./section-slide.svelte";
 
 let { sections, photos }: { sections: Section[]; photos: Photo[] } = $props();
 const images = imageUrls();
@@ -26,16 +28,22 @@ const shown = $derived(
     .filter((s) => s.title.trim() || s.text.trim() || photosOf(s.id).length > 0),
 );
 
+const hasWords = (s: Section) => !!(s.title.trim() || s.text.trim());
+
 // One lightbox spanning every section in document order, so swiping flows
-// from one gallery into the next. `offsets` maps a section to its first slide.
+// from one gallery into the next. A section with a title or text starts with
+// a slide that shows them, so the viewer sees where a new section begins.
+// `offsets` maps a section to the slide of its first photo.
+type Entry = { kind: "section"; section: Section } | { kind: "photo"; photo: Photo };
 const sequence = $derived.by(() => {
   // Built fresh inside the derived and never mutated afterwards: no reactivity needed.
   // eslint-disable-next-line svelte/prefer-svelte-reactivity
   const offsets = new Map<string, number>();
-  const slides: Photo[] = [];
+  const slides: Entry[] = [];
   for (const s of shown) {
+    if (hasWords(s)) slides.push({ kind: "section", section: s });
     offsets.set(s.id, slides.length);
-    slides.push(...photosOf(s.id));
+    for (const photo of photosOf(s.id)) slides.push({ kind: "photo", photo });
   }
   return { offsets, slides };
 });
@@ -45,9 +53,11 @@ let lightbox: PhotoSwipeLightbox | null = null;
 // The section of the current slide, for the title in the top bar and the
 // dialog on top of the lightbox that shows the full title and the text. The
 // title opens it (it may be cut off), and so does an info button when there is text.
-type Slide = { alt: string; sectionId: string; photoId: string };
+type Slide = { alt?: string; type?: string; sectionId: string; photoId?: string };
 const sectionOf = (data: unknown) =>
   shown.find((s) => s.id === (data as Slide | undefined)?.sectionId);
+// The slide with the section's title and text (no need for the top bar's).
+const isSectionSlide = (data: unknown) => (data as Slide | undefined)?.type === "section";
 let pswpRoot = $state<HTMLElement | null>(null);
 let infoSection = $state<Section | null>(null);
 let infoOpen = $state(false);
@@ -65,22 +75,65 @@ function showSection(data: unknown) {
   infoOpen = !!infoSection;
 }
 
-// The page behind follows the lightbox: the current photo's thumbnail is
-// scrolled into view, so closing lands where the viewer left off.
+// The page behind follows the lightbox: the current photo's thumbnail (or
+// the section of a text slide) is scrolled into view, so closing lands where
+// the viewer left off.
 function followSlide(data: unknown) {
-  const id = (data as Slide | undefined)?.photoId;
-  const thumb = id && document.querySelector(`[data-photo-id="${CSS.escape(id)}"]`);
+  const slide = data as Slide | undefined;
+  const selector = slide?.photoId
+    ? `[data-photo-id="${CSS.escape(slide.photoId)}"]`
+    : slide?.sectionId && `[data-section-id="${CSS.escape(slide.sectionId)}"]`;
+  const thumb = selector && document.querySelector(selector);
   if (!thumb) return;
   const { top, bottom } = thumb.getBoundingClientRect();
   if (top >= 0 && bottom <= window.innerHeight) return;
   // Hidden behind the solid backdrop, so no smooth scrolling.
-  thumb.scrollIntoView({ block: "center", behavior: "instant" });
+  thumb.scrollIntoView({ block: slide?.photoId ? "center" : "start", behavior: "instant" });
+}
+
+// Text slides: a Svelte component mounted into PhotoSwipe's slide element.
+// Long text scrolls inside its box, by wheel or by dragging (touch), which
+// PhotoSwipe would otherwise take for zooming, panning or closing.
+const mounted = new WeakMap<HTMLElement, ReturnType<typeof mount>>();
+const scrollBox = (target: EventTarget | null) => {
+  const box =
+    target instanceof Element ? target.closest<HTMLElement>(".sb-section-slide__box") : null;
+  return box && box.scrollHeight > box.clientHeight ? box : null;
+};
+function enableSectionSlides(lb: PhotoSwipeLightbox) {
+  lb.on("contentLoad", (e) => {
+    const { content } = e;
+    if (content.type !== "section") return;
+    e.preventDefault();
+    const section = sectionOf(content.data);
+    const el = document.createElement("div");
+    el.className = "pswp__content";
+    if (section) mounted.set(el, mount(SectionSlide, { target: el, props: { section } }));
+    content.element = el;
+    content.state = "loaded";
+  });
+  lb.on("contentDestroy", ({ content }) => {
+    const component = content.element && mounted.get(content.element);
+    if (component) unmount(component);
+  });
+  lb.on("wheel", (e) => {
+    const box = scrollBox(e.originalEvent.target);
+    if (!box) return;
+    e.preventDefault();
+    box.scrollTop += e.originalEvent.deltaY;
+  });
+  lb.on("pointerDown", (e) => {
+    if (e.originalEvent.pointerType !== "mouse" && scrollBox(e.originalEvent.target)) {
+      e.preventDefault();
+    }
+  });
 }
 
 function open(index: number) {
   if (!lightbox) {
     lightbox = new PhotoSwipeLightbox(lightboxOptions());
     enableVideos(lightbox);
+    enableSectionSlides(lightbox);
     lightbox.on("uiRegister", () => {
       const ui = lightbox?.pswp?.ui;
       ui?.registerElement({
@@ -93,7 +146,8 @@ function open(index: number) {
         onInit: (el, pswp) => {
           (el as HTMLButtonElement).type = "button";
           const update = () => {
-            const title = sectionOf(pswp.currSlide?.data)?.title.trim() ?? "";
+            const data = pswp.currSlide?.data;
+            const title = isSectionSlide(data) ? "" : (sectionOf(data)?.title.trim() ?? "");
             el.textContent = title;
             el.title = title;
           };
@@ -112,7 +166,8 @@ function open(index: number) {
         onClick: (_e, _el, pswp) => showSection(pswp.currSlide?.data),
         onInit: (el, pswp) => {
           const update = () => {
-            el.style.display = sectionOf(pswp.currSlide?.data)?.text.trim() ? "" : "none";
+            const data = pswp.currSlide?.data;
+            el.style.display = !isSectionSlide(data) && sectionOf(data)?.text.trim() ? "" : "none";
           };
           pswp.on("change", update);
           update();
@@ -126,7 +181,7 @@ function open(index: number) {
         onInit: (el, pswp) => {
           el.className = "pswp-caption";
           const update = () => {
-            const data = pswp.currSlide?.data as (Slide & { type?: string }) | undefined;
+            const data = pswp.currSlide?.data as Slide | undefined;
             const caption = data?.alt ?? "";
             el.textContent = caption;
             el.style.display = caption ? "" : "none";
@@ -154,11 +209,15 @@ function open(index: number) {
   }
   lightbox.loadAndOpen(
     index,
-    sequence.slides.map((p) => ({
-      ...slideOf(p, images),
-      sectionId: p.section_id,
-      photoId: p.id,
-    })),
+    sequence.slides.map((entry) =>
+      entry.kind === "section"
+        ? { type: "section", sectionId: entry.section.id }
+        : {
+            ...slideOf(entry.photo, images),
+            sectionId: entry.photo.section_id,
+            photoId: entry.photo.id,
+          },
+    ),
   );
 }
 
@@ -176,6 +235,7 @@ $effect(() => () => {
     <!-- Wider than the text column on large screens (see .bleed). Title and
          text start at its left edge, like the photos, at a readable width. -->
     <section
+      data-section-id={s.id}
       class={cn(
         "bleed my-10 first:mt-0",
         s.highlight && "rounded-2xl border border-highlight-border bg-highlight px-5 py-6 sm:px-8",
