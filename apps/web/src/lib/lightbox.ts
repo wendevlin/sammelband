@@ -21,8 +21,22 @@ function lightboxOptions(): PhotoSwipeOptions {
   };
 }
 
-/** The safe area insets in pixels (`env()` only resolves in CSS, so measured). */
-function safeAreaInsets(): { top: number; right: number; bottom: number; left: number } {
+type Insets = { top: number; right: number; bottom: number; left: number };
+
+let measured: { key: string; insets: Insets } | null = null;
+
+/**
+ * The safe area insets in pixels (`env()` only resolves in CSS, so measured).
+ * PhotoSwipe asks once per side and per pan bounds update; the insets only
+ * change with the viewport (rotation), so one measurement per size is enough.
+ */
+function safeAreaInsets(viewportSize: { x: number; y: number }): Insets {
+  const key = `${viewportSize.x}x${viewportSize.y}`;
+  if (measured?.key !== key) measured = { key, insets: measureInsets() };
+  return measured.insets;
+}
+
+function measureInsets(): Insets {
   const probe = document.createElement("div");
   probe.style.cssText =
     "position:fixed;visibility:hidden;pointer-events:none;padding:env(safe-area-inset-top) " +
@@ -51,8 +65,8 @@ export function createLightbox(): PhotoSwipeLightbox {
  * with the background colour of a fixed element at the top edge. PhotoSwipe's
  * root is transparent (the backdrop is a child that fades), so the album showed
  * through above the lightbox. Once it is open, the root gets the backdrop
- * colour itself (`.pswp--solid` in layout.css); while a vertical drag or the
- * closing animation fades the backdrop, it is transparent again.
+ * colour itself (`.pswp--solid` in layout.css); while a vertical drag, a pinch
+ * to close or the closing animation fades the backdrop, it is transparent again.
  */
 function solidRoot(lightbox: PhotoSwipeLightbox): void {
   let closing = false;
@@ -62,6 +76,7 @@ function solidRoot(lightbox: PhotoSwipeLightbox): void {
   });
   lightbox.on("openingAnimationEnd", () => solid(true));
   lightbox.on("verticalDrag", () => solid(false));
+  lightbox.on("pinchClose", () => solid(false));
   lightbox.on("pointerUp", () => solid(!closing && lightbox.pswp?.opener.isOpen === true));
   lightbox.on("close", () => {
     closing = true;

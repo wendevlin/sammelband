@@ -205,7 +205,9 @@ label[for] {
   --bleed-width: min(calc(100vw - var(--bleed-left) - var(--bleed-right)), 100rem);
   width: var(--bleed-width);
   max-width: none;
-  margin-left: calc(50% + (var(--bleed-left) - var(--bleed-right) - var(--bleed-width)) / 2);
+  /* The column is already off-centre by half the inset difference (the page
+     gutter is px-safe-*), so centring on it is enough. */
+  margin-left: calc(50% - var(--bleed-width) / 2);
 }
 @media (min-width: 40rem) {
   .bleed {
@@ -255,6 +257,7 @@ label[for] {
 /* On videos, above the player's controls. */
 .pswp-caption.pswp-caption--video {
   bottom: calc(4.5rem + env(safe-area-inset-bottom));
+  padding-bottom: 1.25rem;
   background: none;
 }
 
