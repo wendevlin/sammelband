@@ -18,7 +18,7 @@ $effect(() => {
 
 {#if visible}
   <div
-    class="fixed inset-x-0 top-0 z-50 h-0.5 overflow-hidden bg-primary/20"
+    class="fixed inset-x-0 top-safe-0 z-50 h-0.5 overflow-hidden bg-primary/20"
     role="progressbar"
     aria-label={m.loading_page()}
   >
