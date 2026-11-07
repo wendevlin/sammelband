@@ -5,6 +5,33 @@
 @import "@fontsource-variable/playfair-display";
 
 @custom-variant dark (&:is(.dark *));
+
+/* Safe areas: app.html sets viewport-fit=cover, so the page reaches under the
+   notch, the rounded corners, the home indicator and Safari's toolbar.
+   Backgrounds may go there; content keeps at least the given spacing and at
+   least the inset. `px-safe-4` = `px-4`, more where an inset is wider. */
+@utility px-safe-* {
+  padding-left: max(--spacing(--value(integer)), env(safe-area-inset-left));
+  padding-right: max(--spacing(--value(integer)), env(safe-area-inset-right));
+}
+@utility pt-safe-* {
+  padding-top: max(--spacing(--value(integer)), env(safe-area-inset-top));
+}
+@utility pb-safe-* {
+  padding-bottom: max(--spacing(--value(integer)), env(safe-area-inset-bottom));
+}
+@utility pt-safe {
+  padding-top: env(safe-area-inset-top);
+}
+@utility top-safe-* {
+  top: max(--spacing(--value(integer)), env(safe-area-inset-top));
+}
+@utility left-safe-* {
+  left: max(--spacing(--value(integer)), env(safe-area-inset-left));
+}
+@utility right-safe-* {
+  right: max(--spacing(--value(integer)), env(safe-area-inset-right));
+}
 @plugin "@tailwindcss/typography";
 
 :root {
@@ -169,12 +196,16 @@ label[for] {
 
 /* Album sections: as wide as the window allows (up to 100rem), keeping the
    page gutter, centered on their parent column, which is centered on the page.
-   On phones that's exactly the column. */
+   On phones that's exactly the column. The gutter grows to the safe area
+   insets, which can differ left and right. */
 .bleed {
   --bleed-gutter: 1rem;
-  width: min(calc(100vw - 2 * var(--bleed-gutter)), 100rem);
+  --bleed-left: max(var(--bleed-gutter), env(safe-area-inset-left));
+  --bleed-right: max(var(--bleed-gutter), env(safe-area-inset-right));
+  --bleed-width: min(calc(100vw - var(--bleed-left) - var(--bleed-right)), 100rem);
+  width: var(--bleed-width);
   max-width: none;
-  margin-left: calc(50% - min(calc(50vw - var(--bleed-gutter)), 50rem));
+  margin-left: calc(50% + (var(--bleed-left) - var(--bleed-right) - var(--bleed-width)) / 2);
 }
 @media (min-width: 40rem) {
   .bleed {
@@ -206,7 +237,8 @@ label[for] {
 .pswp-caption {
   position: absolute;
   inset: auto 0 0 0;
-  padding: 1rem 1.5rem 1.25rem;
+  padding: 1rem max(1.5rem, env(safe-area-inset-right)) max(1.25rem, env(safe-area-inset-bottom))
+    max(1.5rem, env(safe-area-inset-left));
   text-align: center;
   font-size: 1rem;
   line-height: 1.5;
@@ -222,7 +254,7 @@ label[for] {
 }
 /* On videos, above the player's controls. */
 .pswp-caption.pswp-caption--video {
-  bottom: 4.5rem;
+  bottom: calc(4.5rem + env(safe-area-inset-bottom));
   background: none;
 }
 
@@ -230,6 +262,20 @@ label[for] {
 .pswp__video {
   object-fit: contain;
   background: #000;
+}
+
+/* PhotoSwipe's buttons clear the safe areas (the photos do too: `paddingFn` in
+   lib/lightbox.ts). Prefixed with .pswp to win over PhotoSwipe's own CSS,
+   which loads later. */
+.pswp .pswp__top-bar {
+  top: env(safe-area-inset-top);
+  padding-inline: env(safe-area-inset-left) env(safe-area-inset-right);
+}
+.pswp .pswp__button--arrow--prev {
+  left: env(safe-area-inset-left);
+}
+.pswp .pswp__button--arrow--next {
+  right: env(safe-area-inset-right);
 }
 
 /* Section title in PhotoSwipe's top bar, after the counter: a button that

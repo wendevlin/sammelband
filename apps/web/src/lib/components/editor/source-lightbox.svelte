@@ -68,13 +68,13 @@ function touchEnd(e: TouchEvent) {
   <DialogPrimitive.Portal>
     <DialogPrimitive.Overlay class="fixed inset-0 z-50 bg-black/95" />
     <DialogPrimitive.Content
-      class="fixed inset-0 z-50 flex flex-col bg-black text-white outline-none"
+      class="fixed inset-0 z-50 flex flex-col bg-black px-safe-0 pb-safe-0 text-white outline-none"
       onkeydown={keydown}
       ontouchstart={touchStart}
       ontouchend={touchEnd}
     >
       {#if image?.thumb}
-        <div class="flex items-center gap-2 p-2 sm:p-3">
+        <div class="flex items-center gap-2 px-2 pt-safe-2 pb-2 sm:px-3 sm:pt-safe-3 sm:pb-3">
           <DialogPrimitive.Title class="min-w-0 flex-1 truncate px-2 text-sm">
             {image.name}
             <span class="text-white/60">· {(index ?? 0) + 1} / {images.length}</span>

@@ -15,8 +15,28 @@ function lightboxOptions(): PhotoSwipeOptions {
     zoomTitle: m.lightbox_zoom(),
     arrowPrevTitle: m.lightbox_previous(),
     arrowNextTitle: m.lightbox_next(),
+    // Photos stay clear of the notch, the home indicator and Safari's toolbar.
+    paddingFn: safeAreaInsets,
     pswpModule: () => import("photoswipe"),
   };
+}
+
+/** The safe area insets in pixels (`env()` only resolves in CSS, so measured). */
+function safeAreaInsets(): { top: number; right: number; bottom: number; left: number } {
+  const probe = document.createElement("div");
+  probe.style.cssText =
+    "position:fixed;visibility:hidden;pointer-events:none;padding:env(safe-area-inset-top) " +
+    "env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)";
+  document.body.append(probe);
+  const style = getComputedStyle(probe);
+  const insets = {
+    top: Number.parseFloat(style.paddingTop) || 0,
+    right: Number.parseFloat(style.paddingRight) || 0,
+    bottom: Number.parseFloat(style.paddingBottom) || 0,
+    left: Number.parseFloat(style.paddingLeft) || 0,
+  };
+  probe.remove();
+  return insets;
 }
 
 /** A lightbox for photos full screen (album page, editor). Call `init()` after adding handlers. */
