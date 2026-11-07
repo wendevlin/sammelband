@@ -6,7 +6,7 @@ import Pencil from "@lucide/svelte/icons/pencil";
 import Upload from "@lucide/svelte/icons/upload";
 import X from "@lucide/svelte/icons/x";
 import type { Photo, SourceAccount } from "@sammelband/shared";
-import PhotoSwipeLightbox from "photoswipe/lightbox";
+import type PhotoSwipeLightbox from "photoswipe/lightbox";
 import "photoswipe/style.css";
 import { onMount } from "svelte";
 import { toast } from "svelte-sonner";
@@ -21,7 +21,7 @@ import * as DropdownMenu from "#lib/components/ui/dropdown-menu/index.ts";
 import { Input } from "#lib/components/ui/input/index.ts";
 import { errorText } from "#lib/i18n.ts";
 import { imageSrc, imageUrls } from "#lib/images.ts";
-import { lightboxOptions } from "#lib/lightbox.ts";
+import { createLightbox } from "#lib/lightbox.ts";
 import { enableVideos, slideOf } from "#lib/lightbox-video.ts";
 import { m } from "#lib/paraglide/messages.js";
 import { accountTitle } from "#lib/sources.ts";
@@ -257,7 +257,7 @@ let lightbox: PhotoSwipeLightbox | null = null;
 
 function view(index: number) {
   if (!lightbox) {
-    lightbox = new PhotoSwipeLightbox(lightboxOptions());
+    lightbox = createLightbox();
     enableVideos(lightbox);
     lightbox.init();
   }
