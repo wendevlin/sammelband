@@ -8,7 +8,7 @@ let { title, description, children }: { title: string; description?: string; chi
   $props();
 </script>
 
-<div class="flex min-h-svh items-center justify-center px-4">
+<div class="flex min-h-svh items-center justify-center px-safe-4 pt-safe-4 pb-safe-4">
   <div class="w-full max-w-sm">
     <div class="mb-8 flex flex-col items-center gap-3">
       <Logo tile class="size-16 drop-shadow-sm" />

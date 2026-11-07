@@ -157,7 +157,7 @@ $effect(() => {
 {#if playable(playing)}
   <div
     bind:this={overlay}
-    class="fixed inset-0 z-50 flex flex-col bg-black text-white"
+    class="fixed inset-0 z-50 flex flex-col bg-black px-safe-0 pt-safe-0 pb-safe-0 text-white"
     role="dialog"
     aria-modal="true"
     aria-label={playing.caption ?? album.title}
@@ -182,7 +182,7 @@ $effect(() => {
     {/if}
     <button
       type="button"
-      class="absolute top-3 right-3 flex size-11 items-center justify-center rounded-full bg-black/60 hover:bg-black/80 focus-visible:ring-2 focus-visible:ring-white focus-visible:outline-none"
+      class="absolute top-safe-3 right-safe-3 flex size-11 items-center justify-center rounded-full bg-black/60 hover:bg-black/80 focus-visible:ring-2 focus-visible:ring-white focus-visible:outline-none"
       aria-label={m.common_close()}
       title={m.common_close()}
       onclick={close}
@@ -192,7 +192,7 @@ $effect(() => {
     {#if muted}
       <button
         type="button"
-        class="absolute top-3 left-3 flex items-center gap-2 rounded-full bg-white px-4 py-2.5 text-sm font-semibold text-black shadow-lg focus-visible:ring-2 focus-visible:ring-white focus-visible:outline-none"
+        class="absolute top-safe-3 left-safe-3 flex items-center gap-2 rounded-full bg-white px-4 py-2.5 text-sm font-semibold text-black shadow-lg focus-visible:ring-2 focus-visible:ring-white focus-visible:outline-none"
         onclick={unmute}
       >
         <Volume2 class="size-5" />

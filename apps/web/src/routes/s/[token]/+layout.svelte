@@ -11,10 +11,12 @@ setMediaBase(`/api/public/${page.params.token}`);
 
 <svelte:head><meta name="robots" content="noindex, nofollow"></svelte:head>
 
-<header class="border-b">
-  <div class="mx-auto flex h-14 max-w-6xl items-center gap-3 px-4 sm:px-6">
+<header class="border-b pt-safe">
+  <div class="mx-auto flex h-14 max-w-6xl items-center gap-3 px-safe-4 sm:px-safe-6">
     <Logo class="size-7" />
     <span class="font-heading text-lg text-primary">Sammelband</span>
   </div>
 </header>
-<main class="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6">{@render children()}</main>
+<main class="mx-auto w-full max-w-6xl px-safe-4 pt-8 pb-safe-8 sm:px-safe-6">
+  {@render children()}
+</main>

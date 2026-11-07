@@ -34,7 +34,7 @@ $effect(() => setDocumentLanguage());
   <Onboarding />
 {:else if auth.user && !auth.needsTwoFactorSetup}
   <AppHeader />
-  <main class="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6">
+  <main class="mx-auto w-full max-w-6xl px-safe-4 pt-8 pb-safe-8 sm:px-safe-6">
     {@render children()}
   </main>
 {:else}

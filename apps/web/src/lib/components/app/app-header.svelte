@@ -66,8 +66,8 @@ async function signOut() {
   {/if}
 {/snippet}
 
-<header class="sticky top-0 z-40 border-b bg-background/90 backdrop-blur">
-  <div class="mx-auto flex h-16 max-w-6xl items-center gap-6 px-4 sm:px-6">
+<header class="sticky top-0 z-40 border-b bg-background/90 pt-safe backdrop-blur">
+  <div class="mx-auto flex h-16 max-w-6xl items-center gap-6 px-safe-4 sm:px-safe-6">
     <a href="/" aria-label={m.nav_library()} class="shrink-0"><Logo /></a>
 
     <!-- Desktop: library link, theme and account menus. -->
