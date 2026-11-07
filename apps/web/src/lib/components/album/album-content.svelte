@@ -1,11 +1,11 @@
 <script lang="ts">
-import PhotoSwipeLightbox from "photoswipe/lightbox";
+import type PhotoSwipeLightbox from "photoswipe/lightbox";
 import { m } from "#lib/paraglide/messages.js";
 import "photoswipe/style.css";
 import type { Photo, Section } from "@sammelband/shared";
 import * as Dialog from "#lib/components/ui/dialog/index.ts";
 import { imageUrls } from "#lib/images.ts";
-import { lightboxOptions } from "#lib/lightbox.ts";
+import { createLightbox } from "#lib/lightbox.ts";
 import { enableVideos, slideOf } from "#lib/lightbox-video.ts";
 import { cn } from "#lib/utils.ts";
 import MarkdownText from "./markdown-text.svelte";
@@ -79,7 +79,7 @@ function followSlide(data: unknown) {
 
 function open(index: number) {
   if (!lightbox) {
-    lightbox = new PhotoSwipeLightbox(lightboxOptions());
+    lightbox = createLightbox();
     enableVideos(lightbox);
     lightbox.on("uiRegister", () => {
       const ui = lightbox?.pswp?.ui;
