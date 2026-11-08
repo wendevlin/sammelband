@@ -11,7 +11,11 @@
     "skipLibCheck": true,
     "sourceMap": true,
     "strict": true,
-    "moduleResolution": "bundler"
+    "moduleResolution": "bundler",
+    // Same as package.json "imports". svelte-check --tsgo maps tsconfig paths
+    // to its emitted Svelte types but not package imports: without this,
+    // components imported through #lib would go unchecked.
+    "paths": { "#lib/*": ["./src/lib/*"] }
   }
   // Path aliases are handled by https://svelte.dev/docs/kit/configuration#alias
   // except $lib which is handled by https://svelte.dev/docs/kit/configuration#files

@@ -146,7 +146,10 @@ where `.env`, the dev SQLite file, `uploads/` and `dist/` live.
 - Formatting and linting: Biome only, one root `biome.json` for all packages
   (`bun run lint` / `bun run lint:fix`). Svelte support is Biome's experimental full
   support: template usage is invisible to it, so unused-variable/import rules are off
-  for `*.svelte`. Type errors in Svelte come from `bun run check:web`. Biome 2.5's
+  for `*.svelte`. Type errors in Svelte come from `bun run check:web`: svelte-check
+  with `--tsgo` (TypeScript 7, installed as `@typescript/native`; SvelteKit and
+  svelte-check still need TypeScript 6 for their own API). The `#lib/*` entry in
+  `apps/web/tsconfig.json` `paths` must stay, or `--tsgo` leaves `#lib` components unchecked. Biome 2.5's
   `check --write` (so `lint:fix`) mangles Svelte templates: it turns
   `{@const x = …}` into `{@const (x = …)}`. Run `biome format --write <file>` on Svelte
   files instead, and avoid `{@const}` where a function does the job.
