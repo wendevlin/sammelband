@@ -13,6 +13,12 @@ import { page } from "$app/state";
 
 let { children } = $props();
 
+/** svelte-sonner's offsets: `gap`, or more where a safe area inset is wider. */
+function toastOffset(gap: number) {
+  const side = (inset: string) => `max(${gap}px, env(safe-area-inset-${inset}))`;
+  return { top: side("top"), right: side("right"), bottom: side("bottom"), left: side("left") };
+}
+
 // Every drag and drop in the app can reach off-screen targets.
 $effect(() => dragAutoscroll());
 $effect(() => setDocumentLanguage());
@@ -25,7 +31,8 @@ $effect(() => setDocumentLanguage());
 
 <ModeWatcher />
 <NavProgress />
-<Toaster richColors />
+<!-- viewport-fit=cover: toasts keep clear of the notch, the home indicator and Safari's toolbar. -->
+<Toaster richColors offset={toastOffset(24)} mobileOffset={toastOffset(16)} />
 
 {#if page.url.pathname.startsWith("/s/")}
   <!-- Public link pages bring their own minimal layout, signed in or not. -->
@@ -34,7 +41,7 @@ $effect(() => setDocumentLanguage());
   <Onboarding />
 {:else if auth.user && !auth.needsTwoFactorSetup}
   <AppHeader />
-  <main class="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6">
+  <main class="mx-auto w-full max-w-6xl px-safe-4 pt-8 pb-safe-8 sm:px-safe-6">
     {@render children()}
   </main>
 {:else}
