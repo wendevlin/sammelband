@@ -33,11 +33,27 @@ const errorMessages: Record<string, Message> = Object.assign(
 export function errorText(e: unknown): string {
   if (e instanceof ApiError) {
     const message = e.code ? errorMessages[`error_${e.code.toLowerCase()}`] : undefined;
-    if (message) return message(e.params ?? {});
+    if (message) return message(withDerivedParams(e.params ?? {}));
     return e.message;
   }
   if (e instanceof Error && e.message) return e.message;
   return m.error_unknown();
+}
+
+/**
+ * Params a message needs in a readable form: `wait` ("in 45 minutes") from a
+ * rate limit's `retryAfter` seconds, in seconds below a minute, else whole
+ * minutes rounded up.
+ */
+function withDerivedParams(params: Record<string, unknown>): Record<string, unknown> {
+  const seconds = Number(params.retryAfter);
+  if (!Number.isFinite(seconds)) return params;
+  const rtf = new Intl.RelativeTimeFormat(getLocale(), { numeric: "always" });
+  const wait =
+    seconds < 60
+      ? rtf.format(Math.max(1, seconds), "second")
+      : rtf.format(Math.ceil(seconds / 60), "minute");
+  return { ...params, wait };
 }
 
 /** The text for an error code stored with a record (e.g. a failed export). */

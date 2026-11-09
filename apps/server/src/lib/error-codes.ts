@@ -18,7 +18,8 @@ export const ERRORS = {
   },
   rate_limited: {
     status: 429,
-    message: (p: { retryAfter: number }) => `Too many requests. Try again in ${p.retryAfter} s.`,
+    message: (p: { retryAfter: number }) =>
+      `Too many requests. Try again in ${p.retryAfter < 60 ? `${p.retryAfter} s` : `${Math.ceil(p.retryAfter / 60)} min`}.`,
   },
   payload_too_large: {
     status: 413,

@@ -5,7 +5,7 @@
   "error_not_found": "Not found",
   "error_internal_error": "Something went wrong on the server",
   "error_invalid_input": "Invalid input: {details}",
-  "error_rate_limited": "Too many requests. Try again in {retryAfter} s.",
+  "error_rate_limited": "Too many requests. Try again {wait}.",
   "error_payload_too_large": "Too much data at once (at most {maxMb} MB per request)",
   "error_signup_disabled": "Public sign-up is disabled. Ask an admin to create your account.",
   "error_tenant_suspended": "This Sammelband is suspended",
