@@ -118,13 +118,15 @@ export const passwordResetRateLimit = rateLimit({
 });
 
 // Uploads only come from signed-in users, whose storage the tenant's quota and
-// the file size limits already bound. This only stops a runaway client: 1000
-// requests per user per hour. The web app sends every video, photo edit and
-// import batch as its own request, so a tight limit hits ordinary use. Counted
-// per user, not per IP, so a household behind one address doesn't share it.
+// the file size limits already bound. This only stops a runaway client: 300
+// requests per user per 10 minutes (one every 2 s), and a short window, so
+// whoever hits it waits minutes, not an hour. The web app sends every video,
+// photo edit and import batch as its own request, so a tight limit hits
+// ordinary use. Counted per user, not per IP, so a household behind one
+// address doesn't share it.
 export const uploadRateLimit = rateLimit({
   name: "upload",
-  windowMs: 60 * 60 * 1000,
-  max: 1000,
+  windowMs: 10 * 60 * 1000,
+  max: 300,
   key: (c) => (c.get("user") as { id: string } | undefined)?.id ?? clientIp(c),
 });
