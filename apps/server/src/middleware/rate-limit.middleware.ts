@@ -117,9 +117,14 @@ export const passwordResetRateLimit = rateLimit({
   max: 5,
 });
 
-// 60 upload requests per IP per hour.
+// Uploads only come from signed-in users, whose storage the tenant's quota and
+// the file size limits already bound. This only stops a runaway client: 1000
+// requests per user per hour. The web app sends every video, photo edit and
+// import batch as its own request, so a tight limit hits ordinary use. Counted
+// per user, not per IP, so a household behind one address doesn't share it.
 export const uploadRateLimit = rateLimit({
   name: "upload",
   windowMs: 60 * 60 * 1000,
-  max: 60,
+  max: 1000,
+  key: (c) => (c.get("user") as { id: string } | undefined)?.id ?? clientIp(c),
 });
