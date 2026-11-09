@@ -18,6 +18,9 @@ export default defineConfig({
       project: "./project.inlang",
       outdir: "./src/lib/paraglide",
       strategy: ["localStorage", "preferredLanguage", "baseLocale"],
+      // A module per message, as files: errorText() (#lib/i18n.ts) imports the
+      // error_* ones by glob. Vite's default, virtual modules, has no files.
+      outputStructure: "message-modules",
     }),
     tailwindcss(),
     sveltekit({
