@@ -61,16 +61,21 @@ export function createLightbox(): PhotoSwipeLightbox {
 }
 
 /**
- * Safari 26 shows the page under its translucent toolbar and tints that area
- * with the background colour of a fixed element at the top edge. PhotoSwipe's
- * root is transparent (the backdrop is a child that fades), so the album showed
- * through above the lightbox. Once it is open, the root gets the backdrop
- * colour itself (`.pswp--solid` in layout.css); while a vertical drag, a pinch
- * to close or the closing animation fades the backdrop, it is transparent again.
+ * Safari 26 shows the page under its translucent toolbar: a fixed element,
+ * even one at the top edge, starts below it. So once the lightbox is open,
+ * the page itself goes dark: the app is hidden (keeping its scroll position)
+ * and the document background is the backdrop colour (`.lightbox-covers` in
+ * layout.css), so only black is left under the toolbar. PhotoSwipe's root
+ * gets the backdrop colour too (`.pswp--solid`), for browsers that tint the
+ * toolbar from it. While a vertical drag, a pinch to close or the closing
+ * animation fades the backdrop, the page is back, so the fades still work.
  */
 function solidRoot(lightbox: PhotoSwipeLightbox): void {
   let closing = false;
-  const solid = (on: boolean) => lightbox.pswp?.element?.classList.toggle("pswp--solid", on);
+  const solid = (on: boolean) => {
+    lightbox.pswp?.element?.classList.toggle("pswp--solid", on);
+    document.documentElement.classList.toggle("lightbox-covers", on);
+  };
   lightbox.on("beforeOpen", () => {
     closing = false;
   });
@@ -82,4 +87,5 @@ function solidRoot(lightbox: PhotoSwipeLightbox): void {
     closing = true;
     solid(false);
   });
+  lightbox.on("destroy", () => solid(false));
 }

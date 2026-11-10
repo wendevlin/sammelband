@@ -234,6 +234,20 @@ label[for] {
 .pswp.pswp--solid {
   background: var(--pswp-bg);
 }
+/* While the lightbox covers the page (lib/lightbox.ts): Safari 26 shows the
+   page under its translucent toolbar, above any fixed element, so the app is
+   hidden and only the backdrop colour is left there. Toasts stay; dialogs
+   opened from the lightbox are portalled outside #app. */
+html.lightbox-covers,
+html.lightbox-covers body {
+  background: #000;
+}
+html.lightbox-covers #app {
+  visibility: hidden;
+}
+html.lightbox-covers #app [data-sonner-toaster] {
+  visibility: visible;
+}
 
 /* PhotoSwipe caption (rendered in PhotoSwipe's own root). */
 .pswp-caption {
