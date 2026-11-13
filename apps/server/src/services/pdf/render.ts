@@ -155,7 +155,7 @@ async function writeDocument(doc: Doc, path: string, draw: () => Promise<void>):
  * The book pages on sheets: one each, or as spreads 1+2, 3+4, … (with page 1
  * alone on the right: [–, 1], [2, 3], …, the last one possibly alone on the left).
  */
-export function sheetsOf(pages: Page[], spread: boolean, firstPageRight: boolean): Sheet[] {
+function sheetsOf(pages: Page[], spread: boolean, firstPageRight: boolean): Sheet[] {
   if (!spread) return pages.map((page) => ({ slots: [page] }));
   const slots: (Page | null)[] = firstPageRight ? [null, ...pages] : [...pages];
   if (slots.length % 2 === 1) slots.push(null);
@@ -265,7 +265,7 @@ async function prepareImages(
 }
 
 /** The front: the cover photo edge to edge with the title, or the title on paper. */
-export function renderCover(
+function renderCover(
   doc: Doc,
   g: Geometry,
   page: Extract<Page, { kind: "cover" }>,
@@ -308,7 +308,7 @@ export function renderCover(
  * The back: all the photos as a gallery, then the mark. Videos only get a
  * play mark here: their codes are on the pages before.
  */
-export function renderBack(
+function renderBack(
   doc: Doc,
   g: Geometry,
   page: Extract<Page, { kind: "back" }>,
@@ -340,7 +340,7 @@ export function renderBack(
 }
 
 /** A page of the description or the sections. */
-export function renderContent(
+function renderContent(
   doc: Doc,
   g: Geometry,
   page: Extract<Page, { kind: "content" }>,

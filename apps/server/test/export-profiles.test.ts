@@ -186,6 +186,49 @@ describe("print profiles", () => {
   );
 });
 
+describe("exports and their profile", () => {
+  test(
+    "a profile without a cover has no back for the album's QR code: no link is made",
+    inTenant(async () => {
+      const { user, album } = await gallery();
+      const created = await profileService.createProfile({
+        name: "No cover",
+        spec: { ...own, cover: { mode: "none" } },
+      });
+      const queued = await exportService.createExport(album.id, user.id, {
+        profileId: created.id,
+        captions: true,
+        albumLink: true,
+      });
+      expect(queued.options.album_link).toBe(false);
+      await exportService.exportsIdle();
+      const [done] = await exportService.listExports(album.id);
+      expect(done).toMatchObject({ status: "done", album_link: null });
+    }),
+  );
+
+  test(
+    "an export whose profile copy no longer reads fails instead of using another profile",
+    inTenant(async () => {
+      const { user, album } = await gallery();
+      const { id } = await exportService.createExport(album.id, user.id, {
+        profileId: "print:saal-layflat-275x193",
+        captions: true,
+      });
+      await exportService.exportsIdle();
+      await db
+        .updateTable("album_exports")
+        .set({ status: "queued", profile: JSON.stringify({ id: "x", spec: { broken: true } }) })
+        .where("id", "=", id)
+        .execute();
+      await exportService.resumeExports();
+      await exportService.exportsIdle();
+      const [failed] = await exportService.listExports(album.id);
+      expect(failed).toMatchObject({ id, status: "failed", error_code: "export_failed" });
+    }),
+  );
+});
+
 describe("Saal Digital: spreads and a separate cover", () => {
   test(
     "one PDF page per spread, bleed only outside, and the cover as a second file",

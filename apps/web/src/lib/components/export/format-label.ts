@@ -44,15 +44,19 @@ export function profileLabel(profile: Pick<ExportProfileSnapshot, "id" | "builti
     : profile.id;
 }
 
-const num = (mm: number) =>
+/** A size in mm, as this language writes numbers (one decimal at most). */
+export const formatMm = (mm: number) =>
   new Intl.NumberFormat(getLocale(), { maximumFractionDigits: 1 }).format(mm);
 
 /** What a profile makes, in a line: "275 × 193 mm · 3 mm bleed · spreads · 26–160 pages · separate cover". */
 export function profileSummary(spec: ExportProfileSpec): string {
   const parts = [
-    m.export_profile_size({ width: num(spec.pageWidthMm), height: num(spec.pageHeightMm) }),
+    m.export_profile_size({
+      width: formatMm(spec.pageWidthMm),
+      height: formatMm(spec.pageHeightMm),
+    }),
   ];
-  if (spec.bleedMm > 0) parts.push(m.export_profile_bleed({ bleed: num(spec.bleedMm) }));
+  if (spec.bleedMm > 0) parts.push(m.export_profile_bleed({ bleed: formatMm(spec.bleedMm) }));
   if (spec.layout === "spread") parts.push(m.export_profile_spreads());
   const { min, max } = spec.pages;
   if (min !== null && max !== null) parts.push(m.export_profile_pages_range({ min, max }));

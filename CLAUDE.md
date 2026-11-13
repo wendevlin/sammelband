@@ -115,10 +115,18 @@ where `.env`, the dev SQLite file, `uploads/` and `dist/` live.
   the page breaks for the whole book (few large photos, no blank pages). Text is broken
   with its own line breaker (`text.ts`). `render.ts` draws it with pdfkit and embeds Noto Sans and Playfair Display from the
   `@expo-google-fonts` packages. Finished files live under `exports/` and count toward the
-  quota. Page formats and purposes are data (`PAGE_FORMATS`, `PURPOSES` in shared: home
-  print with margins, print shop edge to edge with bleed and TrimBox, screen), ready for a
-  print service later. Progress reaches the web app as `album-exports:<id>`
-  events carrying the full row.
+  quota. What a PDF must be like is a print profile (`ExportProfileSpec` in shared
+  `export.ts`): page size, bleed, dpi, single pages or spreads (bleed only outside, none at
+  the fold), page rules (min/max/step; the page-break DP spreads photos to reach `min`
+  before adding blank pages), gutter, logo, and the cover (first/last page, a separate
+  cover PDF with spine, or none). Built-in profiles (`BUILTIN_PROFILES`: the page formats
+  per purpose, plus print services) must keep laying out exactly as before (golden test in
+  `test/export-layout.test.ts`); admins switch them off per tenant
+  (`tenants.disabled_export_profiles`) and add their own (`export_profiles`,
+  `services/export-profile.service.ts`). An export keeps a copy of its profile
+  (`album_exports.profile`), a separate cover is a second file (`cover_filename`), and
+  `warnings` tell about blank pages and strong crops. Progress reaches the web app as
+  `album-exports:<id>` events carrying the full row; profile changes as `export-profiles`.
 - Photo edits (turn, crop): the browser draws the result from the original
   (`#lib/photo-edit.ts`, `editor/photo-edit-dialog.svelte`) and uploads it
   (`POST /api/photos/:id/edit`); it is stored like an upload and becomes the photo's

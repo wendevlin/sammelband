@@ -11,7 +11,7 @@ import { Button } from "#lib/components/ui/button/index.ts";
 import * as Dialog from "#lib/components/ui/dialog/index.ts";
 import { Label } from "#lib/components/ui/label/index.ts";
 import { Switch } from "#lib/components/ui/switch/index.ts";
-import { ExportProfiles } from "#lib/export-profiles.svelte.ts";
+import type { ExportProfiles } from "#lib/export-profiles.svelte.ts";
 import { errorCodeText } from "#lib/i18n.ts";
 import { m } from "#lib/paraglide/messages.js";
 import { cn } from "#lib/utils.ts";
@@ -29,11 +29,14 @@ let {
   open = $bindable(false),
   albumId,
   exports,
+  profiles,
   onshowall,
 }: {
   open?: boolean;
   albumId: string;
   exports: AlbumExports;
+  /** The print profiles that can be used (kept current by the album page). */
+  profiles: ExportProfiles;
   onshowall: () => void;
 } = $props();
 
@@ -44,7 +47,6 @@ const PURPOSE_CHOICES = [
   { id: "screen", icon: Monitor, hint: m.export_purpose_screen_hint },
 ] as const;
 
-const profiles = new ExportProfiles(() => open);
 const LAST_PROFILE = "sammelband:export-profile";
 let purpose = $state<ExportPurpose>("print");
 let profileId = $state<string | null>(null);

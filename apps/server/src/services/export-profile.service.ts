@@ -7,7 +7,7 @@ import {
   type ExportPurpose,
 } from "@sammelband/shared";
 import { z } from "zod";
-import { db } from "../db/client";
+import { db, dbType } from "../db/client";
 import type { ExportProfileRow } from "../db/schema";
 import { fail } from "../lib/errors";
 import { emit, topics } from "../lib/events";
@@ -44,14 +44,35 @@ async function disabledBuiltins(): Promise<Set<string>> {
   }
 }
 
-async function saveDisabledBuiltins(ids: Set<string>): Promise<void> {
-  // Only ids that exist, so the list doesn't keep what was removed from the code.
-  const known = [...ids].filter((id) => builtinProfile(id)).sort();
-  await db
-    .updateTable("tenants")
-    .set({ disabled_export_profiles: JSON.stringify(known) })
-    .where("id", "=", currentTenantId())
-    .execute();
+/**
+ * Change the list of built-in profiles switched off, in one transaction: on
+ * Postgres the row is locked, so two admins switching at once both count
+ * (SQLite has one connection anyway).
+ */
+async function changeDisabledBuiltins(change: (ids: Set<string>) => void): Promise<void> {
+  const tenantId = currentTenantId();
+  await db.transaction().execute(async (trx) => {
+    const tenant = await trx
+      .selectFrom("tenants")
+      .select("disabled_export_profiles")
+      .where("id", "=", tenantId)
+      .$if(dbType === "postgres", (q) => q.forUpdate())
+      .executeTakeFirst();
+    let ids: Set<string>;
+    try {
+      ids = new Set(idList.parse(JSON.parse(tenant?.disabled_export_profiles ?? "[]")));
+    } catch {
+      ids = new Set();
+    }
+    change(ids);
+    // Only ids that exist, so the list doesn't keep what was removed from the code.
+    const known = [...ids].filter((id) => builtinProfile(id)).sort();
+    await trx
+      .updateTable("tenants")
+      .set({ disabled_export_profiles: JSON.stringify(known) })
+      .where("id", "=", tenantId)
+      .execute();
+  });
 }
 
 /** A stored spec, or null if it no longer passes the checks (it is then unusable). */
@@ -179,10 +200,10 @@ export async function deleteProfile(id: string): Promise<void> {
 /** Switch one profile on or off. */
 export async function setEnabled(id: string, enabled: boolean): Promise<void> {
   if (builtinProfile(id)) {
-    const disabled = await disabledBuiltins();
-    if (enabled) disabled.delete(id);
-    else disabled.add(id);
-    await saveDisabledBuiltins(disabled);
+    await changeDisabledBuiltins((ids) => {
+      if (enabled) ids.delete(id);
+      else ids.add(id);
+    });
   } else {
     await ownRow(id);
     await tdb()
@@ -196,13 +217,13 @@ export async function setEnabled(id: string, enabled: boolean): Promise<void> {
 
 /** Switch every profile of a purpose (print shop, home, screen) on or off. */
 export async function setPurposeEnabled(purpose: ExportPurpose, enabled: boolean): Promise<void> {
-  const disabled = await disabledBuiltins();
-  for (const p of BUILTIN_PROFILES) {
-    if (p.spec.purpose !== purpose) continue;
-    if (enabled) disabled.delete(p.id);
-    else disabled.add(p.id);
-  }
-  await saveDisabledBuiltins(disabled);
+  await changeDisabledBuiltins((ids) => {
+    for (const p of BUILTIN_PROFILES) {
+      if (p.spec.purpose !== purpose) continue;
+      if (enabled) ids.delete(p.id);
+      else ids.add(p.id);
+    }
+  });
   const own = (await ownRows()).filter((row) => parseSpec(row.spec)?.purpose === purpose);
   if (own.length > 0) {
     await tdb()

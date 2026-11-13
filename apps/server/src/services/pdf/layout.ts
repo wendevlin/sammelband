@@ -590,12 +590,22 @@ export function layoutAlbum(input: LayoutInput, measure: Measure): Layout {
   (best[0] as Step[])[0] = { cost: 0, from: -1, state: -1 };
   for (let to = 1; to <= n; to++) {
     for (let from = Math.max(0, to - MAX_TILES); from < to; from++) {
+      // The page's cost depends on the state only through its side.
+      const costs = new Map<Side | null, number>();
+      const costOn = (side: Side | null) => {
+        let c = costs.get(side);
+        if (c === undefined) {
+          c = pageCost(from, to, side);
+          costs.set(side, c);
+        }
+        return c;
+      };
       for (let state = 0; state < states; state++) {
         const prev = best[from]?.[state];
         if (!prev || !Number.isFinite(prev.cost)) continue;
         const next = best[to]?.[nextState(state)];
         if (!next) continue;
-        const c = pageCost(from, to, pageSide(before + state + 1));
+        const c = costOn(pageSide(before + state + 1));
         if (!Number.isFinite(c)) continue;
         if (prev.cost + c < next.cost) {
           (best[to] as Step[])[nextState(state)] = { cost: prev.cost + c, from, state };
@@ -620,6 +630,8 @@ export function layoutAlbum(input: LayoutInput, measure: Measure): Layout {
   let end = -1;
   for (let state = 0; state < states; state++) {
     if (!Number.isFinite(ends[state]?.cost ?? Number.POSITIVE_INFINITY)) continue;
+    // Blank pages must not take the book past the maximum.
+    if (max !== null && fixed + state + blanksFor(state).all > max) continue;
     if (
       end < 0 ||
       blanksFor(state).forStep < blanksFor(end).forStep ||

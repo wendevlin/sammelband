@@ -110,17 +110,24 @@ const warningsSchema = z.array(
  */
 function profileOf(row: AlbumExportRow, options: ExportOptions): ExportProfileSnapshot {
   if (row.profile) {
-    try {
-      return snapshotSchema.parse(JSON.parse(row.profile));
-    } catch {
-      // Fall through to the built-in profile.
-    }
+    const snapshot = storedProfile(row);
+    if (snapshot) return snapshot;
+    // Unreadable: shown as the built-in profile of its format; it isn't made with it (runExport).
   }
   const format = (EXPORT_FORMATS as readonly string[]).includes(row.format)
     ? (row.format as ExportFormat)
     : "a4";
   const id = builtinProfileId(options.purpose, format);
   return { id, builtin: true, name: null, spec: must(builtinProfile(id), "Profile").spec };
+}
+
+/** The profile copy an export keeps, or null if it is missing or no longer readable. */
+function storedProfile(row: AlbumExportRow): ExportProfileSnapshot | null {
+  try {
+    return row.profile ? snapshotSchema.parse(JSON.parse(row.profile)) : null;
+  } catch {
+    return null;
+  }
 }
 
 function warningsOf(row: AlbumExportRow): ExportWarning[] {
@@ -248,7 +255,8 @@ export async function createExport(
     options: JSON.stringify({
       purpose: profile.spec.purpose,
       captions: input.captions,
-      album_link: input.albumLink ?? false,
+      // The QR code to the album goes on the back: a profile without a cover has none.
+      album_link: (input.albumLink ?? false) && profile.spec.cover.mode !== "none",
     }),
     status: "queued",
     progress: 0,
@@ -380,6 +388,8 @@ async function runExport(id: string): Promise<void> {
     if (coverPartial) rmSync(coverPartial, { force: true });
   };
   try {
+    // A copy of a profile that no longer reads is not silently replaced by another one.
+    if (row.profile && !storedProfile(row)) throw fail("export_failed");
     await update(id, { status: "running", progress: 0, error_code: null });
     const album = await requireAlbum(row.album_id);
     const sections = await sectionService.listSections(row.album_id);

@@ -482,6 +482,16 @@ describe("print profiles", () => {
     expect(() => layoutAlbum(album(many(60), { profile }), measure)).toThrow("at most 4");
   });
 
+  test("blank pages never take the book past the maximum", () => {
+    // An odd maximum with step 2: the book must end at an even count below it.
+    const profile = { ...SAAL_LAYFLAT_275, pages: { min: null, max: 9, step: 2 } };
+    for (const count of [6, 8, 10, 12]) {
+      const layout = layoutAlbum(album(many(count), { profile }), measure);
+      expect(layout.pages.length).toBeLessThanOrEqual(9);
+      expect(layout.pages.length % 2).toBe(0);
+    }
+  });
+
   test("the page count keeps to the step, with the front and back counted", () => {
     const profile: ExportProfileSpec = {
       ...formatProfileSpec("a5-landscape", "print"),

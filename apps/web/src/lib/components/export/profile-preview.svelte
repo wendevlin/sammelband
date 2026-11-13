@@ -1,6 +1,7 @@
 <script lang="ts">
 import { type ExportProfileSpec, spineWidthMm } from "@sammelband/shared";
 import { m } from "#lib/paraglide/messages.js";
+import { formatMm } from "./format-label";
 
 /**
  * A profile to scale: one PDF page (a page or a spread) with its bleed, and a
@@ -75,7 +76,7 @@ const sheets = $derived(
       </svg>
       <figcaption class="text-xs text-muted-foreground">
         {s.label}
-        · {Math.round(s.box.w * 10) / 10} × {Math.round(s.box.h * 10) / 10} mm
+        · {m.export_profile_size({ width: formatMm(s.box.w), height: formatMm(s.box.h) })}
       </figcaption>
     </figure>
   {/each}

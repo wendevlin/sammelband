@@ -426,8 +426,10 @@ const spines = [
       placeholder={optionalField ? "–" : undefined}
       required={!optionalField}
       oninput={(e) => {
-        const raw = (e.currentTarget as HTMLInputElement).value;
-        set(raw === "" ? null : Number(raw));
+        const input = e.currentTarget as HTMLInputElement;
+        // Half typed ("1.", "-"): the browser reports "", keep what is there.
+        if (input.value === "" && input.validity.badInput) return;
+        set(input.value === "" ? null : Number(input.value));
       }}
     />
   </div>
