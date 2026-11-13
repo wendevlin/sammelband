@@ -41,6 +41,54 @@ const videoFiles = () => {
   }
 };
 
+/** Whether this ffmpeg can make HDR test videos (libx265) and tone-map them (zscale). */
+const canTestHdr = (() => {
+  const out = (args: string[]) =>
+    Bun.spawnSync(["ffmpeg", "-hide_banner", ...args]).stdout.toString();
+  return /\bzscale\b/.test(out(["-filters"])) && /\blibx265\b/.test(out(["-encoders"]));
+})();
+
+/** Colour space, primaries and transfer of a file's video stream, as ffprobe reads them. */
+async function colourTags(path: string): Promise<string[]> {
+  const proc = Bun.spawn([
+    "ffprobe",
+    "-v",
+    "error",
+    "-select_streams",
+    "v:0",
+    "-show_entries",
+    "stream=color_space,color_primaries,color_transfer",
+    "-of",
+    "json",
+    path,
+  ]);
+  const stream = JSON.parse(await new Response(proc.stdout).text()).streams[0];
+  return [stream.color_space, stream.color_primaries, stream.color_transfer];
+}
+
+/** Average brightness (0–255, full range) of the frame at `seconds` of a video or image. */
+async function meanLuma(path: string, seconds: number): Promise<number> {
+  const proc = Bun.spawn([
+    "ffmpeg",
+    "-v",
+    "error",
+    "-ss",
+    String(seconds),
+    "-i",
+    path,
+    "-frames:v",
+    "1",
+    "-vf",
+    "scale=64:-2:out_range=pc,format=gray",
+    "-f",
+    "rawvideo",
+    "pipe:1",
+  ]);
+  const pixels = new Uint8Array(await new Response(proc.stdout).arrayBuffer());
+  expect(pixels.length).toBeGreaterThan(0);
+  return pixels.reduce((sum, v) => sum + v, 0) / pixels.length;
+}
+
 describe("videos", () => {
   test(
     "an upload shows its poster at once and plays once converted",
@@ -101,6 +149,27 @@ describe("videos", () => {
         height: 1080,
         pixelFormat: "yuv420p",
       });
+    }),
+  );
+
+  test.skipIf(!canTestHdr)(
+    "HDR at 60 fps becomes BT.709 at 30 fps, as bright as its poster",
+    inTenant(async () => {
+      const { user, section } = await album();
+      const bytes = await testVideo({ width: 640, height: 360, fps: 60, hdr: true, seconds: 1 });
+      const { imageFile } = await videoService.uploadVideo(streamOf(bytes), section.id, user.id);
+      await videoService.videosIdle();
+      const row = await fileRow(imageFile.id);
+      const path = videoPath(row.video_filename ?? "");
+      const info = await probe(path);
+      expect(info).toMatchObject({ codec: "h264", hdr: false, pixelFormat: "yuv420p" });
+      expect(Math.round(info?.fps ?? 0)).toBe(30);
+      expect(await colourTags(path)).toEqual(["bt709", "bt709", "bt709"]);
+      // The poster is tone-mapped on its own path (at 0.5 s of a 1 s video);
+      // a wrong colour conversion in the video shows as a big difference.
+      const video = await meanLuma(path, 0.5);
+      const poster = await meanLuma(originalPath(row.filename), 0);
+      expect(Math.abs(video - poster)).toBeLessThan(8);
     }),
   );
 

@@ -200,7 +200,11 @@ function canToneMap(): Promise<boolean> {
   return zscale;
 }
 
-/** Filters that turn HDR into ordinary (SDR) colours, or none. */
+/**
+ * Filters that turn HDR into ordinary (SDR) colours, or none. They end in RGB:
+ * left to choose its output, zscale's own conversion to YUV comes out far too
+ * dark, so the scale filter after it converts (see `convert`).
+ */
 async function toneMap(info: VideoInfo): Promise<string[]> {
   if (!info.hdr || !(await canToneMap())) return [];
   return [
@@ -208,7 +212,9 @@ async function toneMap(info: VideoInfo): Promise<string[]> {
     "format=gbrpf32le",
     "zscale=p=bt709",
     "tonemap=tonemap=hable:desat=0",
+    // m and r tag the frames: the poster's conversion to JPEG reads them.
     "zscale=t=bt709:m=bt709:r=tv",
+    "format=gbrpf32le",
   ];
 }
 
@@ -261,7 +267,22 @@ export async function convert(
     );
     return;
   }
-  const filters = [...(await toneMap(info)), fit(MAX_SIDE), "setsar=1", "format=yuv420p"];
+  // Cheap steps first: dropping frames and shrinking before tone mapping means
+  // the costly float maths runs on a quarter of the pixels of a 4K video and
+  // half the frames of a 60 fps one (about 3x faster for a phone's 4K HDR).
+  const tone = await toneMap(info);
+  const filters = [
+    ...(info.fps > MAX_FPS + 1 ? [`fps=${MAX_FPS}`] : []),
+    fit(MAX_SIDE),
+    ...tone,
+    // Tone mapping ends in RGB: to YUV as BT.709, and say so in the file.
+    ...(tone.length ? ["scale=out_color_matrix=bt709:out_range=tv"] : []),
+    "setsar=1",
+    "format=yuv420p",
+  ];
+  const colours = tone.length
+    ? ["-colorspace", "bt709", "-color_primaries", "bt709", "-color_trc", "bt709"]
+    : [];
   await run(
     "ffmpeg",
     [
@@ -272,6 +293,7 @@ export async function convert(
       source,
       "-vf",
       filters.join(","),
+      // Still needed next to the fps filter: for 30–31 fps and variable rates.
       "-fpsmax",
       String(MAX_FPS),
       "-c:v",
@@ -282,6 +304,7 @@ export async function convert(
       String(CRF),
       "-profile:v",
       "high",
+      ...colours,
       "-c:a",
       "aac",
       "-b:a",
