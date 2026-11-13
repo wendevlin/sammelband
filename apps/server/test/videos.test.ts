@@ -1,5 +1,7 @@
 import { describe, expect, test } from "bun:test";
-import { existsSync, readdirSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { dirname, join } from "node:path";
 import { db } from "../src/db/client";
 import { parseRange } from "../src/lib/range";
 import {
@@ -157,6 +159,10 @@ describe("videos", () => {
     inTenant(async () => {
       const { user, section } = await album();
       const bytes = await testVideo({ width: 640, height: 360, fps: 60, hdr: true, seconds: 1 });
+      const source = join(mkdtempSync(join(tmpdir(), "sammelband-hdr-")), "source.mp4");
+      await Bun.write(source, bytes);
+      expect(await probe(source)).toMatchObject({ codec: "hevc", hdr: true, fps: 60 });
+      rmSync(dirname(source), { recursive: true, force: true });
       const { imageFile } = await videoService.uploadVideo(streamOf(bytes), section.id, user.id);
       await videoService.videosIdle();
       const row = await fileRow(imageFile.id);

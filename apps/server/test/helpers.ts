@@ -154,8 +154,10 @@ export function testVideo({
             ? [
                 "-c:v",
                 "libx265",
+                // In the bitstream too: some ffmpeg builds don't pass the
+                // options below on to x265, and the file then isn't HDR.
                 "-x265-params",
-                "log-level=error",
+                "log-level=error:colorprim=bt2020:transfer=smpte2084:colormatrix=bt2020nc",
                 "-pix_fmt",
                 "yuv420p10le",
                 "-color_primaries",
