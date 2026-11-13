@@ -107,7 +107,8 @@ const videos = new Map<string, Promise<Uint8Array>>();
 /**
  * A short test video made with ffmpeg (cached per set of options): a moving
  * test pattern of `seconds` with a tone, H.264 unless `codec` says otherwise.
- * `hue` makes different content, hence a different hash.
+ * `hue` makes different content, hence a different hash. `hdr` films it as a
+ * phone does, in place of `codec`: 10-bit HEVC tagged as HDR (PQ, BT.2020).
  */
 export function testVideo({
   seconds = 2,
@@ -116,6 +117,8 @@ export function testVideo({
   hue = 0,
   codec = "libx264",
   bitrate = "",
+  fps = 25,
+  hdr = false,
 }: {
   seconds?: number;
   width?: number;
@@ -123,8 +126,10 @@ export function testVideo({
   hue?: number;
   codec?: string;
   bitrate?: string;
+  fps?: number;
+  hdr?: boolean;
 } = {}): Promise<Uint8Array> {
-  const key = JSON.stringify([seconds, width, height, hue, codec, bitrate]);
+  const key = JSON.stringify([seconds, width, height, hue, codec, bitrate, fps, hdr]);
   let made = videos.get(key);
   if (!made) {
     made = (async () => {
@@ -138,18 +143,32 @@ export function testVideo({
           "-f",
           "lavfi",
           "-i",
-          `testsrc2=size=${width}x${height}:rate=25,hue=h=${hue}`,
+          `testsrc2=size=${width}x${height}:rate=${fps},hue=h=${hue}`,
           "-f",
           "lavfi",
           "-i",
           "sine=frequency=440",
           "-t",
           String(seconds),
-          "-c:v",
-          codec,
+          ...(hdr
+            ? [
+                "-c:v",
+                "libx265",
+                // In the bitstream too: some ffmpeg builds don't pass the
+                // options below on to x265, and the file then isn't HDR.
+                "-x265-params",
+                "log-level=error:colorprim=bt2020:transfer=smpte2084:colormatrix=bt2020nc",
+                "-pix_fmt",
+                "yuv420p10le",
+                "-color_primaries",
+                "bt2020",
+                "-color_trc",
+                "smpte2084",
+                "-colorspace",
+                "bt2020nc",
+              ]
+            : ["-c:v", codec, "-pix_fmt", "yuv420p"]),
           ...(bitrate ? ["-b:v", bitrate] : []),
-          "-pix_fmt",
-          "yuv420p",
           "-c:a",
           "aac",
           out,
