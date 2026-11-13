@@ -148,6 +148,7 @@ async function insertTenant(
     timezone: zone,
     two_factor_required: 0,
     pdf_export_enabled: 0,
+    disabled_export_profiles: "[]",
   };
   await db.insertInto("tenants").values(tenant).execute();
   return tenant;
@@ -272,6 +273,7 @@ export async function deleteTenant(
     const users = (eb: typeof trx) => eb.selectFrom("user").select("id").where("tenantId", "=", id);
     await trx.deleteFrom("share_links").where("tenant_id", "=", id).execute();
     await trx.deleteFrom("album_exports").where("tenant_id", "=", id).execute();
+    await trx.deleteFrom("export_profiles").where("tenant_id", "=", id).execute();
     await trx.deleteFrom("source_accounts").where("tenant_id", "=", id).execute();
     await trx.deleteFrom("source_settings").where("tenant_id", "=", id).execute();
     await trx.deleteFrom("album_positions").where("tenant_id", "=", id).execute();

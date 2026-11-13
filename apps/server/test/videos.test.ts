@@ -470,8 +470,7 @@ describe("videos in PDFs and public links", () => {
     const { as, user, trip, clip } = await setup();
     const exp = await as(async () => {
       const queued = await exportService.createExport(trip.id, user.id, {
-        format: "a4",
-        purpose: "screen",
+        profileId: "screen:a4",
         captions: true,
       });
       await exportService.exportsIdle();
@@ -511,8 +510,7 @@ describe("videos in PDFs and public links", () => {
     const { as, user, trip, still, clip, other } = await setup();
     const token = await as(async () => {
       const queued = await exportService.createExport(trip.id, user.id, {
-        format: "a5",
-        purpose: "home",
+        profileId: "home:a5",
         captions: false,
       });
       await exportService.exportsIdle();
@@ -572,8 +570,7 @@ describe("videos in PDFs and public links", () => {
     const make = () =>
       as(async () => {
         const queued = await exportService.createExport(trip.id, user.id, {
-          format: "a4",
-          purpose: "home",
+          profileId: "home:a4",
           captions: true,
         });
         await exportService.exportsIdle();
@@ -603,8 +600,7 @@ describe("videos in PDFs and public links", () => {
       const { user, album: plain, section } = await album();
       await imageService.uploadPhoto(png(), section.id, user.id);
       await exportService.createExport(plain.id, user.id, {
-        format: "a4",
-        purpose: "home",
+        profileId: "home:a4",
         captions: true,
       });
       await exportService.exportsIdle();

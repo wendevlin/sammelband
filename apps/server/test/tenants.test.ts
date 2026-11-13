@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { existsSync } from "node:fs";
+import { formatProfileSpec } from "@sammelband/shared";
 import { sql } from "kysely";
 import { auth } from "../src/auth";
 import { db } from "../src/db/client";
@@ -8,6 +9,7 @@ import { tenantDir } from "../src/lib/storage-paths";
 import { runInTenant, tdb } from "../src/lib/tenant-context";
 import * as albumService from "../src/services/album.service";
 import * as exportService from "../src/services/export.service";
+import * as exportProfileService from "../src/services/export-profile.service";
 import * as folderService from "../src/services/folder.service";
 import * as imageService from "../src/services/image.service";
 import * as inviteService from "../src/services/invite.service";
@@ -254,11 +256,14 @@ describe("superadmin", () => {
       await shareService.createShare({ folderId: folder.id }, { password: "open sesame" }, user.id);
       await tenantService.updateCurrentTenant({ pdfExportEnabled: true });
       await exportService.createExport(album.id, user.id, {
-        format: "a5",
-        purpose: "screen",
+        profileId: "screen:a5",
         captions: false,
       });
       await exportService.exportsIdle();
+      await exportProfileService.createProfile({
+        name: "Own",
+        spec: formatProfileSpec("a5", "home"),
+      });
       await inviteService.createTenantInvite("user");
       // A photo source and an account (without contacting a server).
       await tdb()

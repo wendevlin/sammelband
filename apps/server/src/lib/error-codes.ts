@@ -125,6 +125,20 @@ export const ERRORS = {
   export_not_ready: { status: 409, message: "This PDF isn't ready yet" },
   album_empty: { status: 400, message: "This album has nothing to export yet" },
   export_failed: { status: 500, message: "The PDF couldn't be created" },
+  export_too_many_pages: {
+    status: 422,
+    message: (p: { max: number }) =>
+      `The album needs more pages than this print profile allows (at most ${p.max})`,
+  },
+  export_profile_not_found: { status: 404, message: "This print profile doesn't exist" },
+  export_profile_disabled: {
+    status: 403,
+    message: "This print profile is switched off in this Sammelband",
+  },
+  export_profile_builtin: {
+    status: 409,
+    message: "Built-in print profiles can't be changed; duplicate one instead",
+  },
 
   // Photo sources (Nextcloud)
   source_not_found: { status: 404, message: "Unknown photo source" },

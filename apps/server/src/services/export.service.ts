@@ -1,20 +1,24 @@
 import { mkdirSync, renameSync, rmSync, statSync } from "node:fs";
 import {
   type AlbumExport,
+  builtinProfile,
+  builtinProfileId,
+  EXPORT_FORMATS,
   type ExportFormat,
   type ExportOptions,
-  type ExportPurpose,
-  PAGE_FORMATS,
-  PURPOSES,
+  type ExportProfileSnapshot,
+  type ExportWarning,
 } from "@sammelband/shared";
 import { z } from "zod";
 import { db } from "../db/client";
 import type { AlbumExportRow } from "../db/schema";
 import { AppError, fail, must } from "../lib/errors";
 import { emit, topics } from "../lib/events";
+import { exportProfileSpecSchema } from "../lib/export-profile-schema";
 import { createJobQueue } from "../lib/job-queue";
 import { exportPath, exportsDir, originalPath } from "../lib/storage-paths";
 import { currentTenantId, runInTenant, tdb } from "../lib/tenant-context";
+import { exportEnabled, usableProfile } from "./export-profile.service";
 import * as imageService from "./image.service";
 import type { LayoutPhoto } from "./pdf/layout";
 import { renderAlbumPdf } from "./pdf/render";
@@ -33,6 +37,10 @@ import { releaseStorage, reserveStorage } from "./tenant.service";
 // one per PDF, showing only the album's videos), so a printed book can play them.
 // With the album link option, the back gets a QR code to the whole album: a
 // second link of the PDF's own, that behaves the same way.
+//
+// An export is made with a print profile (export-profile.service.ts) and keeps
+// a copy of it. Profiles with a separate cover give a second file
+// (`cover_filename`); both count against the quota and go together.
 
 // `options` JSON. Exports made before the purposes had a `quality` instead:
 // "print" meant a PDF with margins (now "home"), "screen" the same as now.
@@ -82,6 +90,47 @@ async function present(row: AlbumExportRow): Promise<AlbumExport> {
 const linkInfo = (link?: LinkRow) =>
   link ? { id: link.id, url: shareService.shareUrl(link.token) } : null;
 
+const snapshotSchema = z.object({
+  id: z.string(),
+  builtin: z.boolean(),
+  name: z.string().nullable(),
+  spec: exportProfileSpecSchema,
+});
+
+const warningsSchema = z.array(
+  z.object({
+    code: z.enum(["blank_pages", "photos_cropped"]),
+    params: z.object({ count: z.number() }),
+  }),
+);
+
+/**
+ * The profile an export was made with: its copy, or for exports from before
+ * profiles the built-in one of its format and purpose.
+ */
+function profileOf(row: AlbumExportRow, options: ExportOptions): ExportProfileSnapshot {
+  if (row.profile) {
+    try {
+      return snapshotSchema.parse(JSON.parse(row.profile));
+    } catch {
+      // Fall through to the built-in profile.
+    }
+  }
+  const format = (EXPORT_FORMATS as readonly string[]).includes(row.format)
+    ? (row.format as ExportFormat)
+    : "a4";
+  const id = builtinProfileId(options.purpose, format);
+  return { id, builtin: true, name: null, spec: must(builtinProfile(id), "Profile").spec };
+}
+
+function warningsOf(row: AlbumExportRow): ExportWarning[] {
+  try {
+    return row.warnings ? warningsSchema.parse(JSON.parse(row.warnings)) : [];
+  } catch {
+    return [];
+  }
+}
+
 function toExport(row: AlbumExportRow, links: ExportLinks = {}): AlbumExport {
   let options: ExportOptions;
   try {
@@ -93,13 +142,15 @@ function toExport(row: AlbumExportRow, links: ExportLinks = {}): AlbumExport {
     id: row.id,
     album_id: row.album_id,
     name: row.name,
-    format: row.format as ExportFormat,
+    profile: profileOf(row, options),
     options,
     status: row.status as AlbumExport["status"],
     progress: row.progress,
     error_code: row.error_code,
     page_count: row.page_count,
     file_size: row.file_size === null ? null : Number(row.file_size),
+    has_cover_file: row.cover_filename !== null,
+    warnings: warningsOf(row),
     created_by: row.created_by,
     created_at: Number(row.created_at),
     finished_at: row.finished_at === null ? null : Number(row.finished_at),
@@ -163,22 +214,20 @@ export async function listExports(albumId: string): Promise<AlbumExport[]> {
   return rows.map((r) => toExport(r, links.get(r.id)));
 }
 
-async function exportEnabled(): Promise<boolean> {
-  const tenant = await db
-    .selectFrom("tenants")
-    .select("pdf_export_enabled")
-    .where("id", "=", currentTenantId())
-    .executeTakeFirst();
-  return Boolean(tenant?.pdf_export_enabled);
+/** The page format of a built-in profile of one ("custom" for every other). */
+function formatOf(profile: ExportProfileSnapshot): string {
+  const format = profile.builtin ? profile.id.split(":")[1] : undefined;
+  return format && (EXPORT_FORMATS as readonly string[]).includes(format) ? format : "custom";
 }
 
 /** Queue an export of an album; returns at once, the PDF follows in the background. */
 export async function createExport(
   albumId: string,
   userId: string,
-  input: { format: ExportFormat; purpose: ExportPurpose; captions: boolean; albumLink?: boolean },
+  input: { profileId: string; captions: boolean; albumLink?: boolean },
 ): Promise<AlbumExport> {
   if (!(await exportEnabled())) throw fail("export_disabled");
+  const profile = await usableProfile(input.profileId);
   const album = await requireAlbum(albumId);
   const sections = await sectionService.listSections(albumId);
   const photos = await tdb()
@@ -194,9 +243,10 @@ export async function createExport(
     tenant_id: currentTenantId(),
     album_id: albumId,
     name: album.title,
-    format: input.format,
+    // Kept for older versions reading the row: the format of a built-in profile.
+    format: formatOf(profile),
     options: JSON.stringify({
-      purpose: input.purpose,
+      purpose: profile.spec.purpose,
       captions: input.captions,
       album_link: input.albumLink ?? false,
     }),
@@ -210,6 +260,9 @@ export async function createExport(
     created_at: Date.now(),
     finished_at: null,
     album_updated_at: null,
+    profile: JSON.stringify(profile),
+    cover_filename: null,
+    warnings: null,
   };
   await tdb().insertInto("album_exports").values(row).execute();
   await changed(row, "created");
@@ -251,22 +304,32 @@ export async function deleteExportsByAlbum(albumId: string): Promise<void> {
 async function removeFile(row: AlbumExportRow): Promise<void> {
   if (!row.filename) return;
   rmSync(exportPath(row.filename), { force: true });
+  if (row.cover_filename) rmSync(exportPath(row.cover_filename), { force: true });
   if (row.status === "done" && row.file_size) {
     await releaseStorage(Number(row.file_size));
     emit({ topic: topics.storageStats(), kind: "updated" });
   }
 }
 
-/** The finished PDF, as a download named after the export. */
-export async function downloadExport(id: string): Promise<Response> {
+/**
+ * The finished PDF, as a download named after the export; `cover` the
+ * separate cover of profiles that have one.
+ */
+export async function downloadExport(
+  id: string,
+  part: "book" | "cover" = "book",
+): Promise<Response> {
   const row = await requireRow(id);
   if (row.status !== "done" || !row.filename) throw fail("export_not_ready");
-  const file = Bun.file(exportPath(row.filename));
+  const filename = part === "cover" ? row.cover_filename : row.filename;
+  if (!filename) throw fail("export_not_found");
+  const file = Bun.file(exportPath(filename));
   if (!(await file.exists())) throw fail("export_not_found");
+  const name = part === "cover" ? `${row.name} – Cover.pdf` : `${row.name}.pdf`;
   return new Response(file, {
     headers: {
       "Content-Type": "application/pdf",
-      "Content-Disposition": contentDisposition(`${row.name}.pdf`),
+      "Content-Disposition": contentDisposition(name),
       "Cache-Control": "private, no-cache",
     },
   });
@@ -306,12 +369,17 @@ const PROGRESS_INTERVAL = 700;
 async function runExport(id: string): Promise<void> {
   const row = await getRow(id);
   if (!row || row.status === "done") return;
-  const format = PAGE_FORMATS[row.format as ExportFormat];
-  const { options } = toExport(row);
+  const { options, profile } = toExport(row);
   const filename = `${Bun.randomUUIDv7()}.pdf`;
   const partial = exportPath(`${filename}.part`);
+  const separateCover = profile.spec.cover.mode === "separate";
+  const coverFilename = separateCover ? `${Bun.randomUUIDv7()}.pdf` : null;
+  const coverPartial = coverFilename ? exportPath(`${coverFilename}.part`) : undefined;
+  const removePartials = () => {
+    rmSync(partial, { force: true });
+    if (coverPartial) rmSync(coverPartial, { force: true });
+  };
   try {
-    if (!format) throw fail("export_failed");
     await update(id, { status: "running", progress: 0, error_code: null });
     const album = await requireAlbum(row.album_id);
     const sections = await sectionService.listSections(row.album_id);
@@ -353,9 +421,8 @@ async function runExport(id: string): Promise<void> {
           highlight: s.highlight,
           photos: photos.filter((p) => p.section_id === s.id).map(toLayout),
         })),
-        format,
+        profile: profile.spec,
         captions: options.captions,
-        purpose: PURPOSES[options.purpose],
         original: (photoId) => originalPath(must(filenames.get(photoId), "Photo")),
         videos,
         albumUrl,
@@ -367,35 +434,40 @@ async function runExport(id: string): Promise<void> {
         },
       },
       partial,
+      coverPartial,
     );
 
-    const size = statSync(partial).size;
+    const size = statSync(partial).size + (coverPartial ? statSync(coverPartial).size : 0);
     // Deleted while it was being made: nothing to keep, not even its links.
     if (!(await getRow(id))) {
-      rmSync(partial, { force: true });
+      removePartials();
       await shareService.releaseExportLinks(row, false);
       return;
     }
     await reserveStorage(size);
     renameSync(partial, exportPath(filename));
+    if (coverPartial && coverFilename) renameSync(coverPartial, exportPath(coverFilename));
     const done = await update(id, {
       status: "done",
       progress: 100,
       filename,
+      cover_filename: coverFilename,
       file_size: size,
       page_count: result.pages,
+      warnings: JSON.stringify(result.warnings),
       finished_at: Date.now(),
       album_updated_at: Number(album.updated_at),
     });
     if (!done) {
       // Deleted in the last moment.
       rmSync(exportPath(filename), { force: true });
+      if (coverFilename) rmSync(exportPath(coverFilename), { force: true });
       await releaseStorage(size);
       await shareService.releaseExportLinks(row, false);
     }
     emit({ topic: topics.storageStats(), kind: "updated" });
   } catch (err) {
-    rmSync(partial, { force: true });
+    removePartials();
     const code = err instanceof AppError ? err.code : "export_failed";
     if (!(err instanceof AppError)) console.error("[export] failed", { id, err });
     // No PDF, so no QR codes that would need its links.
