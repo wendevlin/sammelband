@@ -11,6 +11,7 @@ const tabs = $derived([
   { href: "/admin/users", label: m.admin_tab_users() },
   { href: "/admin/storage", label: m.admin_tab_storage() },
   { href: "/admin/sources", label: m.admin_tab_sources() },
+  { href: "/admin/pdf", label: m.admin_tab_pdf() },
   ...(auth.isSuperadmin && auth.multiTenant
     ? [{ href: "/admin/instance", label: m.admin_tab_instance() }]
     : []),

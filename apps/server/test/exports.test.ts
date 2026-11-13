@@ -28,7 +28,7 @@ async function gallery({ enabled = true } = {}) {
   return { user, album, section };
 }
 
-const options = { format: "a4", purpose: "print", captions: true } as const;
+const options = { profileId: "print:a4", captions: true } as const;
 
 async function exportRow(id: string) {
   return db.selectFrom("album_exports").selectAll().where("id", "=", id).executeTakeFirstOrThrow();
@@ -69,7 +69,8 @@ describe("PDF export", () => {
       const { user, album } = await gallery();
       const before = await used();
       const queued = await exportService.createExport(album.id, user.id, options);
-      expect(queued).toMatchObject({ status: "queued", name: "Summer", format: "a4" });
+      expect(queued).toMatchObject({ status: "queued", name: "Summer" });
+      expect(queued.profile).toMatchObject({ id: "print:a4", builtin: true });
       expect(queued.options).toEqual({ purpose: "print", captions: true, album_link: false });
       expect(queued.album_link).toBeNull();
       await exportService.exportsIdle();
@@ -139,8 +140,7 @@ describe("PDF export", () => {
     inTenant(async () => {
       const { user, album } = await gallery();
       const { id } = await exportService.createExport(album.id, user.id, {
-        format: "a5-landscape",
-        purpose: "screen",
+        profileId: "screen:a5-landscape",
         captions: true,
       });
       await exportService.exportsIdle();

@@ -96,6 +96,8 @@ export type Tenant = {
   two_factor_required: number;
   /** 0/1: users may export albums as PDF. */
   pdf_export_enabled: number;
+  /** JSON list of the built-in print profiles switched off here. */
+  disabled_export_profiles: string;
 };
 
 /** A PDF of an album; `options` is JSON (ExportOptions), the file lives under exports/. */
@@ -117,6 +119,23 @@ export type AlbumExportRow = {
   finished_at: number | null;
   /** The album's `updated_at` the PDF was rendered from. */
   album_updated_at: number | null;
+  /** JSON ExportProfileSnapshot it was made with; null before print profiles. */
+  profile: string | null;
+  /** The separate cover's file, next to `filename`. */
+  cover_filename: string | null;
+  /** JSON list of ExportWarning. */
+  warnings: string | null;
+};
+
+/** A print profile of a Sammelband's own; `spec` is JSON (ExportProfileSpec). */
+export type ExportProfileRow = {
+  id: string;
+  tenant_id: string;
+  name: string;
+  spec: string;
+  enabled: number;
+  created_at: number;
+  updated_at: number;
 };
 
 /** A photo source switched on for a Sammelband; `config` is JSON (per source). */
@@ -258,6 +277,7 @@ export type Database = {
   albums: Album;
   sections: Section;
   album_exports: AlbumExportRow;
+  export_profiles: ExportProfileRow;
   image_files: ImageFile;
   photos: Photo;
   folder_sort: FolderSort;

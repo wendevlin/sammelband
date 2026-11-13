@@ -77,4 +77,5 @@ export const topics = {
   photoPool: (albumId: string) => `photo-pool:${albumId}`,
   storageStats: () => "storage-stats",
   albumExports: (albumId: string) => `album-exports:${albumId}`,
+  exportProfiles: () => "export-profiles",
 } as const;

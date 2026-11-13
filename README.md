@@ -242,20 +242,35 @@ Nextcloud's large JPEG preview.
 
 ## PDF export
 
-An admin can switch on PDF export under Admin settings → General. After that,
+An admin can switch on PDF export under Admin settings → PDF export. After that,
 the "…" menu on an album page offers "Export as PDF". Choose what the PDF is for,
-a page format (A4, A5, each upright or landscape, square 21 cm, US Letter), and
-whether to show captions:
+a print profile (a page format: A4, A5, each upright or landscape, square 21 cm,
+US Letter; or a print service's book), and whether to show captions:
 
 - **Print shop or photo book service**: photos run to the edge of the page, with
   3 mm bleed on every side for trimming (the PDF marks the trim with TrimBox and
-  BleedBox), 300 dpi.
+  BleedBox), 300 dpi. "A4 landscape" is what e.g. viaprinto takes; "Saal Digital
+  layflat 27.5 × 19.3 cm" makes one PDF page per spread (bleed only on the outside,
+  none at the fold), 26 to 160 pages, and the cover as a second PDF (back, spine,
+  front). Check its bleed, cover size and spine against Saal's current template:
+  admins can duplicate the profile and adjust it.
 - **Print at home**: with margins, since home printers can't print to the edge,
   300 dpi. Print at actual size, not "fit to page".
 - **Screen and sharing**: photos to the edge, 150 dpi, no blank pages.
 
 Text always keeps its margins, is at least 9.5 pt and at most about 68
 characters per line.
+
+Print profiles are managed under Admin settings → PDF export: switch off any
+built-in profile (or every profile of a purpose), or add your own with a print
+service's page size, bleed, resolution, single pages or spreads, page count
+(at least, at most, a multiple of), a gutter, the cover (first and last page,
+a separate PDF with a spine that is fixed or grows with the pages, or none) and
+whether the back shows Sammelband's mark. A profile with a minimum page count
+spreads the photos over more pages first and adds blank pages only when they
+don't reach it (the export says so, as it does when photos are cropped a lot).
+An export keeps a copy of its profile, so changing or deleting a profile never
+changes a PDF that exists.
 
 The PDF is a photo book:
 

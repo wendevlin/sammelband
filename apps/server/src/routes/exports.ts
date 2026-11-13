@@ -1,9 +1,10 @@
-import { EXPORT_FORMATS, EXPORT_PURPOSES } from "@sammelband/shared";
+import { builtinProfileId, EXPORT_FORMATS, EXPORT_PURPOSES } from "@sammelband/shared";
 import { Hono } from "hono";
 import { z } from "zod";
 import { validate } from "../lib/validate";
 import { type AuthEnv, requireAuth } from "../middleware/auth.middleware";
 import * as exportService from "../services/export.service";
+import * as profileService from "../services/export-profile.service";
 
 // PDF exports: signed-in users only, never through public links.
 
@@ -15,19 +16,37 @@ export const albumExportRoutes = new Hono<AuthEnv>()
     "/:id/exports",
     validate(
       "json",
-      z.object({
-        format: z.enum(EXPORT_FORMATS),
-        purpose: z.enum(EXPORT_PURPOSES),
-        captions: z.boolean(),
-        albumLink: z.boolean().optional(),
-      }),
+      z
+        .object({
+          profileId: z.string().min(1).max(100).optional(),
+          // Before print profiles: a page format and purpose (a built-in profile).
+          format: z.enum(EXPORT_FORMATS).optional(),
+          purpose: z.enum(EXPORT_PURPOSES).optional(),
+          captions: z.boolean(),
+          albumLink: z.boolean().optional(),
+        })
+        .refine((x) => x.profileId || (x.format && x.purpose), {
+          message: "profileId is required",
+        }),
     ),
-    async (c) =>
-      c.json(
-        await exportService.createExport(c.req.param("id"), c.get("user").id, c.req.valid("json")),
+    async (c) => {
+      const { profileId, format, purpose, captions, albumLink } = c.req.valid("json");
+      const id = profileId ?? builtinProfileId(purpose ?? "print", format ?? "a4");
+      return c.json(
+        await exportService.createExport(c.req.param("id"), c.get("user").id, {
+          profileId: id,
+          captions,
+          albumLink,
+        }),
         201,
-      ),
+      );
+    },
   );
+
+/** Under /api/export-profiles: the print profiles exports can be made with. */
+export const exportProfileRoutes = new Hono<AuthEnv>()
+  .use("*", requireAuth)
+  .get("/", async (c) => c.json(await profileService.usableProfiles()));
 
 /** Under /api/exports: one export. */
 export const exportRoutes = new Hono<AuthEnv>()
@@ -48,4 +67,9 @@ export const exportRoutes = new Hono<AuthEnv>()
       return c.json({ ok: true });
     },
   )
-  .get("/:id/file", (c) => exportService.downloadExport(c.req.param("id")));
+  // ?part=cover: the separate cover of profiles that have one.
+  .get(
+    "/:id/file",
+    validate("query", z.object({ part: z.enum(["book", "cover"]).optional() })),
+    (c) => exportService.downloadExport(c.req.param("id"), c.req.valid("query").part),
+  );

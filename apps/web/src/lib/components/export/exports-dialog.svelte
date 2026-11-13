@@ -1,4 +1,5 @@
 <script lang="ts">
+import BookImage from "@lucide/svelte/icons/book-image";
 import Check from "@lucide/svelte/icons/check";
 import Copy from "@lucide/svelte/icons/copy";
 import Download from "@lucide/svelte/icons/download";
@@ -7,7 +8,7 @@ import Pencil from "@lucide/svelte/icons/pencil";
 import QrCode from "@lucide/svelte/icons/qr-code";
 import Trash from "@lucide/svelte/icons/trash-2";
 import TriangleAlert from "@lucide/svelte/icons/triangle-alert";
-import type { AlbumExport } from "@sammelband/shared";
+import { type AlbumExport, sheetCount } from "@sammelband/shared";
 import { type AlbumExports, exportUrl, isOutdated } from "#lib/album-exports.svelte.ts";
 import { del, patch } from "#lib/api.ts";
 import { attempt } from "#lib/attempt.ts";
@@ -19,7 +20,8 @@ import * as Dialog from "#lib/components/ui/dialog/index.ts";
 import { errorCodeText, getLocale } from "#lib/i18n.ts";
 import { formatBytes } from "#lib/images.ts";
 import { m } from "#lib/paraglide/messages.js";
-import { formatLabel, purposeLabel } from "./format-label";
+import ExportWarnings from "./export-warnings.svelte";
+import { profileLabel, purposeLabel } from "./format-label";
 
 /**
  * An album's PDF exports: download, rename, delete. Exports the album has
@@ -43,7 +45,7 @@ const date = (ms: number) =>
   new Intl.DateTimeFormat(getLocale(), { dateStyle: "medium", timeStyle: "short" }).format(ms);
 
 function details(x: AlbumExport): string {
-  const parts = [formatLabel(x.format), purposeLabel(x.options.purpose), date(x.created_at)];
+  const parts = [profileLabel(x.profile), purposeLabel(x.profile.spec.purpose), date(x.created_at)];
   if (x.status === "done") {
     if (x.page_count) {
       parts.push(
@@ -51,6 +53,9 @@ function details(x: AlbumExport): string {
           ? m.export_pages_one({ count: x.page_count })
           : m.export_pages_other({ count: x.page_count }),
       );
+      if (x.profile.spec.layout === "spread") {
+        parts.push(m.export_sheets({ count: sheetCount(x.profile.spec, x.page_count) }));
+      }
     }
     if (x.file_size) parts.push(formatBytes(x.file_size));
   }
@@ -135,6 +140,11 @@ function linksOf(x: AlbumExport) {
                 {m.export_outdated({ date: date(x.created_at) })}
               </p>
             {/if}
+            {#if x.status === "done"}
+              <div class="mt-0.5 text-xs">
+                <ExportWarnings warnings={x.warnings} />
+              </div>
+            {/if}
             {#each linksOf(x) as link (link.id)}
               <p class="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
                 <QrCode class="size-3.5 shrink-0" />
@@ -156,14 +166,25 @@ function linksOf(x: AlbumExport) {
             {/each}
           </div>
           <div class="flex shrink-0 gap-1">
+            {#if x.status === "done" && x.has_cover_file}
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                href={exportUrl(x.id, "cover")}
+                download
+                aria-label={m.export_download_cover()}
+                title={m.export_download_cover()}
+                ><BookImage /></Button
+              >
+            {/if}
             {#if x.status === "done"}
               <Button
                 variant="ghost"
                 size="icon-sm"
                 href={exportUrl(x.id)}
                 download
-                aria-label={m.export_download()}
-                title={m.export_download()}
+                aria-label={x.has_cover_file ? m.export_download_pages() : m.export_download()}
+                title={x.has_cover_file ? m.export_download_pages() : m.export_download()}
                 ><Download /></Button
               >
             {/if}

@@ -1,5 +1,12 @@
 import { describe, expect, test } from "bun:test";
-import { EXPORT_FORMATS, EXPORT_PURPOSES, PAGE_FORMATS, PURPOSES } from "@sammelband/shared";
+import {
+  EXPORT_FORMATS,
+  EXPORT_PURPOSES,
+  type ExportProfileSpec,
+  formatProfileSpec,
+  SAAL_LAYFLAT_275,
+  spineWidthMm,
+} from "@sammelband/shared";
 import { placeTree, solveFor, treesOf } from "../src/services/pdf/collage";
 import {
   type Box,
@@ -7,8 +14,10 @@ import {
   type LayoutPhoto,
   type LayoutSection,
   layoutAlbum,
+  MM,
 } from "../src/services/pdf/layout";
 import { breakLines } from "../src/services/pdf/text";
+import { goldenAlbum, goldenMeasure, layoutHash } from "./fixtures/layout-golden";
 
 // The PDF layout with a fake font: every character is half as wide as the font size.
 const measure = (text: string, _font: string, size: number) => text.length * size * 0.5;
@@ -28,8 +37,7 @@ function album(sections: LayoutSection[], extra: Partial<LayoutInput> = {}): Lay
     description: null,
     cover: null,
     sections,
-    format: PAGE_FORMATS.a4,
-    purpose: PURPOSES.home,
+    profile: formatProfileSpec("a4", "home"),
     captions: false,
     ...extra,
   };
@@ -43,6 +51,70 @@ const overlaps = (a: Box, b: Box) => {
   const w = (x: Box) => (x.kind === "text" ? x.line.width : x.w);
   return a.x < b.x + w(b) && b.x < a.x + w(a) && a.y < b.y + h(b) && b.y < a.y + h(a);
 };
+
+// Fingerprints (and page counts) of the golden album's layout as it was before
+// print profiles: the built-in profiles must lay it out exactly the same.
+const GOLDEN: Record<string, string> = {
+  "home:a4": "39b299dcda6a6807 12",
+  "home:a4+link": "63e69bff71b03599 12",
+  "print:a4": "f6baf98fd99572f1 12",
+  "print:a4+link": "52c4947f1d617125 12",
+  "screen:a4": "c8e976ceef795ece 12",
+  "screen:a4+link": "7be44140786c0305 12",
+  "home:a4-landscape": "a97484539e92378f 14",
+  "home:a4-landscape+link": "e941fd119bf50737 14",
+  "print:a4-landscape": "ba889017132c82c5 12",
+  "print:a4-landscape+link": "134b4c48bcfdc83e 12",
+  "screen:a4-landscape": "7e378797f6c1b298 13",
+  "screen:a4-landscape+link": "ccc3068d36e2e03b 13",
+  "home:a5": "8c6eb546936a5016 16",
+  "home:a5+link": "39c5e76ec239952f 16",
+  "print:a5": "ab175abb9baa32ac 14",
+  "print:a5+link": "da1f853f000c0450 14",
+  "screen:a5": "7322712b4091973b 14",
+  "screen:a5+link": "5b6b786570ba24f8 14",
+  "home:a5-landscape": "2a9e2412bdd833f0 16",
+  "home:a5-landscape+link": "118462913e2b3dfe 16",
+  "print:a5-landscape": "a6cdc305b61c4bb6 14",
+  "print:a5-landscape+link": "e99c5d1489aef361 14",
+  "screen:a5-landscape": "53e0f3ca9c5e2ca0 15",
+  "screen:a5-landscape+link": "c8f7b9866bad2550 15",
+  "home:square-21": "bb6c7fb785609f8d 16",
+  "home:square-21+link": "80cba0da38d34d60 16",
+  "print:square-21": "157724264c3113fa 14",
+  "print:square-21+link": "370b82bad96acffa 14",
+  "screen:square-21": "68a802d062072b16 14",
+  "screen:square-21+link": "a797f174d96ecc79 14",
+  "home:letter": "1764bd9c26bcce8e 14",
+  "home:letter+link": "d7906f107b830a08 14",
+  "print:letter": "8263c8dce8905471 12",
+  "print:letter+link": "3395c157a42d35e4 12",
+  "screen:letter": "d14a9b0ac646f2f5 11",
+  "screen:letter+link": "3cdc026c5d77b6e6 11",
+};
+
+describe("built-in profiles lay out exactly as before profiles", () => {
+  for (const format of EXPORT_FORMATS) {
+    for (const purpose of EXPORT_PURPOSES) {
+      for (const link of [false, true]) {
+        const key = `${purpose}:${format}${link ? "+link" : ""}`;
+        test(key, () => {
+          const layout = layoutAlbum(
+            {
+              ...goldenAlbum(),
+              profile: formatProfileSpec(format, purpose),
+              captions: true,
+              albumLink: link,
+            },
+            goldenMeasure,
+          );
+          expect(`${layoutHash(layout)} ${layout.pages.length}`).toBe(GOLDEN[key] ?? "");
+          expect(layout.cover).toBeNull();
+        });
+      }
+    }
+  }
+});
 
 describe("PDF layout", () => {
   const sections: LayoutSection[] = [
@@ -62,8 +134,7 @@ describe("PDF layout", () => {
     for (const purpose of EXPORT_PURPOSES) {
       test(`every photo once, in order, on the page, nothing overlapping (${format}, ${purpose})`, () => {
         const input = album(sections, {
-          format: PAGE_FORMATS[format],
-          purpose: PURPOSES[purpose],
+          profile: formatProfileSpec(format, purpose),
           captions: true,
         });
         const layout = layoutAlbum(input, measure);
@@ -113,8 +184,7 @@ describe("PDF layout", () => {
     for (const purpose of EXPORT_PURPOSES) {
       const layout = layoutAlbum(
         album([{ title: "", text: "", highlight: false, photos: photos(12) }], {
-          purpose: PURPOSES[purpose],
-          format: PAGE_FORMATS["a5-landscape"],
+          profile: formatProfileSpec("a5-landscape", purpose),
         }),
         measure,
       );
@@ -139,7 +209,7 @@ describe("PDF layout", () => {
   test("text stays legible on small pages: at least 9.5 pt, at most ~68 characters a line", () => {
     const layout = layoutAlbum(
       album([{ title: "Long", text: words(400), highlight: false, photos: photos(4) }], {
-        format: PAGE_FORMATS["a5-landscape"],
+        profile: formatProfileSpec("a5-landscape", "home"),
       }),
       measure,
     );
@@ -161,8 +231,7 @@ describe("PDF layout", () => {
     for (const count of [3, 4, 5, 6, 7, 8, 9, 10]) {
       const layout = layoutAlbum(
         album([{ title: "Trip", text: words(30), highlight: false, photos: photos(count) }], {
-          purpose: PURPOSES.print,
-          format: PAGE_FORMATS["a5-landscape"],
+          profile: formatProfileSpec("a5-landscape", "print"),
         }),
         measure,
       );
@@ -231,7 +300,7 @@ describe("PDF layout", () => {
       expect(box.x).toBeGreaterThanOrEqual(g.x - 0.01);
       expect(box.x + box.w).toBeLessThanOrEqual(g.x + g.w + 0.5);
       expect(box.y).toBeGreaterThanOrEqual(g.y - 0.01);
-      expect(box.y + box.h).toBeLessThanOrEqual(back.markY);
+      expect(box.y + box.h).toBeLessThanOrEqual(back.markY ?? 0);
       for (const other of back.boxes.slice(i + 1)) expect(overlaps(box, other)).toBe(false);
     }
   });
@@ -244,7 +313,7 @@ describe("PDF layout", () => {
     const { code } = back;
     expect(code.size).toBeGreaterThanOrEqual(20 * (72 / 25.4) - 0.01);
     expect(code.x + code.size / 2).toBeCloseTo(g.x + g.w / 2, 1);
-    expect(code.y + code.size).toBeLessThanOrEqual(back.markY);
+    expect(code.y + code.size).toBeLessThanOrEqual(back.markY ?? 0);
     expect(back.boxes).toHaveLength(sections.flatMap((s) => s.photos).length);
     for (const box of back.boxes) expect(box.y + box.h).toBeLessThanOrEqual(code.y);
 
@@ -255,7 +324,10 @@ describe("PDF layout", () => {
   test("corners: round outside with margins, square at the trim edge to edge, a little inside", () => {
     const only = [{ title: "", text: "", highlight: false, photos: photos(4) }];
     for (const purpose of ["home", "print"] as const) {
-      const layout = layoutAlbum(album(only, { purpose: PURPOSES[purpose] }), measure);
+      const layout = layoutAlbum(
+        album(only, { profile: formatProfileSpec("a4", purpose) }),
+        measure,
+      );
       const g = layout.geometry;
       const page = layout.pages.find((p) => p.kind === "content");
       if (page?.kind !== "content") throw new Error("no page");
@@ -341,5 +413,156 @@ describe("PDF text", () => {
   test("an overlong word is split", () => {
     const lines = breakLines(para("x".repeat(100)), 100, measure);
     expect(lines.length).toBe(5);
+  });
+});
+
+describe("print profiles", () => {
+  const spread: ExportProfileSpec = {
+    ...SAAL_LAYFLAT_275,
+    pages: { min: null, max: null, step: 2 },
+  };
+  const many = (count: number): LayoutSection[] => [
+    { title: "Trip", text: words(30), highlight: false, photos: photos(count) },
+  ];
+
+  test("spreads: each page runs into the bleed only on the outside, never across the fold", () => {
+    const layout = layoutAlbum(album(many(30), { profile: spread }), measure);
+    const g = layout.geometry;
+    const pages = layout.pages.flatMap((p) => (p.kind === "content" ? [p] : []));
+    expect(pages.length).toBeGreaterThan(4);
+    for (const [i, page] of pages.entries()) {
+      // Page 1 on the left, then right, left, …
+      expect(page.side).toBe(i % 2 === 0 ? "left" : "right");
+      const tiles = page.boxes.filter((b) => b.kind !== "text");
+      const left = Math.min(...tiles.map((b) => b.x));
+      const right = Math.max(...tiles.map((b) => b.x + b.w));
+      if (page.side === "left") {
+        expect(left).toBeCloseTo(-g.bleed, 1);
+        expect(right).toBeLessThanOrEqual(g.width + 0.5);
+      } else {
+        expect(left).toBeGreaterThanOrEqual(-0.01);
+        expect(right).toBeCloseTo(g.width + g.bleed, 1);
+      }
+    }
+  });
+
+  test("a separate cover: no front or back among the pages, a spine that grows with them", () => {
+    const layout = layoutAlbum(album(many(30), { profile: SAAL_LAYFLAT_275 }), measure);
+    expect(layout.pages.some((p) => p.kind === "cover" || p.kind === "back")).toBe(false);
+    if (!layout.cover) throw new Error("no cover");
+    expect(layout.cover.front.kind).toBe("cover");
+    expect(layout.cover.back.boxes).toHaveLength(30);
+    // No logo in this profile.
+    expect(layout.cover.back.markY).toBeNull();
+    const spine = SAAL_LAYFLAT_275.cover.mode === "separate" ? SAAL_LAYFLAT_275.cover.spine : null;
+    expect(layout.cover.spine).toBeCloseTo(
+      spineWidthMm(spine ?? { fixedMm: 0 }, layout.pages.length) * MM,
+      3,
+    );
+    expect(layout.cover.geometry.width).toBeCloseTo(275 * MM, 3);
+  });
+
+  test("the photos spread out to reach the minimum before blank pages fill it", () => {
+    const profile = { ...SAAL_LAYFLAT_275, pages: { min: 12, max: 40, step: 2 } };
+    const layout = layoutAlbum(album(many(30), { profile }), measure);
+    expect(layout.pages.length).toBe(12);
+    expect(layout.pages.filter((p) => p.kind === "blank")).toHaveLength(0);
+    expect(layout.warnings.find((w) => w.code === "blank_pages")).toBeUndefined();
+
+    // Five photos can't fill 12 pages: blank pages, and a warning.
+    const short = layoutAlbum(album(many(5), { profile }), measure);
+    expect(short.pages.length).toBe(12);
+    const blanks = short.pages.filter((p) => p.kind === "blank").length;
+    expect(blanks).toBeGreaterThan(0);
+    expect(short.warnings).toContainEqual({ code: "blank_pages", params: { count: blanks } });
+  });
+
+  test("more pages than the profile allows fail", () => {
+    const profile = { ...SAAL_LAYFLAT_275, pages: { min: null, max: 4, step: 2 } };
+    expect(() => layoutAlbum(album(many(60), { profile }), measure)).toThrow("at most 4");
+  });
+
+  test("blank pages never take the book past the maximum", () => {
+    // An odd maximum with step 2: the book must end at an even count below it.
+    const profile = { ...SAAL_LAYFLAT_275, pages: { min: null, max: 9, step: 2 } };
+    for (const count of [6, 8, 10, 12]) {
+      const layout = layoutAlbum(album(many(count), { profile }), measure);
+      expect(layout.pages.length).toBeLessThanOrEqual(9);
+      expect(layout.pages.length % 2).toBe(0);
+    }
+  });
+
+  test("the page count keeps to the step, with the front and back counted", () => {
+    const profile: ExportProfileSpec = {
+      ...formatProfileSpec("a5-landscape", "print"),
+      pages: { min: null, max: null, step: 4 },
+    };
+    for (const count of [3, 6, 9, 14]) {
+      const layout = layoutAlbum(album(many(count), { profile }), measure);
+      expect(layout.pages.length % 4).toBe(0);
+      expect(layout.pages[0]?.kind).toBe("cover");
+      expect(layout.pages.at(-1)?.kind).toBe("back");
+    }
+  });
+
+  test("page 1 alone on the right: the sides follow", () => {
+    const profile = { ...spread, firstPageRight: true };
+    const pages = layoutAlbum(album(many(12), { profile }), measure).pages.flatMap((p) =>
+      p.kind === "content" ? [p] : [],
+    );
+    for (const [i, page] of pages.entries()) {
+      expect(page.side).toBe(i % 2 === 0 ? "right" : "left");
+    }
+  });
+
+  test("a gutter keeps text and captions away from the fold", () => {
+    const profile = { ...spread, gutterMm: 15 };
+    const layout = layoutAlbum(
+      album(
+        [{ title: "Trip", text: words(200), highlight: false, photos: photos(12, "Caption") }],
+        { profile, captions: true },
+      ),
+      measure,
+    );
+    const g = layout.geometry;
+    for (const page of layout.pages) {
+      if (page.kind !== "content") continue;
+      for (const box of page.boxes) {
+        const spans: [number, number][] =
+          box.kind === "text"
+            ? [[box.x, box.x + box.line.width]]
+            : box.kind === "photo" && box.caption
+              ? box.caption.lines.map((l) => [box.caption?.x ?? 0, (box.caption?.x ?? 0) + l.width])
+              : [];
+        for (const [from, to] of spans) {
+          if (page.side === "left") expect(to).toBeLessThanOrEqual(g.width - g.gutter + 0.5);
+          else expect(from).toBeGreaterThanOrEqual(g.gutter - 0.5);
+        }
+      }
+    }
+  });
+
+  test("a landscape photo alone on a portrait page is cropped to fit, with a warning", () => {
+    const layout = layoutAlbum(
+      album(
+        [
+          {
+            title: "",
+            text: "",
+            highlight: false,
+            photos: [{ id: "wide", ratio: 2.2, caption: null }],
+          },
+        ],
+        {
+          profile: formatProfileSpec("a5", "screen"),
+        },
+      ),
+      measure,
+    );
+    const photo = layout.pages
+      .flatMap((p) => (p.kind === "content" ? p.boxes : []))
+      .find((b) => b.kind === "photo");
+    expect(photo?.kind === "photo" && photo.cover).toBe(true);
+    expect(layout.warnings).toContainEqual({ code: "photos_cropped", params: { count: 1 } });
   });
 });

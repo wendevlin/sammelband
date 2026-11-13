@@ -14,6 +14,7 @@ import ShareButton from "#lib/components/share/share-button.svelte";
 import * as Breadcrumb from "#lib/components/ui/breadcrumb/index.ts";
 import { Button } from "#lib/components/ui/button/index.ts";
 import * as DropdownMenu from "#lib/components/ui/dropdown-menu/index.ts";
+import { ExportProfiles } from "#lib/export-profiles.svelte.ts";
 import { albumPath } from "#lib/links.ts";
 import { m } from "#lib/paraglide/messages.js";
 import { auth } from "#lib/stores/auth.svelte.ts";
@@ -25,9 +26,11 @@ let { data } = $props();
 // carries the folders.
 const live = getAlbumState();
 
-// PDF export: when the admins allow it. Existing exports stay reachable either way.
+// PDF export: when the admins allow it and switched on a print profile.
+// Existing exports stay reachable either way.
 const exports = new AlbumExports(() => live.album.id);
-const canExport = $derived(auth.tenant?.pdf_export_enabled ?? false);
+const profiles = new ExportProfiles(() => auth.tenant?.pdf_export_enabled ?? false);
+const canExport = $derived((auth.tenant?.pdf_export_enabled ?? false) && profiles.list.length > 0);
 let exportOpen = $state(false);
 let exportsOpen = $state(false);
 let shareOpen = $state(false);
@@ -135,6 +138,7 @@ const trail = $derived.by(() => {
   bind:open={exportOpen}
   albumId={live.album.id}
   {exports}
+  {profiles}
   onshowall={() => (exportsOpen = true)}
 />
 <ExportsDialog bind:open={exportsOpen} {exports} albumUpdatedAt={live.album.updated_at} />

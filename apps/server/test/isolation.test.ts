@@ -1,9 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import { existsSync } from "node:fs";
+import { formatProfileSpec } from "@sammelband/shared";
 import { subscribe } from "../src/lib/events";
 import { runInTenant } from "../src/lib/tenant-context";
 import * as albumService from "../src/services/album.service";
 import * as exportService from "../src/services/export.service";
+import * as exportProfileService from "../src/services/export-profile.service";
 import * as folderService from "../src/services/folder.service";
 import * as imageService from "../src/services/image.service";
 import * as imageDelivery from "../src/services/image-delivery.service";
@@ -138,8 +140,7 @@ describe("tenant isolation", () => {
     const exported = await runInTenant(a.id, async () => {
       await tenantService.updateCurrentTenant({ pdfExportEnabled: true });
       const created = await exportService.createExport(album.id, user.id, {
-        format: "a5",
-        purpose: "screen",
+        profileId: "screen:a5",
         captions: false,
       });
       await exportService.exportsIdle();
@@ -150,8 +151,7 @@ describe("tenant isolation", () => {
       await expect(exportService.listExports(album.id)).rejects.toThrow("not found");
       await expect(
         exportService.createExport(album.id, user.id, {
-          format: "a4",
-          purpose: "print",
+          profileId: "print:a4",
           captions: true,
         }),
       ).rejects.toThrow("not found");
@@ -208,5 +208,36 @@ describe("tenant isolation", () => {
     offB();
     expect(seenByA).toEqual([]);
     expect(seenByB).toEqual(["created"]);
+  });
+});
+
+describe("tenant isolation: print profiles", () => {
+  test("own print profiles stay in their Sammelband", async () => {
+    const { a, asB } = await setup();
+    const spec = formatProfileSpec("a5", "home");
+    const created = await runInTenant(a.id, async () => {
+      await tenantService.updateCurrentTenant({ pdfExportEnabled: true });
+      return exportProfileService.createProfile({ name: "A's", spec });
+    });
+    await asB(async () => {
+      await tenantService.updateCurrentTenant({ pdfExportEnabled: true });
+      expect((await exportProfileService.listProfiles()).map((p) => p.id)).not.toContain(
+        created.id,
+      );
+      await expect(exportProfileService.usableProfile(created.id)).rejects.toThrow("doesn't exist");
+      await expect(exportProfileService.updateProfile(created.id, { name: "x" })).rejects.toThrow(
+        "doesn't exist",
+      );
+      await expect(exportProfileService.setEnabled(created.id, false)).rejects.toThrow(
+        "doesn't exist",
+      );
+      await expect(exportProfileService.deleteProfile(created.id)).rejects.toThrow("doesn't exist");
+      // Switching off a built-in profile is B's own business.
+      await exportProfileService.setEnabled("print:a4", false);
+      await exportProfileService.setPurposeEnabled("home", false);
+    });
+    const inA = await runInTenant(a.id, () => exportProfileService.usableProfiles());
+    expect(inA.find((p) => p.id === created.id)).toMatchObject({ name: "A's", enabled: true });
+    expect(inA.map((p) => p.id)).toContain("print:a4");
   });
 });

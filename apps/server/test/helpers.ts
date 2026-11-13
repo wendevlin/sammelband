@@ -15,6 +15,7 @@ import * as userService from "../src/services/user.service";
 const TABLES = [
   "share_links",
   "album_exports",
+  "export_profiles",
   "source_accounts",
   "source_settings",
   "album_positions",
