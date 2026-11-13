@@ -54,7 +54,7 @@ export function isOutdated(x: AlbumExport, albumUpdatedAt: number): boolean {
   return x.status === "done" && Number(albumUpdatedAt) > (x.album_updated_at ?? x.created_at);
 }
 
-/** Where a finished export downloads from. */
-export function exportUrl(id: string): string {
-  return `/api/exports/${id}/file`;
+/** Where a finished export downloads from; `cover` its separate cover, if it has one. */
+export function exportUrl(id: string, part: "book" | "cover" = "book"): string {
+  return part === "cover" ? `/api/exports/${id}/file?part=cover` : `/api/exports/${id}/file`;
 }

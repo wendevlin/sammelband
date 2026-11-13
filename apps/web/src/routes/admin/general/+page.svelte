@@ -18,7 +18,6 @@ async function save(
     name?: string;
     timezone?: string;
     twoFactorRequired?: boolean;
-    pdfExportEnabled?: boolean;
   },
   message: string,
 ) {
@@ -67,19 +66,6 @@ async function saveTwoFactor(required: boolean) {
   );
   if (!ok) twoFactorRequired = !required;
   savingTwoFactor = false;
-}
-
-// PDF export of albums.
-let pdfExport = $state(auth.tenant?.pdf_export_enabled ?? false);
-let savingPdfExport = $state(false);
-async function savePdfExport(enabled: boolean) {
-  savingPdfExport = true;
-  const ok = await save(
-    { pdfExportEnabled: enabled },
-    enabled ? m.general_pdf_export_on() : m.general_pdf_export_off(),
-  );
-  if (!ok) pdfExport = !enabled;
-  savingPdfExport = false;
 }
 </script>
 
@@ -164,26 +150,6 @@ async function savePdfExport(enabled: boolean) {
       {#if auth.tenant?.two_factor_required_by_instance}
         <p class="text-sm text-muted-foreground">{m.general_two_factor_by_instance()}</p>
       {/if}
-    </Card.Content>
-  </Card.Root>
-
-  <Card.Root>
-    <Card.Header>
-      <Card.Title>{m.general_pdf_export_title()}</Card.Title>
-      <Card.Description>
-        {m.general_pdf_export_description({ sammelband: auth.tenant?.name ?? "Sammelband" })}
-      </Card.Description>
-    </Card.Header>
-    <Card.Content>
-      <div class="flex items-center justify-between gap-4">
-        <Label for="pdf-export">{m.general_pdf_export_switch()}</Label>
-        <Switch
-          id="pdf-export"
-          bind:checked={pdfExport}
-          disabled={savingPdfExport}
-          onCheckedChange={savePdfExport}
-        />
-      </div>
     </Card.Content>
   </Card.Root>
 </div>

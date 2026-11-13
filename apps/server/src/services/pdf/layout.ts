@@ -172,6 +172,8 @@ const MAX_TILES = 6;
 const MAX_CROP = 1.3;
 /** Photos cropped more than this get a warning. */
 const NOTICEABLE_CROP = 1.2;
+/** What a blank page to reach a profile's minimum costs, against the layout's costs. */
+const BLANK_PAGE_COST = 10;
 
 /** The geometry of the profile's book pages. */
 export function geometry(profile: ExportProfileSpec): Geometry {
@@ -601,24 +603,27 @@ export function layoutAlbum(input: LayoutInput, measure: Measure): Layout {
       }
     }
   }
-  // Blank pages a book ending in this state needs, to reach `min` and the step.
+  // Blank pages a book ending in this state needs: to reach `min`, then the
+  // step. Blank pages for the step are avoided first (a printed book should
+  // end without one); those for `min` are weighed against the layout: a
+  // blank page at the end is better than photos cropped by half to fill
+  // pages of their own.
   const blanksFor = (state: number) => {
-    let total = fixed + state;
-    const start = total;
-    if (min !== null) total = Math.max(total, min);
-    while (total % step !== 0) total++;
-    return total - start;
+    const total = fixed + state;
+    const forMin = min !== null ? Math.max(0, min - total) : 0;
+    const forStep = (step - ((total + forMin) % step)) % step;
+    return { forMin, forStep, all: forMin + forStep };
   };
   const ends = best[n] as Step[];
+  const scoreOf = (state: number) =>
+    (ends[state]?.cost ?? Number.POSITIVE_INFINITY) + BLANK_PAGE_COST * blanksFor(state).forMin;
   let end = -1;
   for (let state = 0; state < states; state++) {
-    const cost = ends[state]?.cost ?? Number.POSITIVE_INFINITY;
-    if (!Number.isFinite(cost)) continue;
-    const chosen = ends[end];
+    if (!Number.isFinite(ends[state]?.cost ?? Number.POSITIVE_INFINITY)) continue;
     if (
-      !chosen ||
-      blanksFor(state) < blanksFor(end) ||
-      (blanksFor(state) === blanksFor(end) && cost < chosen.cost)
+      end < 0 ||
+      blanksFor(state).forStep < blanksFor(end).forStep ||
+      (blanksFor(state).forStep === blanksFor(end).forStep && scoreOf(state) < scoreOf(end))
     ) {
       end = state;
     }
@@ -812,7 +817,7 @@ export function layoutAlbum(input: LayoutInput, measure: Measure): Layout {
       ...(side && { side }),
     });
   }
-  const blanks = blanksFor(out.length - before);
+  const blanks = blanksFor(out.length - before).all;
   for (let i = 0; i < blanks; i++) out.push({ kind: "blank" });
   if (blanks > 0) warnings.unshift({ code: "blank_pages", params: { count: blanks } });
   if (withCover) out.push(back(g));
