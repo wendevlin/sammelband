@@ -14,7 +14,7 @@
     "@hono/zod-validator": "0.9.1",
     "@sammelband/shared": "workspace:*",
     "better-auth": "1.7.18",
-    "fast-xml-parser": "5.12.0",
+    "fast-xml-parser": "5.12.1",
     "hono": "4.13.17",
     "kysely": "0.29.8",
     "marked": "18.1.3",
